@@ -40,8 +40,16 @@ const IS_LOCAL = ARGS.includes('--local');
 const VERBOSE = ARGS.includes('--verbose') || ARGS.includes('-v');
 const SECTION = ARGS.find(a => a.startsWith('--section='))?.split('=')[1];
 
-const BASE_URL = process.env.TEST_BASE_URL || 
-    (IS_LOCAL ? 'http://localhost:3001/api' : 'https://richardhualienserver.tail124a1b.ts.net/api');
+const BASE_URL = process.env.TEST_BASE_URL ||
+    (IS_LOCAL ? 'http://localhost:3001/api' : null);
+
+if (!BASE_URL) {
+    console.error('\n❌ TEST_BASE_URL is required for non-local runs.');
+    console.error('   Example:  $env:TEST_BASE_URL="https://your-host/api"  (PowerShell)');
+    console.error('             export TEST_BASE_URL=https://your-host/api    (bash)');
+    console.error('   Or pass --local to hit http://localhost:3001/api\n');
+    process.exit(2);
+}
 
 const TEST_ADMIN_USER = process.env.TEST_ADMIN_USER || 'admin';
 const TEST_ADMIN_PASS = process.env.TEST_ADMIN_PASS || '12345';

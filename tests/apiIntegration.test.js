@@ -8,7 +8,13 @@
 
 const https = require('https');
 
-const BASE_URL = process.env.TEST_BASE_URL || 'https://richardhualienserver.tail124a1b.ts.net/api';
+const BASE_URL = process.env.TEST_BASE_URL;
+if (!BASE_URL) {
+  console.error('\n❌ TEST_BASE_URL is required (e.g. https://your-host/api).');
+  console.error('   PowerShell:  $env:TEST_BASE_URL="https://your-host/api"');
+  console.error('   bash:        export TEST_BASE_URL=https://your-host/api\n');
+  process.exit(2);
+}
 const TEST_USER_ID = 'test-' + Date.now();
 const VERBOSE = process.argv.includes('-v') || process.argv.includes('--verbose');
 

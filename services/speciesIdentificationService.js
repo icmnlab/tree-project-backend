@@ -376,9 +376,10 @@ async function autoAddSpeciesFromIdentification(primaryResult) {
             console.log(`[Species Auto-Add] 跳過低信心結果: score=${score}, name=${commonNames[0] || scientificName}`);
             return null;
         }
-        
-        // 選擇最佳顯示名稱：優先取中文名，否則用學名
-        const displayName = commonNames.length > 0 ? commonNames[0] : scientificName;
+
+        // [Policy] 樹種主名一律使用學名 (scientific name)；中文俗名作為同義詞補登
+        // 避免出現拼音/中譯不一致的問題，學名為國際通用標準
+        const displayName = scientificName || (commonNames.length > 0 ? commonNames[0] : null);
         if (!displayName) return null;
 
         await client.query('BEGIN');
@@ -435,15 +436,16 @@ async function autoAddSpeciesFromIdentification(primaryResult) {
             if (logErr.code !== '42P01') console.warn('[Auto-Add] 記錄日誌失敗:', logErr.message);
         }
 
-        // 若有多個中文名，新增為同義詞
-        if (commonNames.length > 1) {
-            for (let i = 1; i < commonNames.length; i++) {
+        // 將所有中文俗名 / 別名登錄為同義詞，未來搜尋「樟樹」、「香樟」等中文名都能匹配到 Cinnamomum camphora
+        if (commonNames.length > 0) {
+            for (const variant of commonNames) {
+                if (!variant || variant === displayName) continue;
                 try {
                     await client.query(`
                         INSERT INTO species_synonyms (canonical_species_id, variant_name, scientific_name, source, confidence)
                         VALUES ($1, $2, $3, 'plantnet_auto', 0.95)
                         ON CONFLICT (canonical_species_id, variant_name) DO NOTHING
-                    `, [newId, commonNames[i], scientificName]);
+                    `, [newId, variant, scientificName]);
                 } catch (synErr) {
                     if (synErr.code !== '42P01') console.warn('[Auto-Add] 同義詞新增失敗:', synErr.message);
                 }

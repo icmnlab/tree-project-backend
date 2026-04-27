@@ -1,8 +1,6 @@
 const express = require('express');
 const router = express.Router();
 const db = require('../config/db');
-const turf = require('@turf/turf');
-const fs = require('fs');
 const { 
     cleanupUnusedProjectAreas, 
     cleanupUnusedSpecies, 
@@ -10,43 +8,10 @@ const {
     cleanupOldChatLogs // 引入新的清理函式
 } = require('../utils/cleanup');
 const { requireRole } = require('../middleware/roleAuth');
+const { resolveCountyByLngLat } = require('../utils/geo');
 
-// 載入台灣縣市 GeoJSON 資料
-let countyPolygons = new Map();
-try {
-    const taiwanGeoJSON = JSON.parse(fs.readFileSync('./data/twCounty2010.fixed.geo.json', 'utf8'));
-    taiwanGeoJSON.features.forEach((feature) => {
-        const name = feature.properties.COUNTYNAME.replace('臺', '台').replace('市', '').replace('縣', '');
-        countyPolygons.set(name, feature.geometry);
-    });
-} catch (e) {
-    console.error("無法載入或解析 GeoJSON 檔案:", e);
-}
-
-
-function getCountyByCoordinates(lat, lng) {
-    const point = turf.point([lng, lat]);
-    for (const [county, geometry] of countyPolygons) {
-        try {
-            if (geometry.type === 'Polygon') {
-                const poly = turf.polygon(geometry.coordinates);
-                if (turf.booleanPointInPolygon(point, poly)) {
-                    return county;
-                }
-            } else if (geometry.type === 'MultiPolygon') {
-                for (const polyCoords of geometry.coordinates) {
-                    const poly = turf.polygon(polyCoords);
-                    if (turf.booleanPointInPolygon(point, poly)) {
-                        return county;
-                    }
-                }
-            }
-        } catch(e) {
-            console.error(`處理 ${county} 的 GeoJSON 時出錯: `, e);
-        }
-    }
-    return null;
-}
+// 縣市判斷一律使用 utils/geo.js (內政部 1140318 官方界線 + turf point-in-polygon)
+// 該 helper 會回傳官方 COUNTYNAME (含「市/縣」尾綴), 不需自行貼後綴
 
 
 // 取得專案區位列表
@@ -114,9 +79,12 @@ router.post('/', requireRole('專案管理員'), async (req, res) => {
 
         let finalCity = city;
         if (isSubmit && yCoord && xCoord) {
-            const detectedCity = getCountyByCoordinates(yCoord, xCoord);
-            if (detectedCity) {
-                finalCity = detectedCity.match(/(台北|新北|桃園|台中|台南|高雄|基隆|新竹市|嘉義市)/) ? detectedCity + '市' : detectedCity + '縣';
+            const lng = parseFloat(xCoord);
+            const lat = parseFloat(yCoord);
+            const detected = resolveCountyByLngLat(lng, lat);
+            if (detected && detected.name) {
+                // 官方 COUNTYNAME 已含「市/縣」, 直接使用 (例: 嘉義縣 / 台南市)
+                finalCity = detected.name;
             }
         }
 
@@ -174,6 +142,21 @@ router.delete('/:id', requireRole('專案管理員'), async (req, res) => {
         console.error('刪除區位錯誤:', err);
         res.status(500).json({ success: false, message: '刪除區位失敗' });
     }
+});
+
+// 依座標查縣市 — 任何登入使用者都可呼叫
+// GET /api/project_areas/county_by_coords?lng=120.1666&lat=23.3778
+router.get('/county_by_coords', (req, res) => {
+    const lng = parseFloat(req.query.lng);
+    const lat = parseFloat(req.query.lat);
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) {
+        return res.status(400).json({ success: false, message: 'lng/lat 必填且須為數字' });
+    }
+    const r = resolveCountyByLngLat(lng, lat);
+    if (!r) {
+        return res.status(200).json({ success: true, data: null, message: '座標不在台灣縣市範圍內' });
+    }
+    res.json({ success: true, data: r });
 });
 
 

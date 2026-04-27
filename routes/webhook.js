@@ -6,7 +6,8 @@
  * 
  * 設定方式:
  *   1. GitHub repo → Settings → Webhooks → Add webhook
- *   2. Payload URL: https://100.118.203.75/webhook/deploy
+ *   2. Payload URL: https://<your-public-host>/webhook/deploy
+ *      (例如 Tailscale Funnel / Cloudflare Tunnel / 公網 IP 經 nginx)
  *   3. Content type: application/json
  *   4. Secret: (同 .env 中的 DEPLOY_WEBHOOK_SECRET)
  *   5. Events: Just the push event

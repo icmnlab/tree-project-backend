@@ -10,6 +10,279 @@ PM2 cluster-mode supervision (see `ecosystem.config.js`).
 
 ---
 
+## Architecture overview
+
+```
+                Flutter app (sustainable_treeai, Android / iOS)
+                                  │
+              ┌───────────────────┼───────────────────┐
+              │ HTTPS (TLS)       │ HTTPS + X-ML-API-Key
+              ▼                   ▼
+  ┌──────────────────────────┐  ┌──────────────────────────────┐
+  │ Reverse proxy (Nginx)    │  │ Reverse proxy (Nginx)        │
+  │ on backend host          │  │ on ML host (separate machine │
+  │ :443 → Node :3000        │  │ in the same private network) │
+  │ :8443 → /webhook/deploy  │  │ :443 → uvicorn :8100         │
+  └────────────┬─────────────┘  └─────────────┬────────────────┘
+               │                              │
+               ▼                              ▼
+   ┌─────────────────────┐         ┌────────────────────────────┐
+   │ backend (this repo) │         │ ml_service/ (Python FastAPI)│
+   │ Node 20 + Express   │         │ Depth Pro 350 M (PyTorch    │
+   │ PM2 cluster ×2      │         │   or OpenVINO INT8-W on Arc │
+   │ ecosystem.config.js │         │   iGPU) + SAM 2.1 Tiny      │
+   └─────────┬───────────┘         │ start.ps1 (Win) / venv      │
+             │                     └────────────────────────────┘
+             ▼
+   ┌────────────────────────────────────────────────────────────┐
+   │ PostgreSQL 14+    Cloudinary    PlantNet / GBIF /          │
+   │ (DATABASE_URL)    (image CDN)   iNaturalist / OpenAI /     │
+   │                                 Anthropic / Gemini /        │
+   │                                 SiliconFlow                 │
+   └────────────────────────────────────────────────────────────┘
+
+GitHub push (main) ──► webhook (HMAC-SHA256) ──► scripts/deploy.sh
+                                                  └─ git pull → npm install
+                                                     → migrate → pm2 reload
+                                                     → /health check
+                                                     → auto-rollback on fail
+```
+
+**Two independent services.** The Flutter app talks to the Node backend
+for CRUD/auth/AI, and to the FastAPI `ml_service` **directly** (the URL +
+API key are handed out by `/login`). The Node side only proxies a small
+diagnostic surface (`/api/ml-service/status` etc.) so the browser console
+can health-check the ML service without exposing `ML_API_KEY`.
+
+> The exact public hostnames, private-network IPs and reverse-proxy domains
+> are deployment-specific and **not** committed to this repo. Configure
+> them via environment variables (`BASE_URL`, `ML_SERVICE_URL`,
+> `ML_SERVICE_PUBLIC_URL`, `CORS_ALLOWED_ORIGINS`) on the host.
+
+---
+
+## Feature flows
+
+Each subsection traces one user-visible feature from the Flutter app down to
+the database / external services. Bracketed paths are files in this repo.
+
+### 1. Authentication (`POST /api/login`)
+
+```
+Flutter LoginPage
+      │ {email, password}
+      ▼
+[middleware/loginRateLimiter] — 10 req / 15 min / IP
+      │
+      ▼
+[middleware/ipBlacklist]
+      │
+      ▼
+[routes/users.js  POST /login]
+      │  bcrypt.compare(password, users.password_hash)
+      ▼
+PostgreSQL  users (id, role, email, name, …)
+      │
+      ▼
+JWT (HS256, 24 h, payload = {id, role, email})
+      │  +  ML_SERVICE_PUBLIC_URL  +  ML_API_KEY
+      ▼
+{token, user, mlServiceUrl, mlApiKey}
+      ▼
+flutter_secure_storage  (auth_jwt_token, user_info)
+SharedPreferences       (ml_service_url, ml_api_key)
+```
+
+Logout is client-side only (delete token + clear ML credentials).
+
+### 2. Tree survey CRUD with image upload
+
+```
+Flutter survey form (V2 / V3)
+      │ multipart/form-data: fields + photo[]
+      ▼
+[middleware/jwtAuth]  →  attaches req.user
+      │
+      ▼
+[middleware/upload (multer)]  — memoryStorage, 10 MB / file, image/* only
+      │
+      ▼
+[routes/trees.js  POST /api/trees]
+      │  ┌─────────────────────────────────────────────┐
+      │  │ for each photo:                              │
+      │  │   cloudinary.uploader.upload_stream(buffer) │
+      │  │   → tree_photos (cloudinary_url, public_id) │
+      │  └─────────────────────────────────────────────┘
+      │
+      │  resolveCountyByLngLat(lng, lat)  ← [utils/geo.js]
+      │  └ data/tw_county.geojson (22 counties, MOI 1140318)
+      │
+      ▼
+PostgreSQL  trees + tree_photos  (single transaction)
+      ▼
+{ tree, photos[] }
+```
+
+GET / PUT / DELETE follow the same auth + ownership-check pattern in
+[routes/trees.js](routes/trees.js).
+
+### 3. AI chat — Text-to-SQL with SSE streaming
+
+```
+Flutter ChatPage
+      │ POST /api/ai-chat   {question, sessionId}
+      ▼
+[middleware/jwtAuth]                 [middleware/aiRateLimiter] — 30/min/user
+      │
+      ▼
+[routes/aiChat.js]
+      │
+      ├─► [services/intentClassifier]  → {sql | report | smalltalk}
+      │
+      ├─► [services/openaiService]     → SQL draft (model whitelist: gpt-4o-mini, …)
+      │
+      ├─► [utils/sqlValidator]         → AST whitelist (SELECT only, table allow-list,
+      │                                  no UNION / comment / multi-stmt, row LIMIT 500)
+      │
+      ├─► PostgreSQL (read-only role recommended)
+      │
+      └─► [services/openaiService] (stream)  ←  rows + question
+              │ Server-Sent Events: data: {chunk}\n\n
+              ▼
+       Flutter SSE client (flutter_client_sse)
+```
+
+Audit trail: every Q/A pair + classified intent + final SQL is written to
+`ai_chat_logs` (see [routes/aiChat.js](routes/aiChat.js) and
+[middleware/aiAuditLog.js](middleware/aiAuditLog.js)).
+
+### 4. AI agent — tool-using (`/api/agent/*`)
+
+```
+Flutter AgentPage
+      │ POST /api/agent/chat   {messages, tools?}
+      ▼
+[routes/agent.js]
+      │
+      ▼
+[services/agentService]   ─── ReAct loop, max 6 turns ───┐
+      │                                                  │
+      ├─► tool: query_trees     → routes/trees.js logic  │
+      ├─► tool: get_project     → routes/projects.js     │
+      ├─► tool: identify_species → PlantNet API          │
+      ├─► tool: generate_report → routes/aiReport.js     │
+      └─► tool: web_search      → SerpAPI (optional)    ─┘
+              │
+              ▼
+SiliconFlow chat-completion (4 keys, automatic rotation on 429 / quota)
+              │  fallback ─► OpenAI / Claude / Gemini per `provider` flag
+              ▼
+JSON {final_answer, trace[]}
+```
+
+### 5. ML pipeline — Auto DBH measurement
+
+```
+Flutter measurement page (V3)
+      │ POST  https://<ml-host>/api/v1/auto-measure-dbh
+      │ headers: X-ML-API-Key: <key from /login>
+      │ body: image + reference distance
+      ▼
+[ml_service/app.py]
+      │
+      ├─ verify_api_key()   ← hmac.compare_digest(ML_API_KEY)
+      ├─ RateLimitMiddleware (120 req / hr / IP)
+      │
+      ▼
+[depth_estimation.py]
+      │   Depth Pro 350 M  (PyTorch fp16 OR OpenVINO INT8-W on Intel Arc iGPU)
+      │   → metric depth map (focal-length aware)
+      ▼
+[tree_segmentation.py]
+      │   SAM 2.1 Tiny (38.9 M) — auto prompt at image centre
+      │   → trunk binary mask
+      ▼
+[dbh_calculator.py]
+      │   tangent-pair method on the mask;
+      │   trunk distance taken from the depth map at mask-centroid
+      ▼
+{ dbh_cm, trunk_distance_m, mask_png_b64, depth_visualisation_b64,
+  confidence, processing_ms_per_stage }
+      ▼
+Flutter displays overlay; user confirms; backend stores DBH on the tree row
+```
+
+Live mode uses `WebSocket /ws/scan` for ~5 fps preview without saving.
+
+### 6. Species identification (`/api/species/*`)
+
+```
+Flutter SpeciesIdentifyPage
+      │ POST /api/species/identify   image
+      ▼
+[routes/speciesIdentification.js]
+      │
+      ▼
+[services/speciesIdentificationService]
+      │   ├─ PlantNet REST API   (org=tree, lang=zh-tw)
+      │   └─ on hit:  autoAddSpeciesFromIdentification()
+      │                ├─ insert into  tree_species (scientific_name, …)
+      │                └─ insert all   common_names → tree_species_synonyms
+      ▼
+{ candidates[], top: {species_id, scientific_name, common_name, score} }
+```
+
+V3 form auto-creates a species row at submit time
+([services/speciesIdentificationService.js](services/speciesIdentificationService.js))
+so the user never has to "save species" manually.
+
+### 7. County auto-detection
+
+```
+client                       backend
+  │ GET /api/project_areas/county_by_coords?lng=&lat=
+  ▼
+[routes/project_areas.js]
+  │
+  ▼
+[utils/geo.js  resolveCountyByLngLat]
+  │   ├─ data/tw_county.geojson  (cached on first call)
+  │   ├─ bbox prefilter
+  │   └─ booleanPointInPolygon  (@turf/turf)
+  ▼
+{ name: '嘉義縣', code: '10010', eng: 'Chiayi County' }   or  null
+```
+
+`scripts/backfill_county.js --apply` re-runs the helper for every
+`projects.area` row whose `county` is NULL.
+
+### 8. Auto-deploy (GitHub webhook → production)
+
+```
+GitHub  push to main
+      │ POST  https://<webhook-host>:8443/webhook/deploy
+      │       X-Hub-Signature-256: sha256=…
+      ▼
+[routes/webhook.js]
+      │  hmac(DEPLOY_WEBHOOK_SECRET) — timing-safe
+      ▼
+spawn  bash scripts/deploy.sh           (timeout 120 s, log → logs/deploy.log)
+      │
+      ├─ /health check          → save SHA to .last_good_commit
+      ├─ git pull origin main
+      ├─ npm install --production
+      ├─ run pending migrations (skipped with --skip-migrate)
+      ├─ pm2 reload ecosystem.config.js (zero-downtime)
+      └─ curl /health
+            │ fail → git reset --hard $LAST_GOOD ; pm2 reload ; alert
+            └ ok   → done
+```
+
+`GET /webhook/status` (Bearer `ADMIN_API_TOKEN`) returns the tail of
+`logs/deploy.log`.
+
+---
+
 ## Stack
 
 - Node.js >= 18 (production runs on 20)
@@ -412,8 +685,13 @@ an additional minimum role where indicated.
 
 ### Location (`routes/location.js`, `routes/project_areas.js`)
 - `POST /location/validate`, `/suggest_area`.
-- `GET  /project_areas/county_by_coords` — turf-based lookup against
-  `data/twCounty2010.fixed.geo.json`.
+- `GET  /project_areas/county_by_coords?lng=&lat=` — returns the official
+  county for a coordinate. All county lookups (this route, project-area
+  auto-fill on submit, and `scripts/backfill_county.js`) share a single
+  helper `utils/geo.js` which loads `data/tw_county.geojson` (Ministry of
+  Interior 1140318 official boundaries, 22 counties, TWD97 lat/lon) and uses
+  `@turf/turf` `booleanPointInPolygon` with a bbox prefilter. The legacy
+  `data/twCounty2010.fixed.geo.json` is no longer read.
 
 ### Knowledge base (`routes/knowledge.js`)
 - CRUD on `tree_knowledge_embeddings_v2` plus pgvector cosine search. Used by
@@ -558,6 +836,31 @@ mode (`ML_API_KEY` unset). CORS origins come from `ML_CORS_ORIGINS`.
 Models loaded: Depth Pro (Apple, 350 M params, single-image metric depth) and
 SAM 2.1 Tiny (38.9 M params). YOLO-trunk is run on the device, not on the
 server. See `ml_service/README*` and `requirements.txt` for setup.
+
+### Local dev startup (Windows)
+
+`ml_service/start.ps1` is the canonical Windows launcher. It loads
+`ml_service/.env`, picks an env preset, prints a config summary, runs a GPU
+probe (Intel XPU / CUDA / CPU), and launches `uvicorn`.
+
+```powershell
+cd backend\ml_service
+.\start.ps1                  # default model (DA V2 Base, CPU)
+.\start.ps1 -Preset pro      # Depth Pro, PyTorch
+.\start.ps1 -Preset pro_ov   # Depth Pro + OpenVINO INT8-W on iGPU (recommended)
+.\start.ps1 -Verify          # enable numpy verification
+.\start.ps1 -Workers 2 -Port 8101
+```
+
+Key env vars consumed (also documented in `ml_service/README*`):
+`ML_DEPTH_MODEL`, `ML_USE_OPENVINO`, `ML_ENABLE_SAM`, `ML_SEG_MODEL`,
+`ML_API_KEY`, `ML_CORS_ORIGINS`, `PORT`. On Linux production the same
+process is supervised by `pm2` / `systemd` and uses the venv at
+`ml_service/venv/`.
+
+`ml_service/run_export.ps1` is a separate utility that exports the Depth Pro
+weights to OpenVINO IR INT8-W (one-time setup; required before `-Preset
+pro_ov` works).
 
 ---
 
