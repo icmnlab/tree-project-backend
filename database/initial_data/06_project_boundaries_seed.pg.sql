@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS project_boundaries (
 );
 CREATE INDEX IF NOT EXISTS idx_project_boundaries_name ON project_boundaries(project_name);
 CREATE INDEX IF NOT EXISTS idx_project_boundaries_code ON project_boundaries(project_code);
+-- Legacy upgrade: ensure newer columns exist on pre-existing tables
+ALTER TABLE project_boundaries ADD COLUMN IF NOT EXISTS project_code VARCHAR(50);
+ALTER TABLE project_boundaries ADD COLUMN IF NOT EXISTS project_area VARCHAR(50);
 
 INSERT INTO project_boundaries (project_name, project_code, project_area, boundary_coordinates) VALUES ('高雄港區植栽1區', '3', '高雄港', '[[22.6191846,120.2742187],[22.618757,120.2778696],[22.6205263,120.2752269],[22.6204188,120.2750856]]'::jsonb) ON CONFLICT (project_name) DO NOTHING;
 INSERT INTO project_boundaries (project_name, project_code, project_area, boundary_coordinates) VALUES ('高雄港區植栽2區', '4', '高雄港', '[[22.6182127,120.2789277],[22.6179171,120.279232],[22.6178862,120.2793342],[22.6178739,120.2794642],[22.617913,120.2795456],[22.6179371,120.2795605],[22.6180881,120.2796198],[22.6206379,120.2794952],[22.6206789,120.2793946],[22.6206962,120.2793437]]'::jsonb) ON CONFLICT (project_name) DO NOTHING;
