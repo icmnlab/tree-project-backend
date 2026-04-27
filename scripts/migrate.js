@@ -53,7 +53,7 @@ async function migrate() {
     for (const file of migrationFiles) {
       console.log(`Executing ${file}...`);
       const filePath = path.join(__dirname, '../database/initial_data', file);
-      const script = fs.readFileSync(filePath, 'utf8');
+      const script = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
       await client.query(script);
       console.log(`${file} executed successfully.`);
     }
@@ -109,7 +109,7 @@ async function migrate() {
     for (const file of viewFiles) {
         console.log(`Executing view creation script ${file}...`);
         const filePath = path.join(__dirname, '../database/initial_data', file);
-        const script = fs.readFileSync(filePath, 'utf8');
+        const script = fs.readFileSync(filePath, 'utf8').replace(/^\uFEFF/, '');
         await client.query(script);
         console.log(`${file} executed successfully.`);
     }
