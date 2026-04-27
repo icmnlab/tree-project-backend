@@ -37,7 +37,8 @@ const migrationFiles = [
   'species_synonyms.pg.sql', // [New] 樹種同義詞/名稱變體對照表 - 統一不同量測員的命名差異
   '03_user_projects.pg.sql', // [Phase A] user_projects junction table + 從 associated_projects 遷移 + 填充 projects 表
   '05_ip_blacklist.pg.sql', // [T8.2] IP 黑名單與登入失敗計數
-  '06_project_boundaries_seed.pg.sql' // [Data] 35 個港務專案邊界 (convex hull from tree GPS, +10m buffer)
+  '06_project_boundaries_seed.pg.sql', // [Data] 35 個港務專案邊界 (convex hull from tree GPS, +10m buffer)
+  '07_backfill_projects_area_id.pg.sql' // [Heal] Backfill projects.area_id from project_location + heal placeholder names
 ];
 
 // Define the order for view creation
