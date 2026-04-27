@@ -3,13 +3,34 @@ const { cleanupOldLoginAttempts } = require('../services/ipBlacklistService');
 
 const cleanupUnusedProjectAreas = async () => {
   try {
+    // [N11 fix] 保護仍被 projects.area_id 引用的區位，避免造成
+    // dangling reference (projects.area_id 指向已被刪除的列 → 顯示「不屬於任何區位」)。
+    // 同時保護被 project_boundaries 使用的區位。
     const sql = `
-      DELETE FROM project_areas 
-      WHERE area_name NOT IN (
-        SELECT DISTINCT project_location FROM tree_survey WHERE project_location IS NOT NULL AND project_location != ''
+      DELETE FROM project_areas pa
+      WHERE NOT EXISTS (
+        SELECT 1 FROM tree_survey ts
+        WHERE ts.project_location = pa.area_name
+          AND ts.project_location IS NOT NULL AND ts.project_location != ''
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM projects p WHERE p.area_id = pa.id
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM project_boundaries pb WHERE pb.project_area = pa.area_name
       )`;
     const result = await db.query(sql);
     console.log(`[Cleanup] Cleaned up unused project areas. Rows affected: ${result.rowCount}`);
+
+    // [N11 fix] Heal: 把 projects.area_id 指向已不存在 project_areas 的列重設為 NULL
+    const heal = await db.query(`
+      UPDATE projects SET area_id = NULL
+      WHERE area_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM project_areas pa WHERE pa.id = projects.area_id)
+    `);
+    if (heal.rowCount > 0) {
+      console.log(`[Cleanup] Healed ${heal.rowCount} dangling projects.area_id reference(s).`);
+    }
   } catch (err) {
     console.error('[Cleanup] Error cleaning up unused project areas:', err);
   }
