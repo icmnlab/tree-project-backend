@@ -6,6 +6,9 @@
  *   node tests/apiIntegration.test.js -v           # 顯示完整回應內容
  */
 
+// Load .env from backend root so TEST_* / ML_TEST_* are auto-populated.
+require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
+
 const https = require('https');
 
 const BASE_URL = process.env.TEST_BASE_URL;

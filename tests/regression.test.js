@@ -28,6 +28,9 @@
  * ═══════════════════════════════════════════════════════════════════════════════
  */
 
+// Load .env from backend root so TEST_* / ML_TEST_* are auto-populated.
+require('dotenv').config({ path: require('path').resolve(__dirname, '..', '.env') });
+
 const http = require('http');
 const https = require('https');
 
