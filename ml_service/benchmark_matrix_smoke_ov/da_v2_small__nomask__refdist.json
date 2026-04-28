@@ -1,0 +1,20 @@
+{
+  "n_total": 5,
+  "n_ok": 5,
+  "n_fail": 0,
+  "mae_cm": 12.666000000000002,
+  "medae_cm": 10.54,
+  "rmse_cm": 13.829052751363706,
+  "bias_cm": -7.606,
+  "mape_pct": 35.491194172943686,
+  "within_10pct": 0.0,
+  "within_20pct": 20.0,
+  "avg_latency_s": 1.4177441596984863,
+  "tag": "da_v2_small__nomask__refdist",
+  "depth_model": "DA V2 Metric Outdoor Small",
+  "depth_model_params_m": 24.8,
+  "use_ref_distance": true,
+  "use_gt_mask": false,
+  "total_wall_s": 7.1,
+  "out_csv": "benchmark_matrix_smoke_ov\\da_v2_small__nomask__refdist.csv"
+}

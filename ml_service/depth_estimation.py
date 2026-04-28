@@ -164,12 +164,19 @@ def load_model(model_id_override: str = None):
     if _model is None:
         backend = detect_best_backend()
         _device = _get_torch_device(backend)
-        if config.backend == "depth_pro" and ("DepthPro" in target_model_id or "depth_pro" in target_model_id):
+        if config.backend == "unidepth":
+            _try_load_unidepth(target_model_id, config)
+        elif config.backend == "da3_native":
+            _try_load_da3(target_model_id, config)
+        elif config.backend == "depth_pro" and ("DepthPro" in target_model_id or "depth_pro" in target_model_id):
             if not _try_load_depth_pro(target_model_id):
                 print("[DepthEstimation] Depth Pro load failed, trying DA V2 Base fallback")
                 target_model_id = "depth-anything/Depth-Anything-V2-Metric-Outdoor-Base-hf"
                 config = DEPTH_MODELS.get("da_v2_base", config)
                 _load_pytorch_standard(target_model_id, config)
+        elif ENABLE_OPENVINO and config.backend == "transformers":
+            # Registry handled OV export+load; if we got here it failed → PyTorch CPU.
+            _load_pytorch_standard(target_model_id, config)
         else:
             _load_pytorch_standard(target_model_id, config)
             
@@ -259,6 +266,54 @@ def _try_load_onnx(model_id: str) -> bool:
         print("[DepthEstimation] optimum/onnxruntime not installed")
     except Exception as e:
         print(f"[DepthEstimation] ONNX load error: {e}")
+    return False
+
+
+def _try_load_unidepth(model_id: str, config) -> bool:
+    """Attempt to load UniDepth V2 (auto-focal). Always uses CPU/PyTorch."""
+    global _model, _processor, _device, _model_id, _backend_type
+    try:
+        from unidepth.models import UniDepthV2
+
+        print(f"[DepthEstimation] Loading UniDepthV2 from {model_id}...")
+        _processor = None  # UniDepth has no separate processor
+        _model = UniDepthV2.from_pretrained(model_id)
+        _model.eval()
+        _model = _model.to(_device)
+        if _device == "cpu":
+            torch.set_num_threads(CPU_THREADS)
+        _model_id = model_id
+        _backend_type = f"unidepth_{_device}"
+        print(f"[DepthEstimation] UniDepth V2 loaded ({config.params_m}M params) on {_device}")
+        return True
+    except Exception as e:
+        print(f"[DepthEstimation] UniDepth load error: {e}")
+        import traceback
+        traceback.print_exc()
+    return False
+
+
+def _try_load_da3(model_id: str, config) -> bool:
+    """Attempt to load Depth-Anything-3 via its native API."""
+    global _model, _processor, _device, _model_id, _backend_type
+    try:
+        from depth_anything_3.api import DepthAnything3
+
+        print(f"[DepthEstimation] Loading DepthAnything3 from {model_id}...")
+        _processor = None
+        _model = DepthAnything3.from_pretrained(model_id)
+        _model.eval()
+        # DA3 forward uses inference_mode internally; CPU only on Windows.
+        if _device == "cpu":
+            torch.set_num_threads(CPU_THREADS)
+        _model_id = model_id
+        _backend_type = f"da3_{_device}"
+        print(f"[DepthEstimation] DA3 loaded ({config.params_m}M params) on {_device}")
+        return True
+    except Exception as e:
+        print(f"[DepthEstimation] DA3 load error: {e}")
+        import traceback
+        traceback.print_exc()
     return False
 
 
@@ -371,6 +426,12 @@ def estimate_depth_rich(image: Image.Image) -> DepthResult:
     """
     model, processor = load_model()
     config = get_depth_config()
+
+    # ── Custom backends ───────────────────────────────────────
+    if config.backend == "unidepth":
+        return _infer_unidepth(image, model, config)
+    if config.backend == "da3_native":
+        return _infer_da3(image, model, config)
 
     # ── Depth Pro path: uses post_process_depth_estimation ────
     # NOTE: route by _is_depth_pro (model identity) NOT _backend_type,
@@ -495,6 +556,90 @@ def _infer_standard(
         auto_fov_degrees=auto_fov,
         backend_used=_backend_type or f"pytorch_{_device}",
         model_id=_model_id or config.model_id,
+    )
+
+
+def _infer_unidepth(image: Image.Image, model, config) -> DepthResult:
+    """UniDepthV2 inference. Returns metric depth + auto-focal from estimated K."""
+    arr = np.array(image)  # (H, W, 3) uint8
+    rgb = torch.from_numpy(arr).permute(2, 0, 1)  # CHW uint8 / float
+
+    with torch.no_grad():
+        preds = model.infer(rgb)
+
+    depth_t = preds["depth"].squeeze().detach().cpu().numpy()
+    # UniDepth returns (H, W) at original image resolution
+    if depth_t.ndim == 3 and depth_t.shape[0] == 1:
+        depth_t = depth_t[0]
+    depth_map = depth_t.astype(np.float32)
+
+    auto_focal = None
+    auto_fov = None
+    notes = []
+    if "intrinsics" in preds:
+        K = preds["intrinsics"].squeeze().detach().cpu().numpy()
+        if K.ndim == 3:
+            K = K[0]
+        fx = float(K[0, 0]); fy = float(K[1, 1])
+        auto_focal = (fx + fy) / 2.0
+        # FOV horizontal from fx and image width
+        W = float(image.width)
+        auto_fov = float(2.0 * np.degrees(np.arctan2(W, 2.0 * fx)))
+        notes.append(f"UniDepth auto-fx={fx:.1f} fy={fy:.1f}")
+
+    return DepthResult(
+        depth_map=depth_map,
+        auto_focal_length_px=auto_focal,
+        auto_fov_degrees=auto_fov,
+        backend_used=_backend_type or "unidepth",
+        model_id=_model_id or config.model_id,
+        notes=notes,
+    )
+
+
+def _infer_da3(image: Image.Image, model, config) -> DepthResult:
+    """Depth-Anything-3 native inference. Returns metric depth (resized to original)."""
+    with torch.no_grad():
+        pred = model.inference([image], export_dir=None)
+
+    depth = pred.depth[0]  # (H_proc, W_proc) numpy
+    if hasattr(depth, "detach"):
+        depth = depth.detach().cpu().numpy()
+    depth = np.asarray(depth, dtype=np.float32)
+
+    # Resize to original image size (DA3 processes at ~504 long edge).
+    target_h, target_w = image.height, image.width
+    if depth.shape != (target_h, target_w):
+        d_t = torch.from_numpy(depth)[None, None]
+        d_t = torch.nn.functional.interpolate(
+            d_t, size=(target_h, target_w), mode="bilinear", align_corners=False,
+        )
+        depth = d_t.squeeze().numpy()
+
+    auto_focal = None
+    auto_fov = None
+    notes = []
+    if pred.intrinsics is not None:
+        K = pred.intrinsics
+        if K.ndim == 3:
+            K = K[0]
+        # DA3 intrinsics are in processed-image space → rescale fx,fy by ratio.
+        proc_h, proc_w = pred.depth[0].shape[-2:]
+        scale_x = target_w / float(proc_w)
+        scale_y = target_h / float(proc_h)
+        fx = float(K[0, 0]) * scale_x
+        fy = float(K[1, 1]) * scale_y
+        auto_focal = (fx + fy) / 2.0
+        auto_fov = float(2.0 * np.degrees(np.arctan2(target_w, 2.0 * fx)))
+        notes.append(f"DA3 auto-fx={fx:.1f} fy={fy:.1f}")
+
+    return DepthResult(
+        depth_map=depth,
+        auto_focal_length_px=auto_focal,
+        auto_fov_degrees=auto_fov,
+        backend_used=_backend_type or "da3_native",
+        model_id=_model_id or config.model_id,
+        notes=notes,
     )
 
 

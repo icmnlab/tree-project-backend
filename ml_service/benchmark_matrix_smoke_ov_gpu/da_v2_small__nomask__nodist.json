@@ -1,0 +1,20 @@
+{
+  "n_total": 5,
+  "n_ok": 5,
+  "n_fail": 0,
+  "mae_cm": 45.355999999999995,
+  "medae_cm": 43.56999999999999,
+  "rmse_cm": 49.97617872546879,
+  "bias_cm": 37.62,
+  "mape_pct": 133.77415990510028,
+  "within_10pct": 0.0,
+  "within_20pct": 0.0,
+  "avg_latency_s": 0.35771470069885253,
+  "tag": "da_v2_small__nomask__nodist",
+  "depth_model": "DA V2 Metric Outdoor Small",
+  "depth_model_params_m": 24.8,
+  "use_ref_distance": false,
+  "use_gt_mask": false,
+  "total_wall_s": 1.8,
+  "out_csv": "benchmark_matrix_smoke_ov_gpu\\da_v2_small__nomask__nodist.csv"
+}

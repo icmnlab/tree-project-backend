@@ -120,24 +120,38 @@ DEPTH_MODELS: Dict[str, DepthModelConfig] = {
         ),
     ),
     
-    # ── Phase 3: Next Generation ───────────────────────────────
-    # TODO: Uncomment when DA3 is tested on this hardware
-    # "da3_metric_large": DepthModelConfig(
-    #     model_id="depth-anything/DA3METRIC-LARGE",
-    #     display_name="DA3 Metric Large",
-    #     params_m=350,
-    #     license="Apache-2.0",
-    #     expected_cpu_time_s=18.0,       # WARNING: Untested on CPU
-    #     input_size=518,
-    #     output_type="metric",
-    #     backend="da3_native",           # Uses DA3's own API, not transformers
-    #     requires_cuda=True,             # WARNING: Official DA3 requires CUDA
-    #     notes=(
-    #         "Phase 3. 自帶焦距估計, 大幅超越 DA V2. "
-    #         "但官方要求 CUDA+xformers. 需要測試 CPU fallback. "
-    #         "公式: metric_depth = focal * net_output / 300."
-    #     ),
-    # ),
+    # ── Phase 3: UniDepth V2 (auto-focal, ICCV 2024) ─────────
+    "unidepth_v2_l": DepthModelConfig(
+        model_id="lpiccinelli/unidepth-v2-vitl14",
+        display_name="UniDepth V2 ViT-L",
+        params_m=350.0,
+        license="CC-BY-NC-4.0",
+        expected_cpu_time_s=12.5,
+        input_size=518,
+        output_type="metric",
+        backend="unidepth",
+        notes=(
+            "ICCV 2024. Auto camera intrinsics (fx, fy, cx, cy). "
+            "CPU ~12.6s/img on i5. xformers/triton optional (Windows OK without)."
+        ),
+    ),
+
+    # ── Phase 3: DA3METRIC-LARGE (ICLR 2026 Oral) ────────────
+    "da3_metric_large": DepthModelConfig(
+        model_id="depth-anything/DA3METRIC-LARGE",
+        display_name="DA3 Metric Large",
+        params_m=400.0,
+        license="CC-BY-NC-4.0",
+        expected_cpu_time_s=15.0,
+        input_size=504,
+        output_type="metric",
+        backend="da3_native",
+        notes=(
+            "ICLR 2026 Oral. Uses DA3 native api (depth_anything_3.api). "
+            "Returns depth in processed-size (504x378), no auto-intrinsics in monocular mode. "
+            "Loaded via DepthAnything3.from_pretrained()."
+        ),
+    ),
     
     # ── Metric3D v2 (REMOVED 2026-04-28) ───────────────────────
     # Was registered with backend="metric3d" but had no loader in
@@ -556,6 +570,45 @@ class _OVDepthModelWrapper:
 
         return out
 
+def _export_hf_to_openvino_ir(config, output_dir: str) -> bool:
+    """One-time export of a HuggingFace transformers depth model to OpenVINO IR (FP16).
+
+    Used to avoid collisions across DA V2 sizes (small/base/large all share the same
+    HF architecture but different weights). Saves to per-model directory so multiple
+    DA V2 variants can coexist on disk.
+
+    Returns True if IR was successfully created at output_dir/openvino_model.xml.
+    """
+    try:
+        import torch
+        import openvino as ov
+        from transformers import AutoModelForDepthEstimation
+        os.makedirs(output_dir, exist_ok=True)
+        xml_path = os.path.join(output_dir, "openvino_model.xml")
+        if os.path.exists(xml_path):
+            return True
+        size = config.input_size if config.input_size else 518
+        print(
+            f"[ModelRegistry] Exporting {config.model_id} → OpenVINO IR "
+            f"(size={size}, dir={output_dir})... this is a one-time op"
+        )
+        pt_model = AutoModelForDepthEstimation.from_pretrained(config.model_id)
+        pt_model.eval()
+        example = torch.randn(1, 3, size, size)
+        with torch.no_grad():
+            ov_model = ov.convert_model(pt_model, example_input=example)
+        ov.save_model(ov_model, xml_path, compress_to_fp16=True)
+        print(f"[ModelRegistry] OpenVINO IR saved: {xml_path}")
+        # Free PT memory before downstream OV load
+        del pt_model, ov_model
+        return True
+    except Exception as e:
+        print(f"[ModelRegistry] HF→OV export failed for {config.model_id}: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
+
+
 class _ModelRegistry:
     """
     Singleton registry for heavy ML models.
@@ -584,6 +637,12 @@ class _ModelRegistry:
         inference and ~50% smaller file size with negligible accuracy loss.
         """
         config = get_depth_config()
+
+        # Custom backends (unidepth, da3_native) are loaded by depth_estimation.py
+        # directly — bypass OpenVINO/HF transformers path.
+        if config.backend in ("unidepth", "da3_native"):
+            return None, None
+
         is_depth_pro = "depthpro" in config.model_id.lower() or "depth_pro" in config.model_id.lower()
         base_name = "depth_pro" if is_depth_pro else "depth"
 
@@ -591,11 +650,29 @@ class _ModelRegistry:
         int8w_path = os.path.join(OPENVINO_MODEL_DIR, f"{base_name}_int8w")
         fp16_path = os.path.join(OPENVINO_MODEL_DIR, base_name)
 
+        # Per-model FP16 cache (avoids collision between da_v2_small/base/large
+        # which all map to base_name="depth"). Format: openvino_models/<sanitized_id>/
+        per_model_dir = os.path.join(
+            OPENVINO_MODEL_DIR,
+            config.model_id.replace("/", "_").replace("-", "_").lower(),
+        )
+
         if ENABLE_OPENVINO:
             if os.path.exists(os.path.join(int8w_path, "openvino_model.xml")):
                 print(f"[ModelRegistry] Using INT8-W compressed model: {int8w_path}")
                 return self._load_depth_openvino(int8w_path, config)
-            if force_openvino or os.path.exists(fp16_path):
+            if os.path.exists(os.path.join(per_model_dir, "openvino_model.xml")):
+                print(f"[ModelRegistry] Using per-model OV cache: {per_model_dir}")
+                return self._load_depth_openvino(per_model_dir, config)
+            if os.path.exists(os.path.join(fp16_path, "openvino_model.xml")) and is_depth_pro:
+                # Legacy shared depth_pro IR (only for depth_pro to avoid DA V2 collisions)
+                return self._load_depth_openvino(fp16_path, config)
+            # Auto-export PyTorch HF model → OpenVINO IR (one-time per model)
+            if config.backend == "transformers":
+                ok = _export_hf_to_openvino_ir(config, per_model_dir)
+                if ok:
+                    return self._load_depth_openvino(per_model_dir, config)
+            if force_openvino:
                 return self._load_depth_openvino(fp16_path, config)
         return self._load_depth_pytorch(config)
 
@@ -624,7 +701,16 @@ class _ModelRegistry:
             if config.backend == "depth_pro":
                 self._depth_processor = DepthProImageProcessorFast.from_pretrained(config.model_id)
             else:
-                self._depth_processor = AutoImageProcessor.from_pretrained(config.model_id)
+                # Force square resize to match static IR shape [1,3,518,518] (or 384/...).
+                # Without this, DPTImageProcessor preserves aspect → 686×518 etc., which
+                # breaks GPU/NPU static-shape inference.
+                size_hw = config.input_size or 518
+                self._depth_processor = AutoImageProcessor.from_pretrained(
+                    config.model_id,
+                    size={"height": size_hw, "width": size_hw},
+                    do_resize=True,
+                    keep_aspect_ratio=False,
+                )
                 
             # FP16 inference: ~50% less VRAM, minimal accuracy impact for depth estimation
             ov_config = {"INFERENCE_PRECISION_HINT": "f16"}

@@ -1,0 +1,20 @@
+{
+  "n_total": 5,
+  "n_ok": 5,
+  "n_fail": 0,
+  "mae_cm": 55.122,
+  "medae_cm": 44.879999999999995,
+  "rmse_cm": 60.620181622954576,
+  "bias_cm": 55.122,
+  "mape_pct": 150.84652080326072,
+  "within_10pct": 0.0,
+  "within_20pct": 0.0,
+  "avg_latency_s": 5.931412935256958,
+  "tag": "da_v2_base__nomask__nodist",
+  "depth_model": "DA V2 Metric Outdoor Base",
+  "depth_model_params_m": 97.5,
+  "use_ref_distance": false,
+  "use_gt_mask": false,
+  "total_wall_s": 29.7,
+  "out_csv": "benchmark_matrix\\da_v2_base__nomask__nodist.csv"
+}

@@ -1,0 +1,20 @@
+{
+  "n_total": 5,
+  "n_ok": 5,
+  "n_fail": 0,
+  "mae_cm": 25.530000000000005,
+  "medae_cm": 13.48,
+  "rmse_cm": 35.66630370531828,
+  "bias_cm": 5.322000000000001,
+  "mape_pct": 55.86224079730805,
+  "within_10pct": 0.0,
+  "within_20pct": 20.0,
+  "avg_latency_s": 11.322746992111206,
+  "tag": "depth_pro__nomask__nodist",
+  "depth_model": "Apple Depth Pro",
+  "depth_model_params_m": 350.0,
+  "use_ref_distance": false,
+  "use_gt_mask": false,
+  "total_wall_s": 56.6,
+  "out_csv": "benchmark_matrix\\depth_pro__nomask__nodist.csv"
+}

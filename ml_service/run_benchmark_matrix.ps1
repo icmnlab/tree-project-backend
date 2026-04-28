@@ -24,7 +24,7 @@
 # =============================================================
 [CmdletBinding()]
 param(
-    [string[]]$Models = @('da_v2_small','da_v2_base','da_v2_large','depth_pro'),
+    [string[]]$Models = @('da_v2_small','da_v2_base','da_v2_large','depth_pro','unidepth_v2_l','da3_metric_large'),
     [int]$Limit = 0,                       # 0 = all 294 photos
     [int]$HealthTimeoutSec = 600,          # 10 min for big models / first-time download
     [string]$Url = 'http://127.0.0.1:8100',
@@ -41,12 +41,12 @@ if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory $OutDir | Out-Null 
 
 # Mapping: model key -> /health.model substring used to verify load
 $ExpectModel = @{
-    'da_v2_small'  = 'Small'
-    'da_v2_base'   = 'Base'
-    'da_v2_large'  = 'Large'
-    'depth_pro'    = 'Depth Pro'
-    'metric3d_v2'  = 'Metric3D'
-    'unidepth_v2'  = 'UniDepth'
+    'da_v2_small'        = 'Small'
+    'da_v2_base'         = 'Base'
+    'da_v2_large'        = 'Large'
+    'depth_pro'          = 'Depth Pro'
+    'unidepth_v2_l'      = 'UniDepth'
+    'da3_metric_large'   = 'DA3'
 }
 
 $cases = @(
@@ -78,8 +78,10 @@ function Stop-MLService {
 function Start-MLService {
     param([string]$Model, [string]$LogPath)
     Write-Host "[matrix] Starting ml_service (uvicorn direct) with ML_DEPTH_MODEL=$Model" -ForegroundColor Cyan
-    # Only depth_pro has a prebuilt OpenVINO export; force PyTorch path for others.
-    $useOV = if ($Model -eq 'depth_pro') { 'true' } else { 'false' }
+    # OpenVINO supports transformers-based models (DA V2 family + Depth Pro).
+    # UniDepth and DA3 use custom backends with no OV export path → PyTorch.
+    $noOvModels = @('unidepth_v2_l','da3_metric_large')
+    $useOV = if ($noOvModels -contains $Model) { 'false' } else { 'true' }
 
     # Set the env vars in THIS process; Start-Process will inherit them.
     $env:ML_DEPTH_MODEL  = $Model
