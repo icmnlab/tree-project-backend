@@ -126,17 +126,14 @@ from dbh_calculator import (
 from visualization import create_result_image, depth_to_colormap, image_to_bytes
 from tree_trunk_detector import detect_trunks, create_detection_visualization
 from tree_segmentation import (
-    segment_trunk_auto,
-    segment_trunk_with_bbox,
-    segment_trunk_with_yolo_guidance,
+    compute_trunk_width_from_mask,
     subpixel_trunk_width,
     ellipse_corrected_width,
-    compute_trunk_width_from_mask,
 )
 from model_registry import (
     get_depth_config, get_seg_config, get_preset,
     print_config_summary, ACCURACY_PRESETS, DEPTH_MODELS,
-    USE_ONNX_RUNTIME, ENABLE_SAM_SEGMENTATION, ENABLE_OPENVINO,
+    USE_ONNX_RUNTIME, ENABLE_OPENVINO,
     get_registry,
 )
 
@@ -249,16 +246,11 @@ async def startup_event():
     except Exception as e:
         print(f"[Startup] Warning: Could not pre-load depth model: {e}")
         print("[Startup] Depth model will be loaded on first request.")
-    if ENABLE_SAM_SEGMENTATION:
-        print("[Startup] Pre-loading SAM model...")
-        try:
-            sam_model, _ = registry.get_sam_model()
-            if sam_model is not None:
-                print("[Startup] SAM model ready!")
-            else:
-                print("[Startup] SAM model not available (using heuristic fallback).")
-        except Exception as e:
-            print(f"[Startup] Warning: Could not pre-load SAM: {e}")
+    # SAM segmentation removed (2026-04-28). Trunk masks now come exclusively
+    # from the on-device YOLOv8-seg model on the phone (uploaded as
+    # trunk_mask_base64). Server-side SAM was deemed unsuitable for trunk
+    # segmentation in this pipeline and was fully removed to avoid biasing
+    # benchmark comparisons.
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
@@ -289,7 +281,7 @@ async def health_check():
         "segmentation": seg_config.display_name,
         "onnx_enabled": USE_ONNX_RUNTIME,
         "openvino_enabled": ENABLE_OPENVINO,
-        "sam_enabled": ENABLE_SAM_SEGMENTATION,
+        "sam_enabled": False,
         "auth_required": bool(ML_API_KEY),
         "available_modes": list(ACCURACY_PRESETS.keys()),
         "backend": backend_info,
@@ -444,18 +436,15 @@ async def ws_scan(websocket: WebSocket):
                 y2=best_trunk.bbox_y2,
             )
 
-            # SAM segmentation: prefer YOLO bbox guidance, fallback to auto-prompt
-            img_np = np.array(pil_image)
-            if ENABLE_SAM_SEGMENTATION:
-                seg_result = segment_trunk_with_yolo_guidance(
-                    img_np, depth_map,
-                    bbox=(bbox.x1, bbox.y1, bbox.x2, bbox.y2),
-                )
-            else:
-                seg_result = segment_trunk_auto(
-                    img_np, depth_map,
-                    existing_mask=best_trunk.mask.astype(np.uint8) if best_trunk.mask is not None else None,
-                )
+            # Trunk segmentation removed from server (2026-04-28).
+            # The live-scan WebSocket previously ran SAM here to render a
+            # mask overlay; we now rely on the phone's on-device YOLOv8-seg
+            # for masks. The viewfinder simply returns the bbox without a
+            # pixel-precise overlay.
+            seg_existing = (
+                best_trunk.mask.astype(np.uint8)
+                if best_trunk.mask is not None else None
+            )
 
             # DBH calculation
             result = measure_dbh_multi_row(
@@ -463,29 +452,13 @@ async def ws_scan(websocket: WebSocket):
                 focal_length_px=effective_focal_px,
                 image_width_px=W,
                 fov_degrees=effective_fov,
+                trunk_mask=seg_existing,
             )
 
-            # Override with SAM mask width if available (方案A+C)
-            if seg_result.confidence > 0.3 and seg_result.method.startswith("sam2"):
-                _sam_w, _ = compute_trunk_width_from_mask(
-                    seg_result.mask, (bbox.x1, bbox.y1, bbox.x2, bbox.y2)
-                )
-                if _sam_w > 10.0:
-                    _chord = pixel_width_to_metric(_sam_w, result.trunk_depth_m, result.focal_length_px)
-                    _dbh_m = cylindrical_correction(_chord, result.trunk_depth_m)
-                    result = DBHResult(
-                        dbh_cm=round(_dbh_m * 100.0, 2),
-                        confidence=min(1.0, round(result.confidence + 0.10, 3)),
-                        trunk_depth_m=result.trunk_depth_m,
-                        trunk_pixel_width=round(_sam_w, 2),
-                        chord_length_m=round(_chord, 4),
-                        focal_length_px=result.focal_length_px,
-                        measurement_row=result.measurement_row,
-                        method=f"{result.method}+sam_mask",
-                        notes=result.notes + [f"SAM mask width: {_sam_w:.1f}px"],
-                    )
-
-            mask_b64 = _mask_to_overlay_base64(pil_image, seg_result.mask)
+            mask_b64 = (
+                _mask_to_overlay_base64(pil_image, seg_existing)
+                if seg_existing is not None else ""
+            )
 
             # Quality gates: flag poor measurements
             is_poor_quality = (
@@ -987,52 +960,13 @@ async def auto_measure_dbh_endpoint(
                 y2=best_trunk.bbox_y2,
             )
 
-        # Step 3.5: SAM segmentation with YOLO bbox guidance (方案A+C)
-        # When Edge AI provides bbox, use it as SAM prompt for precise trunk mask
+        # Step 3.5: Trunk segmentation
+        # Server-side SAM was removed (2026-04-28). The trunk mask now
+        # comes exclusively from the phone (on-device YOLOv8-seg) via the
+        # ``trunk_mask_base64`` form field. ``seg_time`` is kept in the
+        # response for backwards compatibility but should always be ~0.
         t_seg = time.time()
-        sam_seg_result = None
-        sam_trunk_width = None
         seg_mask_applied = False
-        has_yolo_bbox = (bbox_x1 is not None and bbox_y1 is not None
-                         and bbox_x2 is not None and bbox_y2 is not None)
-
-        if ENABLE_SAM_SEGMENTATION and has_yolo_bbox:
-            try:
-                img_np = np.array(pil_image)
-                _tap = (tap_x, tap_y) if (tap_x is not None and tap_y is not None) else None
-                sam_seg_result = segment_trunk_with_yolo_guidance(
-                    img_np, depth_map,
-                    bbox=(bbox.x1, bbox.y1, bbox.x2, bbox.y2),
-                    tap_point=_tap,
-                )
-                if sam_seg_result.confidence > 0.3:
-                    # Compute trunk width from SAM mask (more precise than depth edges)
-                    sam_trunk_width, _ = compute_trunk_width_from_mask(
-                        sam_seg_result.mask,
-                        (bbox.x1, bbox.y1, bbox.x2, bbox.y2),
-                    )
-                    print(f"[AutoMeasure] SAM mask trunk width: {sam_trunk_width:.1f}px "
-                          f"(method={sam_seg_result.method}, conf={sam_seg_result.confidence:.2f})")
-            except Exception as e:
-                print(f"[AutoMeasure] SAM segmentation failed: {e}")
-                traceback.print_exc()
-        elif ENABLE_SAM_SEGMENTATION:
-            # No YOLO bbox — use depth-based auto-prompt
-            try:
-                img_np = np.array(pil_image)
-                _tap = (tap_x, tap_y) if (tap_x is not None and tap_y is not None) else None
-                if _tap:
-                    from tree_segmentation import segment_trunk_with_tap
-                    sam_seg_result = segment_trunk_with_tap(img_np, depth_map, _tap[0], _tap[1])
-                else:
-                    sam_seg_result = segment_trunk_auto(img_np, depth_map)
-                if sam_seg_result.confidence > 0.3:
-                    sam_trunk_width, _ = compute_trunk_width_from_mask(
-                        sam_seg_result.mask,
-                        (bbox.x1, bbox.y1, bbox.x2, bbox.y2),
-                    )
-            except Exception as e:
-                print(f"[AutoMeasure] SAM auto-prompt failed: {e}")
         seg_time = time.time() - t_seg
 
         # ── Decode on-device YOLO-seg mask PNG if provided ──
@@ -1060,11 +994,9 @@ async def auto_measure_dbh_endpoint(
                 print(f"[AutoMeasure] Failed to decode on-device mask: {e}")
                 on_device_mask_np = None
 
-        # Prefer on-device mask > SAM mask (if SAM ran) for measurement
+        # Prefer on-device mask (YOLOv8-seg from the phone) for measurement.
+        # Server-side SAM has been removed (2026-04-28).
         effective_mask_np = on_device_mask_np
-        if effective_mask_np is None and sam_seg_result is not None \
-                and sam_seg_result.confidence > 0.3:
-            effective_mask_np = (sam_seg_result.mask > 0).astype(np.uint8)
 
         # Step 4: Measure DBH using auto-detected bbox
         t2 = time.time()
@@ -1077,39 +1009,12 @@ async def auto_measure_dbh_endpoint(
         )
         calc_time = time.time() - t2
 
-        # ── [方案A+C] Override with SAM mask width (highest priority) ──
-        # SAM mask width > on-device mask_pixel_width > depth-edge detection
-        if sam_trunk_width is not None and sam_trunk_width > 10.0:
-            try:
-                sam_chord_m = pixel_width_to_metric(
-                    sam_trunk_width, result.trunk_depth_m, result.focal_length_px
-                )
-                sam_dbh_m = cylindrical_correction(sam_chord_m, result.trunk_depth_m)
-                old_px = result.trunk_pixel_width
-                result = DBHResult(
-                    dbh_cm=round(sam_dbh_m * 100.0, 2),
-                    confidence=min(1.0, round(result.confidence + 0.10, 3)),
-                    trunk_depth_m=result.trunk_depth_m,
-                    trunk_pixel_width=round(sam_trunk_width, 2),
-                    chord_length_m=round(sam_chord_m, 4),
-                    focal_length_px=result.focal_length_px,
-                    measurement_row=result.measurement_row,
-                    method=f"{result.method}+sam_mask",
-                    notes=result.notes + [
-                        f"方案A+C: SAM mask width {sam_trunk_width:.1f}px "
-                        f"(depth-edge was {old_px:.1f}px, "
-                        f"SAM method={sam_seg_result.method}, "
-                        f"SAM conf={sam_seg_result.confidence:.2f})"
-                    ],
-                )
-                seg_mask_applied = True
-            except Exception as e:
-                result.notes.append(f"SAM mask override failed: {e}")
-
-        # ── [方案A fallback] On-device mask_pixel_width (only if SAM didn't apply) ──
-        # When SAM mask is available, it's more precise than on-device YOLO mask width.
-        # Only use on-device mask_pixel_width as fallback when SAM was not applied.
-        if not seg_mask_applied and mask_pixel_width is not None and mask_pixel_width > 10.0:
+        # ── On-device YOLOv8-seg mask width override ──
+        # When the phone uploads a mask_pixel_width hint (computed from the
+        # YOLOv8-seg output before sending the full PNG mask), use it to
+        # override the depth-edge estimate. This is the recommended path now
+        # that server-side SAM has been removed.
+        if mask_pixel_width is not None and mask_pixel_width > 10.0:
             try:
                 # 座標空間校正：mask_pixel_width 是在前端 camera preview 幀上計算的，
                 # preview 解析度未必等於上傳的 JPEG 解析度（iOS / 低階 Android 會分離）。
@@ -1373,16 +1278,17 @@ async def auto_measure_dbh_endpoint(
             "depth_source": depth_source,
             "reference_distance_m": reference_distance,
             "instrument_distance_m": instrument_distance,
-            "sam_segmentation": {
+            "segmentation": {
                 "applied": seg_mask_applied,
-                "method": sam_seg_result.method if sam_seg_result else None,
-                "confidence": round(sam_seg_result.confidence, 3) if sam_seg_result else None,
-                "sam_trunk_width_px": round(sam_trunk_width, 1) if sam_trunk_width else None,
-            } if sam_seg_result else None,
+                "source": (
+                    "on_device_yolo_seg" if on_device_mask_np is not None
+                    else ("on_device_mask_width" if seg_mask_applied else None)
+                ),
+            },
             "timing": {
                 "depth_estimation_ms": round(depth_time * 1000, 1),
                 "detection_ms": round(detect_time * 1000, 1),
-                "sam_segmentation_ms": round(seg_time * 1000, 1),
+                "segmentation_ms": round(seg_time * 1000, 1),
                 "dbh_calculation_ms": round(calc_time * 1000, 1),
                 "total_ms": round((depth_time + detect_time + seg_time + calc_time) * 1000, 1),
             },
@@ -1391,10 +1297,23 @@ async def auto_measure_dbh_endpoint(
             "backend_used": depth_result.backend_used,
         }
 
-        # SAM mask overlay (green highlight on trunk)
-        if sam_seg_result is not None and sam_seg_result.confidence > 0.3:
-            mask_b64 = _mask_to_overlay_base64(pil_image, sam_seg_result.mask)
-            response["sam_mask_overlay_base64"] = mask_b64
+        # Mask overlay: visualize the on-device YOLOv8-seg mask if provided.
+        if on_device_mask_np is not None and on_device_mask_np.sum() > 0:
+            try:
+                # on_device_mask_np lives in processed/depth_map space; the
+                # overlay helper expects a mask in pil_image (original) space.
+                if on_device_mask_np.shape != (H_orig, W_orig):
+                    overlay_mask_img = Image.fromarray(
+                        (on_device_mask_np * 255).astype(np.uint8), mode="L"
+                    ).resize((W_orig, H_orig), Image.NEAREST)
+                    overlay_mask = (np.array(overlay_mask_img) > 127).astype(np.uint8)
+                else:
+                    overlay_mask = on_device_mask_np
+                response["segmentation_mask_overlay_base64"] = (
+                    _mask_to_overlay_base64(pil_image, overlay_mask)
+                )
+            except Exception as e:
+                print(f"[AutoMeasure] mask overlay rendering failed: {e}")
 
         if return_visualization:
             viz = create_result_image(
@@ -1467,7 +1386,7 @@ async def get_ml_config():
         },
         "onnx_enabled": USE_ONNX_RUNTIME,
         "openvino_enabled": ENABLE_OPENVINO,
-        "sam_enabled": ENABLE_SAM_SEGMENTATION,
+        "sam_enabled": False,
         "available_modes": modes_info,
     }
 

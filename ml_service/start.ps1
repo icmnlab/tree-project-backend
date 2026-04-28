@@ -70,8 +70,11 @@ if ($Port -gt 0) {
 }
 
 # --- Optional flags ---
-if (-not $env:ML_ENABLE_SAM)   { $env:ML_ENABLE_SAM = 'true' }
-if (-not $env:ML_SEG_MODEL)    { $env:ML_SEG_MODEL = 'sam2_tiny' }
+# SAM segmentation removed (2026-04-28). Trunk segmentation is now
+# performed exclusively on-device with YOLOv8-seg; the phone uploads the
+# binary mask via trunk_mask_base64. Server-side SAM is hard-disabled.
+$env:ML_ENABLE_SAM = 'false'
+if (-not $env:ML_SEG_MODEL)    { $env:ML_SEG_MODEL = 'depth_heuristic' }
 
 if ($Verify) {
     $env:ML_VERIFY_NUMPY = 'true'
@@ -97,7 +100,7 @@ Write-Host "  ----------------------------------------" -ForegroundColor DarkCya
 Write-Host "  Port:      $($env:PORT)" -ForegroundColor White
 Write-Host "  Model:     $($env:ML_DEPTH_MODEL)" -ForegroundColor White
 Write-Host "  OpenVINO:  $($env:ML_USE_OPENVINO)" -ForegroundColor White
-Write-Host "  SAM:       $($env:ML_ENABLE_SAM) ($($env:ML_SEG_MODEL))" -ForegroundColor White
+Write-Host "  Segmentation: on-device YOLOv8-seg (server SAM disabled)" -ForegroundColor White
 Write-Host "  API Key:   $(if ($env:ML_API_KEY) { $env:ML_API_KEY.Substring(0,8) + '...' } else { 'NOT SET' })" -ForegroundColor $(if ($env:ML_API_KEY) { 'White' } else { 'Red' })
 Write-Host "  Workers:   $Workers" -ForegroundColor White
 
