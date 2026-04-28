@@ -139,24 +139,10 @@ DEPTH_MODELS: Dict[str, DepthModelConfig] = {
     #     ),
     # ),
     
-    # ── Metric3D v2 (ICLR 2024) ────────────────────────────────
-    "metric3d_v2": DepthModelConfig(
-        model_id="JUGGHM/Metric3D-v2-ViT-Large",
-        display_name="Metric3D v2 ViT-Large",
-        params_m=300.0,
-        license="Apache-2.0",
-        expected_cpu_time_s=20.0,
-        input_size=616,
-        output_type="metric",
-        backend="metric3d",
-        notes=(
-            "ICLR 2024 SOTA metric depth. Camera-intrinsic-aware. "
-            "Canonical camera transform eliminates need for EXIF calibration. "
-            "Better generalization than Depth Pro on diverse camera types. "
-            "Requires: pip install metric3d  OR manual integration. "
-            "Best on Core Ultra iGPU via OpenVINO (~8s) or CUDA (~1s)."
-        ),
-    ),
+    # ── Metric3D v2 (REMOVED 2026-04-28) ───────────────────────
+    # Was registered with backend="metric3d" but had no loader in
+    # depth_estimation.py — selecting it would crash. Repo also gated
+    # on Hugging Face. Use unidepth_v2 / da3_metric_large instead.
 
     # ── Phase 4: Latest SOTA ───────────────────────────────────
     # TODO: Uncomment when MetricAnything is mature enough
