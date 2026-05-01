@@ -15,25 +15,60 @@ const { resolveCountyByLngLat } = require('../utils/geo');
 
 
 // 取得專案區位列表
+// [Bug A 修復] city 過濾改為「資料驅動」：
+//   1. 對每筆 tree_survey 用 utils/geo 解析 (lng, lat) → 縣市
+//   2. 聚合到 project_location，每個 area 收集到「真實樹木所在縣市」集合
+//   3. 若 area 沒有任何有效座標的樹 → fallback 到 project_areas.city 欄位（向後相容）
+//   4. 回傳所有「該縣市集合包含 city」或 fallback 命中的 area
 router.get('/', async (req, res) => {
     const { city } = req.query;
-    let query = 'SELECT * FROM project_areas';
-    const params = [];
-
-    if (city) {
-        if (city.endsWith('市') || city.endsWith('縣')) {
-            query += ' WHERE city = $1';
-            params.push(city);
-        } else {
-            query += ' WHERE city = $1 OR city = $2';
-            params.push(city + '市', city + '縣');
-        }
-    }
-    query += ' ORDER BY area_code ASC';
 
     try {
-        const { rows } = await db.query(query, params);
-        res.json({ success: true, data: rows });
+        const { rows: areas } = await db.query('SELECT * FROM project_areas ORDER BY area_code ASC');
+
+        if (!city) {
+            return res.json({ success: true, data: areas });
+        }
+
+        // 將輸入 city 標準化為 ['xx市', 'xx縣'] 兩種候選（含後綴的話就只留自身）
+        const cityCandidates = (city.endsWith('市') || city.endsWith('縣'))
+            ? [city]
+            : [city + '市', city + '縣'];
+
+        // 從樹木表收集 area → resolved cities 對映
+        const { rows: trees } = await db.query(`
+            SELECT project_location, x_coord, y_coord
+            FROM tree_survey
+            WHERE project_location IS NOT NULL AND project_location != ''
+              AND is_placeholder IS NOT TRUE
+              AND x_coord IS NOT NULL AND y_coord IS NOT NULL
+              AND x_coord != 0 AND y_coord != 0
+        `);
+
+        const areaToCities = new Map(); // area_name → Set<countyName>
+        for (const t of trees) {
+            const lng = Number(t.x_coord);
+            const lat = Number(t.y_coord);
+            if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
+            const detected = resolveCountyByLngLat(lng, lat);
+            if (!detected || !detected.name) continue;
+            if (!areaToCities.has(t.project_location)) {
+                areaToCities.set(t.project_location, new Set());
+            }
+            areaToCities.get(t.project_location).add(detected.name);
+        }
+
+        const filtered = areas.filter(a => {
+            const cities = areaToCities.get(a.area_name);
+            if (cities && cities.size > 0) {
+                // 有樹 → 必須樹的縣市命中
+                return cityCandidates.some(c => cities.has(c));
+            }
+            // 無有效座標樹 → fallback 到 area.city 欄位
+            return a.city && cityCandidates.includes(a.city);
+        });
+
+        res.json({ success: true, data: filtered });
     } catch (err) {
         console.error('查詢區位時發生錯誤:', err);
         res.status(500).json({ success: false, message: '查詢區位時發生錯誤' });

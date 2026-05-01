@@ -3,6 +3,7 @@ const router = express.Router();
 const db = require('../config/db');
 const { requireRole } = require('../middleware/roleAuth');
 const { projectAuthFilter } = require('../middleware/projectAuth');
+const { resolveCountyByLngLat } = require('../utils/geo');
 
 // 取得專案列表 (依使用者權限過濾)
 // [Phase A] 優先從 projects 表查詢，fallback 到 SELECT DISTINCT FROM tree_survey
@@ -70,8 +71,10 @@ router.get('/', projectAuthFilter, async (req, res) => {
 // 根據專案區位獲取專案列表
 // [Phase A] 優先從 projects 表查詢
 // [T7] 加 projectAuthFilter：Lvl<4 只能看被授權的專案
+// [Bug A 修復] 支援 ?city=X：只回傳「該專案至少有一棵樹的座標解析縣市 = X」的專案
 router.get('/by_area/:area', projectAuthFilter, async (req, res) => {
     const { area } = req.params;
+    const { city } = req.query;
     try {
         let rows = [];
 
@@ -101,9 +104,37 @@ router.get('/by_area/:area', projectAuthFilter, async (req, res) => {
         }
 
         // [T7] 依 projectFilter 過濾；null = 無限制
-if (Array.isArray(req.projectFilter)) {
-    rows = rows.filter(r => req.projectFilter.includes(r.code));
-}
+        if (Array.isArray(req.projectFilter)) {
+            rows = rows.filter(r => req.projectFilter.includes(r.code));
+        }
+
+        // [Bug A] city 過濾：只保留「該專案至少有一棵樹解析到該 city」的專案
+        if (city && rows.length > 0) {
+            const cityCandidates = (city.endsWith('市') || city.endsWith('縣'))
+                ? [city]
+                : [city + '市', city + '縣'];
+            const projectNames = rows.map(r => r.name);
+            const { rows: trees } = await db.query(`
+                SELECT project_name, x_coord, y_coord
+                FROM tree_survey
+                WHERE project_name = ANY($1::text[])
+                  AND is_placeholder IS NOT TRUE
+                  AND x_coord IS NOT NULL AND y_coord IS NOT NULL
+                  AND x_coord != 0 AND y_coord != 0
+            `, [projectNames]);
+            const projectCities = new Map();
+            for (const t of trees) {
+                const detected = resolveCountyByLngLat(Number(t.x_coord), Number(t.y_coord));
+                if (!detected || !detected.name) continue;
+                if (!projectCities.has(t.project_name)) projectCities.set(t.project_name, new Set());
+                projectCities.get(t.project_name).add(detected.name);
+            }
+            rows = rows.filter(r => {
+                const cities = projectCities.get(r.name);
+                return cities && cityCandidates.some(c => cities.has(c));
+            });
+        }
+
         res.json({ success: true, data: rows });
     } catch (err) {
         console.error(`取得區位[${area}]的專案列表錯誤:`, err);
