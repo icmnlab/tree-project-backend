@@ -38,7 +38,8 @@ const migrationFiles = [
   '03_user_projects.pg.sql', // [Phase A] user_projects junction table + 從 associated_projects 遷移 + 填充 projects 表
   '05_ip_blacklist.pg.sql', // [T8.2] IP 黑名單與登入失敗計數
   '06_project_boundaries_seed.pg.sql', // [Data] 35 個港務專案邊界 (convex hull from tree GPS, +10m buffer)
-  '07_backfill_projects_area_id.pg.sql' // [Heal] Backfill projects.area_id from project_location + heal placeholder names
+  '07_backfill_projects_area_id.pg.sql', // [Heal] Backfill projects.area_id from project_location + heal placeholder names
+  '08_text_integrity_check.pg.sql' // [L3] 禁止 U+FFFD 寫入關鍵字串欄位 (見 utils/textValidation.js)
 ];
 
 // Define the order for view creation

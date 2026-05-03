@@ -9,6 +9,7 @@
 const db = require('../config/db');
 const { parse } = require('csv-parse/sync');
 const AuditLogService = require('../services/auditLogService');
+const { decodeBufferAuto, assertCleanUtf8, EncodingError } = require('../utils/textValidation');
 
 // ================================================================
 // 欄位映射表：支援中英文欄位名
@@ -78,8 +79,26 @@ async function preview(req, res) {
             return res.status(400).json({ success: false, message: '請上傳 CSV 檔案' });
         }
 
-        const csvBuffer = req.file.buffer;
-        const csvString = csvBuffer.toString('utf-8').replace(/^\uFEFF/, ''); // 移除 BOM
+        // [L1 reject] Strict encoding validation: detect non-UTF8 (BIG5/GBK/...)
+        // and decode safely. Refuse anything that still contains U+FFFD so we
+        // never write "?" placeholders into the database.
+        let csvString;
+        let detectedEncoding;
+        try {
+            const decoded = decodeBufferAuto(req.file.buffer, { contextLabel: 'CSV 檔案' });
+            csvString = decoded.text;
+            detectedEncoding = decoded.encoding;
+        } catch (encErr) {
+            if (encErr instanceof EncodingError) {
+                return res.status(400).json({
+                    success: false,
+                    message: encErr.message,
+                    detected: encErr.detected,
+                    sample: encErr.sample,
+                });
+            }
+            throw encErr;
+        }
 
         let records;
         try {
