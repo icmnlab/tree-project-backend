@@ -85,13 +85,69 @@ async function migrate() {
         const stream = client.query(copyFrom(copyCommand));
         const fileStream = fs.createReadStream(absolutePath);
 
-        // Create a transform stream to replace invalid dates on the fly
+        // Create a transform stream to replace invalid dates on the fly.
+        //
+        // CRITICAL: We MUST operate on Buffer bytes, not strings.
+        // Previously this used `chunk.toString()` (default UTF-8) which splits
+        // 3-byte CJK characters across chunk boundaries → silently injects
+        // U+FFFD (EF BF BD) into the data. That bug populated dirty rows like
+        // "台中港植栽第??區" on every deploy.
+        // The replacement target "0000-00-00 00:00:00" is pure ASCII, so it is
+        // safe to do at byte level — no UTF-8 awareness required.
+        const INVALID_DATE = Buffer.from('0000-00-00 00:00:00', 'ascii');
+        // Keep the trailing (needle.length - 1) bytes of each chunk in a
+        // residual so the needle can match across chunk boundaries.
+        let residual = Buffer.alloc(0);
         const transformStream = new Transform({
           transform(chunk, encoding, callback) {
-            // Convert chunk to string, replace the invalid date, and push it back
-            const transformedChunk = chunk.toString().replace(/0000-00-00 00:00:00/g, '');
-            this.push(transformedChunk);
-            callback();
+            try {
+              const buf = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+              const combined = residual.length > 0 ? Buffer.concat([residual, buf]) : buf;
+              const keep = INVALID_DATE.length - 1;
+              const cutoff = combined.length > keep ? combined.length - keep : 0;
+              const processable = combined.subarray(0, cutoff);
+              residual = combined.subarray(cutoff);
+
+              if (processable.indexOf(INVALID_DATE) === -1) {
+                this.push(processable);
+              } else {
+                let start = 0;
+                let idx;
+                const parts = [];
+                while ((idx = processable.indexOf(INVALID_DATE, start)) !== -1) {
+                  parts.push(processable.subarray(start, idx));
+                  start = idx + INVALID_DATE.length;
+                }
+                parts.push(processable.subarray(start));
+                this.push(Buffer.concat(parts));
+              }
+              callback();
+            } catch (err) {
+              callback(err);
+            }
+          },
+          flush(callback) {
+            try {
+              // Flush remaining residual at end-of-stream.
+              if (residual.length > 0) {
+                if (residual.indexOf(INVALID_DATE) === -1) {
+                  this.push(residual);
+                } else {
+                  let start = 0;
+                  let idx;
+                  const parts = [];
+                  while ((idx = residual.indexOf(INVALID_DATE, start)) !== -1) {
+                    parts.push(residual.subarray(start, idx));
+                    start = idx + INVALID_DATE.length;
+                  }
+                  parts.push(residual.subarray(start));
+                  this.push(Buffer.concat(parts));
+                }
+              }
+              callback();
+            } catch (err) {
+              callback(err);
+            }
           }
         });
 
