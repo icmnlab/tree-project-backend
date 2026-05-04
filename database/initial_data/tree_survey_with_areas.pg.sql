@@ -4,6 +4,12 @@ DROP VIEW IF EXISTS tree_survey_with_areas;
 --
 -- 檢視表結構 `tree_survey_with_areas` for PostgreSQL
 --
+-- [Stage 1 commit 4] 改用 project_id → projects.area_id JOIN（之前用
+--   ts.project_location = pa.area_name 字串相等，遇到 projects.name 含
+--   「（B1）」suffix 而 tree_survey 不含時整段斷掉）。
+--   tree_survey.project_id 已是 FK 並有 trigger 自動填，projects.area_id
+--   已 backfill，兩個 JOIN 皆穩定。
+--
 CREATE VIEW tree_survey_with_areas AS
 SELECT
     ts.id,
@@ -31,6 +37,8 @@ SELECT
 FROM
     tree_survey ts
 LEFT JOIN
-    project_areas pa ON ts.project_location = pa.area_name;
+    projects p ON ts.project_id = p.id
+LEFT JOIN
+    project_areas pa ON p.area_id = pa.id;
 
-COMMENT ON VIEW tree_survey_with_areas IS '一個將 tree_survey 和 project_areas 結合的檢視表，方便查詢區域資訊。';
+COMMENT ON VIEW tree_survey_with_areas IS '一個將 tree_survey 和 project_areas 結合的檢視表，方便查詢區域資訊。Stage 1 改用 project_id → projects.area_id JOIN，避免 area_name 字串漂移。';

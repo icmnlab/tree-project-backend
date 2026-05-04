@@ -130,6 +130,9 @@ router.get('/', projectAuthFilter, async (req, res) => {
 });
 
 // [優化] 地圖專用精簡 API (依使用者權限過濾)
+// [Stage 1 commit 3] 每筆 row 標註權威 _city（utils/county.resolveAreaCity，
+//   座標優先 + areaName fallback）。前端不再需要硬編碼 cityBounds/keywords。
+//   選擇性 ?city= 在 server 端做最終過濾（前端通常用 _city 直接 client filter）。
 router.get('/map', projectAuthFilter, async (req, res) => {
     try {
         let sql = `
@@ -161,7 +164,26 @@ router.get('/map', projectAuthFilter, async (req, res) => {
 
         sql += ` ORDER BY id ASC`;
         const { rows } = await db.query(sql, params);
-        res.json({ success: true, data: rows });
+
+        // [Stage 1] 每筆標註權威縣市，前端不再自行解析
+        const { resolveAreaCity, matchCity } = require('../utils/county');
+        const annotated = rows.map(r => ({
+            ...r,
+            _city: resolveAreaCity({
+                lng: r['X坐標'],
+                lat: r['Y坐標'],
+                areaName: r['專案區位'],
+            }),
+        }));
+
+        // 選擇性 ?city= 過濾
+        const { city } = req.query;
+        if (city && typeof city === 'string' && city.trim() !== '' && city !== '全部') {
+            const filtered = annotated.filter(r => matchCity(r._city, city));
+            return res.json({ success: true, data: filtered });
+        }
+
+        res.json({ success: true, data: annotated });
     } catch (err) {
         console.error('獲取地圖樹木資料錯誤:', err);
         res.status(500).json({ success: false, message: '查詢資料庫時發生錯誤' });

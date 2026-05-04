@@ -4,6 +4,7 @@ const db = require('../config/db');
 const { requireRole } = require('../middleware/roleAuth');
 const { projectAuthFilter } = require('../middleware/projectAuth');
 const { resolveCountyByLngLat } = require('../utils/geo');
+const { resolveAreaCity, normalizeCityCandidates, matchCity } = require('../utils/county');
 
 // 取得專案列表 (依使用者權限過濾)
 // [Phase A] 優先從 projects 表查詢，fallback 到 SELECT DISTINCT FROM tree_survey
@@ -97,9 +98,7 @@ router.get('/by_area/:area', projectAuthFilter, async (req, res) => {
 
         // city 過濾
         if (city && rows.length > 0) {
-            const cityCandidates = (city.endsWith('市') || city.endsWith('縣'))
-                ? [city]
-                : [city + '市', city + '縣'];
+            const cityCandidates = normalizeCityCandidates(city);
 
             // 1. 優先用 project_areas.city
             const allHaveAreaCity = rows.every(r => r.area_city != null);
@@ -109,19 +108,21 @@ router.get('/by_area/:area', projectAuthFilter, async (req, res) => {
                 // 2. Fallback：座標掃描，用 project_code JOIN 避免 name 漂移
                 const projectCodes = rows.map(r => r.code);
                 const { rows: trees } = await db.query(`
-                    SELECT project_code, x_coord, y_coord
+                    SELECT project_code, project_location, x_coord, y_coord
                     FROM tree_survey
                     WHERE project_code = ANY($1::text[])
                       AND is_placeholder IS NOT TRUE
-                      AND x_coord IS NOT NULL AND y_coord IS NOT NULL
-                      AND x_coord != 0 AND y_coord != 0
                 `, [projectCodes]);
                 const projectCities = new Map();
                 for (const t of trees) {
-                    const detected = resolveCountyByLngLat(Number(t.x_coord), Number(t.y_coord));
-                    if (!detected || !detected.name) continue;
+                    const detected = resolveAreaCity({
+                        lng: t.x_coord,
+                        lat: t.y_coord,
+                        areaName: t.project_location,
+                    });
+                    if (!detected) continue;
                     if (!projectCities.has(t.project_code)) projectCities.set(t.project_code, new Set());
-                    projectCities.get(t.project_code).add(detected.name);
+                    projectCities.get(t.project_code).add(detected);
                 }
                 rows = rows.filter(r => {
                     if (r.area_city) return cityCandidates.includes(r.area_city);

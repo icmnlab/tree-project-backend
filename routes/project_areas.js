@@ -9,16 +9,17 @@ const {
 } = require('../utils/cleanup');
 const { requireRole } = require('../middleware/roleAuth');
 const { resolveCountyByLngLat } = require('../utils/geo');
+const { resolveAreaCity, normalizeCityCandidates, matchCity } = require('../utils/county');
 
-// 縣市判斷一律使用 utils/geo.js (內政部 1140318 官方界線 + turf point-in-polygon)
-// 該 helper 會回傳官方 COUNTYNAME (含「市/縣」尾綴), 不需自行貼後綴
+// 縣市判斷一律使用 utils/county.js (內政部 1140318 官方界線 + turf point-in-polygon)
+// 該 helper 會回傳官方 COUNTYNAME (含「市/縣」尾綴), 不需自行貌後綴
 
 
 // 取得專案區位列表
-// [Bug A 修復] city 過濾改為「資料驅動」：
-//   1. 對每筆 tree_survey 用 utils/geo 解析 (lng, lat) → 縣市
-//   2. 聚合到 project_location，每個 area 收集到「真實樹木所在縣市」集合
-//   3. 若 area 沒有任何有效座標的樹 → fallback 到 project_areas.city 欄位（向後相容）
+// [Stage 1 commit 2] city 過濾改走 utils/county.resolveAreaCity：
+//   1. 對每筆樹以座標 + project_location 一起送進 helper (座標優先，名稱為 fallback)
+//   2. 聚合到 area → 該區位「真實樹木所在縣市」集合
+//   3. 若 area 沒有任何樹 → fallback 到 project_areas.city 欄位 (denormalized cache)
 //   4. 回傳所有「該縣市集合包含 city」或 fallback 命中的 area
 router.get('/', async (req, res) => {
     const { city } = req.query;
@@ -30,10 +31,8 @@ router.get('/', async (req, res) => {
             return res.json({ success: true, data: areas });
         }
 
-        // 將輸入 city 標準化為 ['xx市', 'xx縣'] 兩種候選（含後綴的話就只留自身）
-        const cityCandidates = (city.endsWith('市') || city.endsWith('縣'))
-            ? [city]
-            : [city + '市', city + '縣'];
+        // 將輸入 city 標準化為候選（'花蔣' → ['花蔣市','花蔣縣']）
+        const cityCandidates = normalizeCityCandidates(city);
 
         // 從樹木表收集 area → resolved cities 對映
         const { rows: trees } = await db.query(`
@@ -41,21 +40,20 @@ router.get('/', async (req, res) => {
             FROM tree_survey
             WHERE project_location IS NOT NULL AND project_location != ''
               AND is_placeholder IS NOT TRUE
-              AND x_coord IS NOT NULL AND y_coord IS NOT NULL
-              AND x_coord != 0 AND y_coord != 0
         `);
 
         const areaToCities = new Map(); // area_name → Set<countyName>
         for (const t of trees) {
-            const lng = Number(t.x_coord);
-            const lat = Number(t.y_coord);
-            if (!Number.isFinite(lng) || !Number.isFinite(lat)) continue;
-            const detected = resolveCountyByLngLat(lng, lat);
-            if (!detected || !detected.name) continue;
+            const detected = resolveAreaCity({
+                lng: t.x_coord,
+                lat: t.y_coord,
+                areaName: t.project_location,
+            });
+            if (!detected) continue;
             if (!areaToCities.has(t.project_location)) {
                 areaToCities.set(t.project_location, new Set());
             }
-            areaToCities.get(t.project_location).add(detected.name);
+            areaToCities.get(t.project_location).add(detected);
         }
 
         const filtered = areas.filter(a => {
@@ -64,8 +62,8 @@ router.get('/', async (req, res) => {
                 // 有樹 → 必須樹的縣市命中
                 return cityCandidates.some(c => cities.has(c));
             }
-            // 無有效座標樹 → fallback 到 area.city 欄位
-            return a.city && cityCandidates.includes(a.city);
+            // 無樹 → fallback 到 area.city 欄位
+            return matchCity(a.city, city);
         });
 
         res.json({ success: true, data: filtered });
