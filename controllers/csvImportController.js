@@ -391,7 +391,7 @@ async function execute(req, res) {
 
                     await client.query(`
                         INSERT INTO tree_survey (
-                            project_location, project_code, project_name,
+                            project_code,
                             system_tree_id, project_tree_id,
                             species_id, species_name,
                             x_coord, y_coord, status,
@@ -399,9 +399,9 @@ async function execute(req, res) {
                             tree_height_m, dbh_cm,
                             carbon_storage, carbon_sequestration_per_year,
                             survey_time
-                        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+                        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
                     `, [
-                        data.project_location, data.project_code, data.project_name,
+                        data.project_code,
                         sysId, projTreeId,
                         data.species_id, data.species_name,
                         data.x_coord, data.y_coord, data.status || '正常',
@@ -410,6 +410,7 @@ async function execute(req, res) {
                         data.carbon_storage, data.carbon_sequestration_per_year,
                         data.survey_time || null
                     ]);
+                    // project_location / project_name 由 trigger 09 自 projects + project_areas 覆蓋
                     insertedCount++;
                 } catch (insertErr) {
                     importErrors.push({
@@ -441,7 +442,8 @@ async function execute(req, res) {
                         'tree_height_m', 'dbh_cm', 'status',
                         'notes', 'tree_notes', 'survey_notes',
                         'carbon_storage', 'carbon_sequestration_per_year',
-                        'survey_time', 'project_location'
+                        'survey_time'
+                        // project_location 由 trigger 09 自 projects + project_areas 覆蓋
                     ];
 
                     for (const field of updatableFields) {

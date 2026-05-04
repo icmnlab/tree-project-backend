@@ -136,17 +136,17 @@ exports.createTreeV2 = async (req, res) => {
 
         const insertSql = `
             INSERT INTO tree_survey 
-            (project_location, project_code, project_name, system_tree_id, project_tree_id, species_id, 
+            (project_code, system_tree_id, project_tree_id, species_id, 
             species_name, x_coord, y_coord, status, notes, tree_notes, tree_height_m, 
             dbh_cm, survey_notes, survey_time, carbon_storage, carbon_sequestration_per_year, project_id) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
             RETURNING id;
         `;
+        // project_name / project_location 由 trigger 09 自 projects + project_areas 覆蓋
+        // species_name 在 species_id 對得到 tree_species 時也由 trigger 覆蓋，否則保留 caller 值
 
         const values = [
-            project_area || '無',
             project_code || '無',
-            project_name || '無',
             systemTreeId,
             projectTreeId,
             finalSpeciesId || '無',

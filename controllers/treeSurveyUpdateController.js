@@ -130,9 +130,9 @@ exports.updateTreeV2 = async (req, res) => {
         let queryIndex = 1;
 
         const fieldMapping = {
-            project_location: project_area,
+            // project_location / project_name 由 trigger 09 自 projects + project_areas 覆蓋
+            // 若 caller 改了 project_code/project_id，trigger 會自動重抓對應 cache
             project_code: project_code,
-            project_name: project_name,
             species_id: species_id,
             species_name: species_name,
             x_coord: finalX,
