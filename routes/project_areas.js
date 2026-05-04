@@ -14,6 +14,19 @@ const { resolveAreaCity, normalizeCityCandidates, matchCity } = require('../util
 // 縣市判斷一律使用 utils/county.js (內政部 1140318 官方界線 + turf point-in-polygon)
 // 該 helper 會回傳官方 COUNTYNAME (含「市/縣」尾綴), 不需自行貌後綴
 
+// 由座標推算 city；解析失敗回傳 fallbackCity (使用者手動指定的)。
+// POST / PUT 共用，避免座標 → city 轉換邏輯重複。
+function recomputeCityFromCoords({ xCoord, yCoord, fallbackCity }) {
+    if (xCoord === undefined || xCoord === null || yCoord === undefined || yCoord === null) {
+        return fallbackCity;
+    }
+    const lng = parseFloat(xCoord);
+    const lat = parseFloat(yCoord);
+    if (!Number.isFinite(lng) || !Number.isFinite(lat)) return fallbackCity;
+    const detected = resolveCountyByLngLat(lng, lat);
+    return (detected && detected.name) ? detected.name : fallbackCity;
+}
+
 
 // 取得專案區位列表
 // [Stage 1 commit 2] city 過濾改走 utils/county.resolveAreaCity：
@@ -112,13 +125,7 @@ router.post('/', requireRole('專案管理員'), async (req, res) => {
 
         let finalCity = city;
         if (isSubmit && yCoord && xCoord) {
-            const lng = parseFloat(xCoord);
-            const lat = parseFloat(yCoord);
-            const detected = resolveCountyByLngLat(lng, lat);
-            if (detected && detected.name) {
-                // 官方 COUNTYNAME 已含「市/縣」, 直接使用 (例: 嘉義縣 / 台南市)
-                finalCity = detected.name;
-            }
+            finalCity = recomputeCityFromCoords({ xCoord, yCoord, fallbackCity: city });
         }
 
         const { rows: insertResult } = await client.query(
@@ -142,16 +149,31 @@ router.post('/', requireRole('專案管理員'), async (req, res) => {
 });
 
 // 修改專案區位 (專案管理員以上)
+// 支援 xCoord/yCoord：若有提供，重新計算 city (POST 邏輯一致)
+// 若 caller 同時送 city，座標解析失敗時 fallback 用 caller 指定的 city
 router.put('/:id', requireRole('專案管理員'), async (req, res) => {
     const { id } = req.params;
-    const { area_name, area_code, description } = req.body;
+    const { area_name, area_code, description, xCoord, yCoord, city } = req.body;
     if (!area_name || !area_code) {
         return res.status(400).json({ success: false, message: '請提供區位名稱與代碼' });
     }
     try {
-        const { rowCount } = await db.query('UPDATE project_areas SET area_name = $1, area_code = $2, description = $3 WHERE id = $4', [area_name, area_code, description || null, id]);
+        // 讀現有 row 取得 fallback city (caller 沒送 city 時用 DB 原值)
+        const { rows: existing } = await db.query('SELECT city FROM project_areas WHERE id = $1', [id]);
+        if (existing.length === 0) {
+            return res.status(404).json({ success: false, message: '找不到要更新的區位' });
+        }
+        const fallbackCity = (city !== undefined && city !== null) ? city : existing[0].city;
+        const finalCity = (xCoord !== undefined && yCoord !== undefined)
+            ? recomputeCityFromCoords({ xCoord, yCoord, fallbackCity })
+            : fallbackCity;
+
+        const { rowCount } = await db.query(
+            'UPDATE project_areas SET area_name = $1, area_code = $2, description = $3, city = $4 WHERE id = $5',
+            [area_name, area_code, description || null, finalCity, id]
+        );
         if (rowCount > 0) {
-            res.status(200).json({ success: true, message: '區位更新成功' });
+            res.status(200).json({ success: true, message: '區位更新成功', data: { id, area_name, area_code, description, city: finalCity } });
         } else {
             res.status(404).json({ success: false, message: '找不到要更新的區位' });
         }
