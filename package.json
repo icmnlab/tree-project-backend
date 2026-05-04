@@ -14,7 +14,12 @@
     "test:regression": "node tests/regression.test.js",
     "test:regression:local": "node tests/regression.test.js --local",
     "test:regression:verbose": "node tests/regression.test.js --verbose",
-    "test:all": "node tests/regression.test.js && node tests/apiIntegration.test.js && node tests/securityAudit.test.js"
+    "test:all": "node tests/regression.test.js && node tests/apiIntegration.test.js && node tests/securityAudit.test.js",
+    "test:framework": "node tests/runner.js",
+    "test:invariants": "node tests/runner.js --section=invariants",
+    "test:journeys": "node tests/runner.js --section=journeys",
+    "test:framework:local": "node tests/runner.js --local",
+    "test:framework:list": "node tests/runner.js --list"
   },
   "keywords": [],
   "author": "",
