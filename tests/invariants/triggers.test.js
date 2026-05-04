@@ -179,5 +179,96 @@ module.exports = {
                 assert.strictEqual(row.project_name, projB.name, 'project_name re-pulled from B');
             },
         },
+        {
+            name: 'AFTER cascade: UPDATE projects.name → tree_survey.project_name 同步',
+            run: async (ctx) => {
+                if (!ctx.db.isAvailable()) {
+                    throw new Error('SKIP: TEST_DB_URL not set');
+                }
+                await ctx.api.login('admin');
+
+                const area = ctx.factories.buildArea();
+                const rArea = await ctx.api.post('project_areas', area);
+                ctx.assert.assertJsonOk(rArea);
+                ctx.cleanup.track('area', rArea.body.data.id);
+
+                const projBody = ctx.factories.buildProject({ area: area.area_name });
+                const rProj = await ctx.api.post('projects/add', { name: projBody.name, area: projBody.area });
+                ctx.assert.assertJsonOk(rProj);
+                const code = rProj.body.project.code;
+                ctx.cleanup.track('project', code);
+
+                const tree = ctx.factories.buildTree({
+                    project_code: code,
+                    project_name: projBody.name,
+                    project_area: area.area_name,
+                });
+                const rTree = await ctx.api.post('tree_survey/create_v2', tree);
+                ctx.assert.assertJsonOk(rTree);
+                const treeId = rTree.body.data?.id || rTree.body.id;
+                ctx.cleanup.track('tree', treeId);
+
+                // 直連 DB rename projects (尚無 PUT API)
+                const newName = projBody.name + '_renamed';
+                await ctx.db.query(
+                    `UPDATE projects SET name = $1 WHERE project_code = $2`,
+                    [newName, code]
+                );
+
+                const after = await ctx.db.query(
+                    `SELECT project_name FROM tree_survey WHERE id = $1`, [treeId]
+                );
+                assert.strictEqual(after.rows[0].project_name, newName,
+                    'tree_survey.project_name should follow projects.name');
+            },
+        },
+        {
+            name: 'AFTER cascade: UPDATE projects.area_id → tree_survey.project_location 同步',
+            run: async (ctx) => {
+                if (!ctx.db.isAvailable()) {
+                    throw new Error('SKIP: TEST_DB_URL not set');
+                }
+                await ctx.api.login('admin');
+
+                // 建兩個區位 A1 / A2
+                const a1 = ctx.factories.buildArea();
+                const rA1 = await ctx.api.post('project_areas', a1);
+                ctx.assert.assertJsonOk(rA1);
+                ctx.cleanup.track('area', rA1.body.data.id);
+
+                const a2 = ctx.factories.buildArea();
+                const rA2 = await ctx.api.post('project_areas', a2);
+                ctx.assert.assertJsonOk(rA2);
+                ctx.cleanup.track('area', rA2.body.data.id);
+
+                const projBody = ctx.factories.buildProject({ area: a1.area_name });
+                const rProj = await ctx.api.post('projects/add', { name: projBody.name, area: a1.area_name });
+                ctx.assert.assertJsonOk(rProj);
+                const code = rProj.body.project.code;
+                ctx.cleanup.track('project', code);
+
+                const tree = ctx.factories.buildTree({
+                    project_code: code,
+                    project_name: projBody.name,
+                    project_area: a1.area_name,
+                });
+                const rTree = await ctx.api.post('tree_survey/create_v2', tree);
+                ctx.assert.assertJsonOk(rTree);
+                const treeId = rTree.body.data?.id || rTree.body.id;
+                ctx.cleanup.track('tree', treeId);
+
+                // 改 projects.area_id → A2
+                await ctx.db.query(
+                    `UPDATE projects SET area_id = $1 WHERE project_code = $2`,
+                    [rA2.body.data.id, code]
+                );
+
+                const after = await ctx.db.query(
+                    `SELECT project_location FROM tree_survey WHERE id = $1`, [treeId]
+                );
+                assert.strictEqual(after.rows[0].project_location, a2.area_name,
+                    'tree_survey.project_location should follow new area');
+            },
+        },
     ],
 };
