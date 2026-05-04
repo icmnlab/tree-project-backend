@@ -23,7 +23,7 @@
  *   - 套用模式會印 BEFORE/AFTER 表格供 review
  */
 
-const db = require('../database/db');
+const db = require('../config/db');
 const { resolveAreaCity } = require('../utils/county');
 
 const APPLY = process.argv.includes('--apply');
