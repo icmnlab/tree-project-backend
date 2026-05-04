@@ -35,6 +35,10 @@ class Api {
     async login(roleKey) {
         const u = USERS[roleKey];
         if (!u) throw new Error(`unknown user role: ${roleKey}`);
+        // 重用既有 token（避免單次測試跑 N 個 case 觸發登入失敗 IP 黑名單）
+        if (this.token && this._loginRole === roleKey) {
+            return { token: this.token, user: this.user, cached: true };
+        }
         const r = await this.post('login', {
             account: u.username,
             password: u.password,
@@ -45,6 +49,7 @@ class Api {
         }
         this.token = r.body.token || null;
         this.user = r.body.user || null;
+        this._loginRole = roleKey;
         return r.body;
     }
 
