@@ -21,9 +21,9 @@ FP16 MEMORY OPTIMIZATION (OpenVINO):
 ------------------------------------
 We set INFERENCE_PRECISION_HINT="f16" in OpenVINO config to halve memory footprint
 vs FP32 without meaningful accuracy loss for depth estimation. This is essential
-for hosting Depth Pro (350M params) + SAM 2.1 on memory-constrained servers or
-integrated GPUs. FP16 typically reduces VRAM by ~50% and can enable inference
-on Intel Arc iGPU where FP32 might OOM.
+for running DA3 Metric Large on constrained Intel GPU/NPU devices. Trunk masks
+come from the server YOLOv8-seg path, so the active production startup path does
+not require the retired interactive segmentation stack.
 
 UPGRADE GUIDE:
     Phase 1: Change DEFAULT_DEPTH_MODEL to "da_v2_base"
