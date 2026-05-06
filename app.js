@@ -116,6 +116,7 @@ const mlServiceRoutes = require('./routes/ml_service'); // ML Service 代理路�
 const csvImportRoutes = require('./routes/csvImport'); // [Phase C] CSV 匯入路由
 const agentRoutes = require('./routes/agent'); // AI Agent 路由
 const ipBlacklistRoutes = require('./routes/ipBlacklist'); // [T8.2] IP 黑名單管理
+const researchDatasetRoutes = require('./routes/research_dataset'); // [Research] DBH 校準資料蒐集
 
 apiRouter.use('/', usersRoutes); // 包含 /login
 apiRouter.use('/projects', projectsRoutes);
@@ -136,6 +137,7 @@ apiRouter.use('/tree-images', treeImagesRoutes); // 掛載樹木影像路由
 apiRouter.use('/ml-service', mlServiceRoutes); // 掛載 ML Service 代理路由
 apiRouter.use('/admin/import-csv', csvImportRoutes); // [Phase C] 掛載 CSV 匯入路由
 apiRouter.use('/admin/ip-blacklist', ipBlacklistRoutes); // [T8.2] 掛載 IP 黑名單管理
+apiRouter.use('/admin/research-dataset', researchDatasetRoutes); // [Research] DBH 校準資料蒐集
 apiRouter.use('/agent', agentRoutes); // 掛載 AI Agent 路由
 
 

@@ -38,7 +38,8 @@ const migrationFiles = [
   '08_text_integrity_check.pg.sql', // [L3] 禁止 U+FFFD 寫入關鍵字串欄位 (見 utils/textValidation.js)
   '09_tree_survey_cache_sync_trigger.sql', // [Stage 2] 擴充 BEFORE trigger 同步 project_name/code/location/species_name cache
   '10_projects_cascade_trigger.pg.sql', // [Stage 2] projects rename 時 cascade 更新 tree_survey + pending_tree_measurements
-  '11_species_cascade_trigger.pg.sql' // [Stage 2] tree_species rename 時 cascade 更新 species_name cache
+  '11_species_cascade_trigger.pg.sql', // [Stage 2] tree_species rename 時 cascade 更新 species_name cache
+  '12_research_dataset.pg.sql' // [Research] 研究用 DBH 校準資料集（管理員蒐集捲尺實測 + 拍攝距離）
 ];
 
 // Define the order for view creation
