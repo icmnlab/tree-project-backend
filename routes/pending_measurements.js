@@ -17,6 +17,7 @@ const router = express.Router();
 const db = require('../config/db');
 const pool = db.pool;
 const { projectAuthFilter, hasProjectPermission } = require('../middleware/projectAuth');
+const carbonCalculationService = require('../services/carbonCalculationService');
 
 // 內部小工具：把 req.projectFilter 套用到 SQL
 // 回傳 { clause, params, nextIdx }
@@ -810,6 +811,16 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
       const finalStatus = p.measurement_notes ?? '良好';
       const surveyNotes = buildSurveyNotes(p);
 
+      // [碳計算] TIPC AR-TMS0001 / 林業署手冊式 6-4 — K_sp · DBH² · H
+      // 缺 DBH 或樹高時回 null（讓 SQL SUM 可 IGNORE NULLS，避免誤併入零碳儲）
+      const finalCarbonStorage = carbonCalculationService.calculateCarbonStorage(
+        p.species_name,
+        finalDbh,
+        p.tree_height,
+      );
+      // 年固碳量 (carbon_sequestration_per_year) 因 TIPC 公式未公開，
+      // 不於 backend 重算；維持 NULL 由前端 fallback 顯示「—」。
+
       let treeSurveyId;
       let systemTreeId;
 
@@ -853,8 +864,9 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
               dbh_cm = $4,
               status = $5,
               survey_notes = $6,
-              survey_time = $7
-          WHERE id = $8
+              survey_time = $7,
+              carbon_storage = $8
+          WHERE id = $9
         `, [
           p.species_name ?? '待辨識',
           speciesId,
@@ -863,6 +875,7 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
           finalStatus,
           surveyNotes,
           p.completed_at ?? new Date(),
+          finalCarbonStorage,
           target.id,
         ]);
 
@@ -900,8 +913,9 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
             project_location, project_code, project_name,
             species_name, species_id, tree_height_m, dbh_cm,
             x_coord, y_coord,
-            status, survey_notes, survey_time
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            status, survey_notes, survey_time,
+            carbon_storage
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
           RETURNING id
         `, [
           systemTreeId,
@@ -917,7 +931,8 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
           p.tree_latitude,
           finalStatus,
           surveyNotes,
-          p.completed_at ?? new Date()
+          p.completed_at ?? new Date(),
+          finalCarbonStorage,
         ]);
         treeSurveyId = insertResult.rows[0].id;
       }

@@ -17,48 +17,7 @@
 const db = require('../config/db');
 const OpenAI = require('openai');
 const sqlQueryService = require('./sqlQueryService');
-const path = require('path');
-const fs = require('fs');
-
-// ============================================
-// TIPC K_sp 查表（反推自 AR-TMS0001 / 林業署森林碳匯手冊式 6-4）
-// 公式：carbon_storage_kgCO2e = K_sp · DBH^2 · H
-// 詳見 backend/scripts/build_tipc_kp_lookup.py + backend/data/tipc_kp_lookup.json
-// ============================================
-let TIPC_LOOKUP = null;
-try {
-    const lookupPath = path.join(__dirname, '..', 'data', 'tipc_kp_lookup.json');
-    TIPC_LOOKUP = JSON.parse(fs.readFileSync(lookupPath, 'utf8'));
-} catch (e) {
-    console.warn('[agentService] TIPC K_sp lookup load failed:', e.message);
-    TIPC_LOOKUP = { species: {}, default_broadleaf: { K_sp: 0.106152, F: 0.45, D_wood: 0.530 }, default_conifer: { K_sp: 0.117946, F: 0.50, D_wood: 0.530 } };
-}
-
-const TIPC_CONIFER_NAMES = new Set([
-    '肯氏南洋杉', '小葉南洋杉', '龍柏', '黑松',
-    '臺灣杉', '台灣杉', '紅檾', '臺灣肖楓', '台灣肖楓',
-    '落羽松', '柳杉', '臺灣五葉松', '台灣五葉松',
-    '華山松', '琉球松', '羅漢松', '蘭嶼羅漢松', '圓柏', '刺柏'
-]);
-
-function tipcLookupKsp(speciesName) {
-    if (!speciesName) return { entry: TIPC_LOOKUP.default_broadleaf, source: 'tipc_default_broadleaf', species_matched: null };
-    const name = String(speciesName).trim();
-    const direct = TIPC_LOOKUP.species[name];
-    if (direct) return { entry: direct, source: direct.source || 'tipc_reverse_engineered', species_matched: name };
-    // tolerant 臺/台 + partial match
-    for (const [k, v] of Object.entries(TIPC_LOOKUP.species)) {
-        if (k.includes(name) || name.includes(k)) {
-            return { entry: v, source: v.source || 'tipc_reverse_engineered', species_matched: k };
-        }
-    }
-    const isConifer = TIPC_CONIFER_NAMES.has(name);
-    return {
-        entry: isConifer ? TIPC_LOOKUP.default_conifer : TIPC_LOOKUP.default_broadleaf,
-        source: isConifer ? 'tipc_default_conifer' : 'tipc_default_broadleaf',
-        species_matched: null,
-    };
-}
+const carbonCalculationService = require('./carbonCalculationService');
 
 // ============================================
 // SiliconFlow / DeepSeek 客戶端初始化
@@ -351,30 +310,20 @@ async function toolQueryTreeData({ query, project_area }) {
 // --- Tool: calculate_carbon ---
 async function toolCalculateCarbon({ dbh_cm, height_m, species }) {
     // 碳匯計算公式 — TIPC AR-TMS0001 / 林業署森林碳匯調查與監測手冊式 6-4
-    // carbon_storage_kgCO2e = K_sp · DBH(cm)^2 · H(m)
-    // K_sp 反推自 backend/database/initial_data/tree_survey_data.csv
-    // (見 backend/scripts/build_tipc_kp_lookup.py)
+    // 邏輯統一委派 services/carbonCalculationService.js (與 transfer route 共用)
+    const detail = carbonCalculationService.calculateCarbonStorageDetail(species, dbh_cm, height_m);
+    if (detail.error) return { error: detail.error };
 
-    const dbh = dbh_cm || 0;
-    const height = height_m || 0;
-    if (dbh <= 0) return { error: '胸徑 (DBH) 必須大於 0' };
-    if (height <= 0) return { error: '樹高 (H) 必須大於 0；TIPC 公式需要胸徑與樹高二者。' };
-
-    const { entry, source, species_matched } = tipcLookupKsp(species);
-    const k = entry.K_sp;
-    const carbonStorage_kgCO2e = Math.round(k * dbh * dbh * height * 100) / 100;
+    const carbonStorage_kgCO2e = detail.value;
     const carbonStorage_tonCO2e = Math.round(carbonStorage_kgCO2e / 1000 * 1000) / 1000;
 
     return {
-        input: { dbh_cm: dbh, height_m: height, species: species || '未提供' },
-        formula: 'carbon_storage_kgCO2e = K_sp · DBH^2 · H',
+        input: { dbh_cm, height_m, species: species || '未提供' },
+        formula: detail.formula,
         coefficients: {
-            K_sp: k,
-            F: entry.F,
-            D_wood: entry.D_wood,
-            n_samples: entry.n_samples || 0,
-            source,
-            species_matched,
+            ...detail.coefficients,
+            source: detail.source,
+            species_matched: detail.species_matched,
         },
         carbon: {
             storage_kg_co2e: carbonStorage_kgCO2e,
@@ -383,7 +332,7 @@ async function toolCalculateCarbon({ dbh_cm, height_m, species }) {
         annual: {
             note: 'TIPC 年固碳量 (carbon_sequestration_per_year) 內部公式涉及樹齡且未公開，本工具不進行客端重算；請查詢資料庫中的 carbon_sequestration_per_year 欄位。',
         },
-        methodology: 'TIPC AR-TMS0001 (環境部 森林司) 與林業署『森林碳匯調查與監測手冊』式 6-4，K_sp 以 7044 筆現場調查資料反推驗證 (詳見 backend/data/tipc_kp_lookup.json)',
+        methodology: detail.methodology,
         note: '本計算為 TIPC 平台一致之估算值；實際碳信用需經授權驗證機構 (VVB) 查驗。',
     };
 }
