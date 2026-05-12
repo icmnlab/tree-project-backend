@@ -120,7 +120,7 @@ if ($Port -gt 0) {
 $env:ML_ENABLE_SAM = 'false'
 $env:ML_SEG_MODEL = 'server_yolo_v8_seg'
 if (-not $env:ML_SERVER_YOLO_DEVICE) { $env:ML_SERVER_YOLO_DEVICE = $ServerYoloDevice }
-if (-not $env:ML_SERVER_YOLO_IMGSZ)  { $env:ML_SERVER_YOLO_IMGSZ = '640' }
+if (-not $env:ML_SERVER_YOLO_IMGSZ)  { $env:ML_SERVER_YOLO_IMGSZ = '832' }
 
 if ($ForceServerYolo) {
     $env:ML_FORCE_SERVER_YOLO = 'true'
@@ -250,13 +250,15 @@ if ($LASTEXITCODE -ne 0) {
 # --- 自動檢查模型 (Models) ---
 Write-Host "  [Check] Verifying AI models..." -ForegroundColor DarkGray
 $Da3ModelXml = Join-Path $ScriptDir (Join-Path $env:ML_DA3_OV_DIR 'openvino_model.xml')
-$ServerYoloXml = Join-Path $ScriptDir 'trunk_detector_training\tree_trunk_seg_best_openvino_model\tree_trunk_seg_best.xml'
+$ServerYoloDir = Join-Path $ScriptDir 'trunk_detector_training\tree_trunk_seg_best_openvino_model'
+$ServerYoloXml = Join-Path $ServerYoloDir 'tree_trunk_seg_best.xml'
+$ServerYoloBestXml = Join-Path $ServerYoloDir 'best.xml'
 if ($env:ML_DEPTH_MODEL -eq 'da3_metric_large' -and -not (Test-Path $Da3ModelXml)) {
     Write-Host "  [Check] DA3 OpenVINO IR missing: $Da3ModelXml" -ForegroundColor Yellow
     Write-Host "  [Check] Run: python da3_to_openvino.py" -ForegroundColor DarkGray
 }
-if (-not (Test-Path $ServerYoloXml)) {
-    Write-Host "  [Check] Server YOLO OpenVINO IR missing: $ServerYoloXml" -ForegroundColor Yellow
+if (-not (Test-Path $ServerYoloXml) -and -not (Test-Path $ServerYoloBestXml)) {
+    Write-Host "  [Check] Server YOLO OpenVINO IR missing: $ServerYoloDir" -ForegroundColor Yellow
 }
 
 # --- 自動啟動 Ngrok (可選) ---

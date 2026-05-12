@@ -95,7 +95,7 @@ def _start_service(service: ServiceConfig, port: int, log_path: Path) -> subproc
         "ML_DA3_OV_DEVICE": service.da3_device,
         "ML_DA3_OV_DIR": service.da3_ir_dir,
         "ML_SERVER_YOLO_DEVICE": "intel:gpu",
-        "ML_SERVER_YOLO_IMGSZ": "640",
+        "ML_SERVER_YOLO_IMGSZ": "832",
         "ML_ENABLE_SAM": "false",
         "ML_BENCHMARK_MODE": "true",
         "ML_RATE_LIMIT": "100000",

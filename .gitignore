@@ -90,3 +90,12 @@ ml_service/openvino_models/
 *.pth
 *.xml
 *.onnx
+*.tflite
+*.npy
+*.pb
+
+# --- ML Service training artefacts: 排除大型權重/匯出目錄,保留訓練紀錄 ---
+ml_service/trunk_detector_training/run/*/best_saved_model/
+ml_service/trunk_detector_training/run/*/best_openvino_model/
+ml_service/trunk_detector_training/tree_trunk_seg_best_openvino_model_leaky_*/
+ml_service/trunk_detector_training/tree_trunk_seg_best_openvino_model/
