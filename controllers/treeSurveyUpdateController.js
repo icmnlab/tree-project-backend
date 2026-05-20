@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const AuditLogService = require('../services/auditLogService');
+const carbonCalculationService = require('../services/carbonCalculationService');
 
 /**
  * 更新單筆樹木調查資料 (v2)
@@ -124,6 +125,25 @@ exports.updateTreeV2 = async (req, res) => {
             }
         }
 
+        const effSpecies = species_name !== undefined ? species_name : existingTree.species_name;
+        const effDbh = finalDbh !== undefined ? parseFloat(finalDbh) : parseFloat(existingTree.dbh_cm);
+        const effHeight = finalHeight !== undefined
+            ? parseFloat(finalHeight)
+            : parseFloat(existingTree.tree_height_m);
+        let resolvedCarbon = carbon_storage;
+        const dimTouched =
+            species_name !== undefined
+            || finalDbh !== undefined
+            || finalHeight !== undefined;
+        if (dimTouched) {
+            const computed = carbonCalculationService.calculateCarbonStorage(
+                effSpecies,
+                effDbh,
+                effHeight,
+            );
+            if (computed != null) resolvedCarbon = computed;
+        }
+
         // 動態構建 SET 子句
         const updates = [];
         const values = [];
@@ -144,7 +164,7 @@ exports.updateTreeV2 = async (req, res) => {
             dbh_cm: finalDbh,
             survey_notes: finalSurveyNotes,
             survey_time: survey_time,
-            carbon_storage: carbon_storage,
+            carbon_storage: resolvedCarbon,
             carbon_sequestration_per_year: carbon_sequestration_per_year,
             project_id: projectId,
             project_tree_id: finalProjectTreeId

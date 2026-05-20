@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const AuditLogService = require('../services/auditLogService');
+const carbonCalculationService = require('../services/carbonCalculationService');
 
 /**
  * 單筆新增樹木調查資料 (v2) - 用於人工手動輸入
@@ -131,7 +132,14 @@ exports.createTreeV2 = async (req, res) => {
         const finalHeight = parseFloat(tree_height_m || height || 0);
         const finalDbh = parseFloat(dbh_cm || dbh || 0);
         const finalSurveyNote = survey_notes || survey_remark || '無';
-        const finalCarbon = parseFloat(carbon_storage || 0);
+        const computedCarbon = carbonCalculationService.calculateCarbonStorage(
+            species_name,
+            finalDbh,
+            finalHeight,
+        );
+        const finalCarbon = computedCarbon != null
+            ? computedCarbon
+            : parseFloat(carbon_storage || 0) || null;
         const finalSequestration = parseFloat(carbon_sequestration_per_year || carbon_sequestration || 0);
 
         const insertSql = `

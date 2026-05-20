@@ -1,7 +1,9 @@
 /**
- * carbonCalculationService.js — TIPC 碳儲量計算共用工具
+ * carbonCalculationService.js — 碳儲量計算入口（預設：手冊第六章逐步計算）
  *
- * 公式: carbon_storage_kgCO2e = K_sp · DBH(cm)^2 · H(m)
+ * 預設委派 handbookCarbonService（圖 6-2 / 表 6-2–6-4）。
+ * 僅在 CARBON_CALC_LEGACY_TIPC=1 時使用舊 TIPC 相容公式:
+ *   carbon_storage_kgCO2e = K_sp · DBH(cm)^2 · H(m)
  *      K_sp = F · (π/4) · BEF · (1+R) · CF · (44/12) · 0.1 · D_wood
  *
  * 文獻來源:
@@ -176,6 +178,16 @@ function calculateCarbonStorage(speciesName, dbhCm, heightM) {
     if (!Number.isFinite(dbh) || !Number.isFinite(h)) return null;
     if (dbh <= 0 || h <= 0) return null;
 
+    // 手冊逐步計算（圖 6-2）；設 CARBON_CALC_MODE=handbook 啟用
+    try {
+        const handbook = require('./handbookCarbonService');
+        if (handbook.useHandbookMode()) {
+            return handbook.calculateCarbonStorage(speciesName, dbh, h);
+        }
+    } catch (_) {
+        /* handbook module optional at load */
+    }
+
     const { entry } = lookupKsp(speciesName);
     const k = entry.K_sp;
 
@@ -200,6 +212,15 @@ function calculateCarbonStorageDetail(speciesName, dbhCm, heightM) {
             value: null,
             error: '胸徑 (DBH) 與樹高 (H) 必須皆為正數；TIPC 公式需要兩者皆有效。',
         };
+    }
+
+    try {
+        const handbook = require('./handbookCarbonService');
+        if (handbook.useHandbookMode()) {
+            return handbook.calculateCarbonStorageDetail({ speciesName, dbhCm: dbh, heightM: h });
+        }
+    } catch (_) {
+        /* ignore */
     }
 
     const lookup = lookupKsp(speciesName);

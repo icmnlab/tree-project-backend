@@ -1,0 +1,1806 @@
+{
+  "_meta": {
+    "source": "農業部林業及自然保育署《森林碳匯調查與監測手冊》表6-2、6-3",
+    "pdf": "COA_森林碳匯手冊.pdf 第六章",
+    "equation_count": 114,
+    "dbh_unit": "cm",
+    "height_unit": "m",
+    "volume_unit": "m3",
+    "fallback": "form_factor",
+    "build_script": "backend/scripts/build_coa_volume_equations.py"
+  },
+  "entries": [
+    {
+      "id": "t62_柳杉",
+      "species_labels": [
+        "柳杉"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-2 柳杉 全臺",
+      "priority": 10,
+      "a": 5.979663e-05,
+      "b": 1.8753322,
+      "c": 0.974034
+    },
+    {
+      "id": "t62_二葉松",
+      "species_labels": [
+        "二葉松"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-2 二葉松 全臺",
+      "priority": 10,
+      "a": 0.0001547675,
+      "b": 1.700988,
+      "c": 0.721114
+    },
+    {
+      "id": "t62_松類組",
+      "species_labels": [
+        "松類",
+        "濕地松",
+        "琉球松"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-2 松類/濕地松/琉球松 全臺(林相變更20年以下)",
+      "priority": 12,
+      "a": 0.000143,
+      "b": 1.7009164,
+      "c": 0.7410436
+    },
+    {
+      "id": "t62_其他松類",
+      "species_labels": [
+        "其他松類"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-2 其他松類 全臺",
+      "priority": 15,
+      "a": 6.25e-05,
+      "b": 1.77924,
+      "c": 1.05866
+    },
+    {
+      "id": "t62_鐵杉",
+      "species_labels": [
+        "鐵杉"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-2 鐵杉 全臺",
+      "priority": 10,
+      "a": 7.28e-05,
+      "b": 1.944924,
+      "c": 0.800221
+    },
+    {
+      "id": "t62_臺灣杉",
+      "species_labels": [
+        "臺灣杉",
+        "台灣杉"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-2 臺灣杉 全臺",
+      "priority": 10,
+      "a": 9.44e-05,
+      "b": 1.994741,
+      "c": 0.656961
+    },
+    {
+      "id": "t62_young_conifer_mix",
+      "species_labels": [
+        "臺灣杉",
+        "杉木",
+        "香杉",
+        "柳杉"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-2 臺灣杉/杉木/香杉/柳杉 全臺(林相變更20年以下)",
+      "priority": 20,
+      "a": 7.02e-05,
+      "b": 1.8942224,
+      "c": 0.8869654
+    },
+    {
+      "id": "t62_紅檜young",
+      "species_labels": [
+        "紅檜",
+        "臺灣杉",
+        "臺灣肖楠",
+        "台灣肖楠"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-2 紅檜/臺灣杉/臺灣肖楠 全臺(林相變更20年以下)",
+      "priority": 25,
+      "a": 9.96e-05,
+      "b": 1.8505211,
+      "c": 0.7734288
+    },
+    {
+      "id": "t62_紅檜_大雪山",
+      "species_labels": [
+        "紅檜"
+      ],
+      "table": "6-2",
+      "region": "大雪山",
+      "type": "power",
+      "reference": "表6-2 紅檜 大雪山",
+      "priority": 5,
+      "a": 0.00010092,
+      "b": 1.541061,
+      "c": 1.155141
+    },
+    {
+      "id": "t62_其他針葉_log",
+      "species_labels": [
+        "其他針葉樹",
+        "其他針葉"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "log_d_h",
+      "reference": "表6-2 其他針葉樹 全臺 log(V×10)",
+      "priority": 40,
+      "a": -3.4692,
+      "b": 2.0052,
+      "c": 0.5598,
+      "v_times_10": true
+    },
+    {
+      "id": "t62_柳杉_logd2h",
+      "species_labels": [
+        "柳杉"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "log_d2h",
+      "reference": "表6-2 柳杉 臺大實驗林 logV-log(D²H)",
+      "priority": 35,
+      "a": -4.193148,
+      "b": 0.933828
+    },
+    {
+      "id": "t62_紅檜扁柏_北",
+      "species_labels": [
+        "紅檜",
+        "扁柏",
+        "黃檜"
+      ],
+      "table": "6-2",
+      "region": "北部",
+      "type": "quadratic",
+      "reference": "表6-2 紅檜/扁柏 北部",
+      "priority": 30,
+      "a": 1.1439,
+      "b": -0.0455,
+      "c": 0.0014
+    },
+    {
+      "id": "t62_紅檜扁柏_中",
+      "species_labels": [
+        "紅檜",
+        "扁柏",
+        "黃檜"
+      ],
+      "table": "6-2",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-2 紅檜/扁柏 中部",
+      "priority": 30,
+      "a": -0.764,
+      "b": 0.015717,
+      "c": 0.000655
+    },
+    {
+      "id": "t62_紅檜扁柏_南",
+      "species_labels": [
+        "紅檜",
+        "扁柏",
+        "黃檜"
+      ],
+      "table": "6-2",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-2 紅檜/扁柏 南部",
+      "priority": 30,
+      "a": -0.5977,
+      "b": 0.009593,
+      "c": 0.000735
+    },
+    {
+      "id": "t62_松類_北",
+      "species_labels": [
+        "松類",
+        "黑松",
+        "琉球松",
+        "濕地松",
+        "二葉松",
+        "華山松",
+        "臺灣五葉松",
+        "台灣五葉松"
+      ],
+      "table": "6-2",
+      "region": "北部",
+      "type": "quadratic",
+      "reference": "表6-2 松類 北部",
+      "priority": 32,
+      "a": 0.4564,
+      "b": -0.0396,
+      "c": 0.0013
+    },
+    {
+      "id": "t62_松類_中",
+      "species_labels": [
+        "松類",
+        "黑松",
+        "琉球松",
+        "濕地松",
+        "二葉松"
+      ],
+      "table": "6-2",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-2 松類 中部",
+      "priority": 32,
+      "a": 0.3877,
+      "b": -0.027164,
+      "c": 0.000919
+    },
+    {
+      "id": "t62_松類_南",
+      "species_labels": [
+        "松類",
+        "黑松",
+        "琉球松",
+        "濕地松",
+        "二葉松"
+      ],
+      "table": "6-2",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-2 松類 南部",
+      "priority": 32,
+      "a": 0.4092,
+      "b": -0.0275,
+      "c": 0.00092
+    },
+    {
+      "id": "t62_冷杉_北",
+      "species_labels": [
+        "冷杉"
+      ],
+      "table": "6-2",
+      "region": "北部",
+      "type": "quadratic",
+      "reference": "表6-2 冷杉 北部",
+      "priority": 35,
+      "a": -0.5066,
+      "b": 0.005367,
+      "c": 0.000696
+    },
+    {
+      "id": "t62_雲杉_中",
+      "species_labels": [
+        "雲杉"
+      ],
+      "table": "6-2",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-2 雲杉 中部",
+      "priority": 35,
+      "a": -0.694737,
+      "b": 0.006194,
+      "c": 0.000834
+    },
+    {
+      "id": "t62_雲杉_南",
+      "species_labels": [
+        "雲杉"
+      ],
+      "table": "6-2",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-2 雲杉 南部",
+      "priority": 35,
+      "a": -0.735678,
+      "b": 0.00627,
+      "c": 0.000828
+    },
+    {
+      "id": "t62_杉木_1",
+      "species_labels": [
+        "杉木"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "quadratic",
+      "reference": "表6-2 杉木",
+      "priority": 35,
+      "a": -1.0731,
+      "b": 0.021053,
+      "c": 0.000797
+    },
+    {
+      "id": "t62_香杉_logd",
+      "species_labels": [
+        "香杉"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "log_d",
+      "reference": "表6-2 香杉 中埔 LogV-LogD",
+      "priority": 38,
+      "a": -3.72573,
+      "b": 2.37078
+    },
+    {
+      "id": "t63_樟樹",
+      "species_labels": [
+        "樟樹"
+      ],
+      "table": "6-3",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-3 樟樹 全臺",
+      "priority": 10,
+      "a": 4.89823e-05,
+      "b": 1.6045,
+      "c": 1.25502
+    },
+    {
+      "id": "t63_相思",
+      "species_labels": [
+        "相思樹",
+        "相思"
+      ],
+      "table": "6-3",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-3 相思樹",
+      "priority": 10,
+      "a": 0.0002045,
+      "b": 1.4366684,
+      "c": 0.8480426
+    },
+    {
+      "id": "t63_光臘樹",
+      "species_labels": [
+        "光臘樹"
+      ],
+      "table": "6-3",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-3 光臘樹 東部/南部",
+      "priority": 12,
+      "a": 7.72e-05,
+      "b": 1.8780277,
+      "c": 0.8124601
+    },
+    {
+      "id": "t63_桂竹",
+      "species_labels": [
+        "桂竹"
+      ],
+      "table": "6-3",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-3 桂竹 中/南部",
+      "priority": 10,
+      "a": 26.032,
+      "b": 1.5777,
+      "c": 1.1237
+    },
+    {
+      "id": "t63_楠樟young",
+      "species_labels": [
+        "楠木",
+        "樟樹",
+        "楠木類"
+      ],
+      "table": "6-3",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-3 楠木/樟樹 全臺(林相變更20年以下)",
+      "priority": 18,
+      "a": 4.64e-05,
+      "b": 1.53575,
+      "c": 1.50657
+    },
+    {
+      "id": "t63_闘葉young_mix",
+      "species_labels": [
+        "赤楊",
+        "摩鹿加合歡",
+        "泡桐",
+        "桉樹",
+        "柚木",
+        "楓香",
+        "臺灣櫸",
+        "台灣櫸",
+        "大葉桃花心木",
+        "木油桐",
+        "銀合歡"
+      ],
+      "table": "6-3",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-3 多種闘葉 全臺(林相變更20年以下)",
+      "priority": 25,
+      "a": 8.34e-05,
+      "b": 1.8761885,
+      "c": 0.8058127
+    },
+    {
+      "id": "t63_其他闘葉_power",
+      "species_labels": [
+        "其他闘葉樹",
+        "其他闘葉"
+      ],
+      "table": "6-3",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-3 其他闘葉樹 power",
+      "priority": 45,
+      "a": 8.62e-05,
+      "b": 1.8742,
+      "c": 0.8671
+    },
+    {
+      "id": "t63_楠木_dh",
+      "species_labels": [
+        "楠木",
+        "楠木類"
+      ],
+      "table": "6-3",
+      "region": "全臺",
+      "type": "linear_dh",
+      "reference": "表6-3 楠木類 V=0.0000853·D·H",
+      "priority": 15,
+      "a": 8.53e-05
+    },
+    {
+      "id": "t63_木油桐_log",
+      "species_labels": [
+        "木油桐"
+      ],
+      "table": "6-3",
+      "region": "全臺",
+      "type": "log_d_h",
+      "reference": "表6-3 木油桐 log",
+      "priority": 30,
+      "a": -4.109545,
+      "b": 1.770289,
+      "c": 0.98239
+    },
+    {
+      "id": "t63_櫧櫟_log",
+      "species_labels": [
+        "櫧櫟",
+        "櫧櫟類",
+        "楠木",
+        "樟樹"
+      ],
+      "table": "6-3",
+      "region": "全臺",
+      "type": "log_d_h",
+      "reference": "表6-3 櫧櫟類 全臺 LogV",
+      "priority": 28,
+      "a": -4.0038576,
+      "b": 1.8751297,
+      "c": 0.745544
+    },
+    {
+      "id": "t63_桃花心木_中埔",
+      "species_labels": [
+        "大葉桃花心木"
+      ],
+      "table": "6-3",
+      "region": "中埔",
+      "type": "quadratic_dh",
+      "reference": "表6-3 大葉桃花心木 中埔",
+      "priority": 8,
+      "a": 0.01,
+      "b": -0.00871296,
+      "c": 0.00060626,
+      "d": 0.00047815
+    },
+    {
+      "id": "t63_桃花心木_六龜",
+      "species_labels": [
+        "大葉桃花心木"
+      ],
+      "table": "6-3",
+      "region": "六龜",
+      "type": "quadratic_dh",
+      "reference": "表6-3 大葉桃花心木 六龜",
+      "priority": 8,
+      "a": 0.0101,
+      "b": -0.00679346,
+      "c": 0.00058996,
+      "d": 0.00033654
+    },
+    {
+      "id": "t63_桃花心木_恆春",
+      "species_labels": [
+        "大葉桃花心木"
+      ],
+      "table": "6-3",
+      "region": "恆春",
+      "type": "quadratic_dh",
+      "reference": "表6-3 大葉桃花心木 恆春",
+      "priority": 8,
+      "a": 0.0096,
+      "b": -0.0085027,
+      "c": 0.00028041,
+      "d": 0.00086209
+    },
+    {
+      "id": "t63_ob_熱帶_北",
+      "species_labels": [
+        "其他闘葉樹",
+        "其他闘葉"
+      ],
+      "table": "6-3",
+      "region": "北部",
+      "type": "quadratic",
+      "reference": "表6-3 其他闘葉(熱帶)北部",
+      "priority": 50,
+      "climate_zone": "熱帶",
+      "a": 0.2262,
+      "b": -0.012267,
+      "c": 0.000596
+    },
+    {
+      "id": "t63_ob_熱帶_中",
+      "species_labels": [
+        "其他闘葉樹",
+        "其他闘葉"
+      ],
+      "table": "6-3",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-3 其他闘葉(熱帶)中部",
+      "priority": 50,
+      "climate_zone": "熱帶",
+      "a": -0.3721,
+      "b": 0.007362,
+      "c": 0.000489
+    },
+    {
+      "id": "t63_ob_熱帶_南",
+      "species_labels": [
+        "其他闘葉樹",
+        "其他闘葉"
+      ],
+      "table": "6-3",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-3 其他闘葉(熱帶)南部",
+      "priority": 50,
+      "climate_zone": "熱帶",
+      "a": -0.3159,
+      "b": 0.006255,
+      "c": 0.000505
+    },
+    {
+      "id": "t63_ob_亞熱帶_北",
+      "species_labels": [
+        "其他闘葉樹",
+        "其他闘葉"
+      ],
+      "table": "6-3",
+      "region": "北部",
+      "type": "quadratic",
+      "reference": "表6-3 其他闘葉(亞熱帶)北部",
+      "priority": 50,
+      "climate_zone": "亞熱帶",
+      "a": 0.2072,
+      "b": -0.013181,
+      "c": 0.000642
+    },
+    {
+      "id": "t63_ob_亞熱帶_中",
+      "species_labels": [
+        "其他闘葉樹",
+        "其他闘葉"
+      ],
+      "table": "6-3",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-3 其他闘葉(亞熱帶)中部",
+      "priority": 50,
+      "climate_zone": "亞熱帶",
+      "a": -1.5211,
+      "b": 0.053,
+      "c": 0.000177
+    },
+    {
+      "id": "t63_ob_亞熱帶_南",
+      "species_labels": [
+        "其他闘葉樹",
+        "其他闘葉"
+      ],
+      "table": "6-3",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-3 其他闘葉(亞熱帶)南部",
+      "priority": 50,
+      "climate_zone": "亞熱帶",
+      "a": -0.2675,
+      "b": 0.005054,
+      "c": 0.000507
+    },
+    {
+      "id": "t63_ob_溫帶_北",
+      "species_labels": [
+        "其他闘葉樹",
+        "其他闘葉"
+      ],
+      "table": "6-3",
+      "region": "北部",
+      "type": "quadratic",
+      "reference": "表6-3 其他闘葉(溫帶)北部",
+      "priority": 50,
+      "climate_zone": "溫帶",
+      "a": 0.0038,
+      "b": -0.013205,
+      "c": 0.000639
+    },
+    {
+      "id": "t63_ob_溫帶_中",
+      "species_labels": [
+        "其他闘葉樹",
+        "其他闘葉"
+      ],
+      "table": "6-3",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-3 其他闘葉(溫帶)中部",
+      "priority": 50,
+      "climate_zone": "溫帶",
+      "a": -1.4719,
+      "b": 0.052453,
+      "c": 0.000119
+    },
+    {
+      "id": "t63_ob_溫帶_南",
+      "species_labels": [
+        "其他闘葉樹",
+        "其他闘葉"
+      ],
+      "table": "6-3",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-3 其他闘葉(溫帶)南部",
+      "priority": 50,
+      "climate_zone": "溫帶",
+      "a": -1.1744,
+      "b": 0.0382,
+      "c": 0.00027
+    },
+    {
+      "id": "t63_樟楠_熱帶_北",
+      "species_labels": [
+        "樟樹",
+        "楠木",
+        "楠木類"
+      ],
+      "table": "6-3",
+      "region": "北部",
+      "type": "quadratic",
+      "reference": "表6-3 楠木樟樹(熱帶)北部",
+      "priority": 42,
+      "climate_zone": "熱帶",
+      "a": -0.309942,
+      "b": 0.004553,
+      "c": 0.000505
+    },
+    {
+      "id": "t63_樟楠_亞熱帶_北",
+      "species_labels": [
+        "樟樹",
+        "楠木",
+        "楠木類"
+      ],
+      "table": "6-3",
+      "region": "北部",
+      "type": "quadratic",
+      "reference": "表6-3 楠木樟樹(亞熱帶)北部",
+      "priority": 42,
+      "climate_zone": "亞熱帶",
+      "a": 0.75894,
+      "b": -0.039825,
+      "c": 0.000833
+    },
+    {
+      "id": "t62_紅檜_荖濃_a",
+      "species_labels": [
+        "紅檜"
+      ],
+      "table": "6-2",
+      "region": "荖濃",
+      "type": "quadratic",
+      "reference": "表6-2 紅檜 荖濃 V=0.00043+0.00029D²",
+      "priority": 18,
+      "a": 0.00043,
+      "b": 0,
+      "c": 0.00029
+    },
+    {
+      "id": "t62_紅檜_六龜_a",
+      "species_labels": [
+        "紅檜"
+      ],
+      "table": "6-2",
+      "region": "六龜",
+      "type": "quadratic_dh",
+      "reference": "表6-2 紅檜 六龜",
+      "priority": 12,
+      "a": 0.07753,
+      "b": -0.04222,
+      "c": 0.00137,
+      "d": 0
+    },
+    {
+      "id": "t62_紅檜_六龜_b",
+      "species_labels": [
+        "紅檜"
+      ],
+      "table": "6-2",
+      "region": "六龜",
+      "type": "quadratic_dh",
+      "reference": "表6-2 紅檜 六龜 b",
+      "priority": 14,
+      "a": -0.00324,
+      "b": -0.00022,
+      "c": 4e-05,
+      "d": 0.0009
+    },
+    {
+      "id": "t62_紅檜_阿里山",
+      "species_labels": [
+        "紅檜"
+      ],
+      "table": "6-2",
+      "region": "阿里山",
+      "type": "quadratic_dh",
+      "reference": "表6-2 紅檜 阿里山",
+      "priority": 12,
+      "a": -0.00448,
+      "b": -0.0119,
+      "c": 0.00089,
+      "d": 0.00876
+    },
+    {
+      "id": "t62_紅檜_溪頭_a",
+      "species_labels": [
+        "紅檜"
+      ],
+      "table": "6-2",
+      "region": "溪頭",
+      "type": "quadratic_dh",
+      "reference": "表6-2 紅檜 溪頭 a",
+      "priority": 12,
+      "a": -0.00908,
+      "b": -0.00046,
+      "c": 4e-05,
+      "d": 0.00135
+    },
+    {
+      "id": "t62_紅檜_溪頭_b",
+      "species_labels": [
+        "紅檜"
+      ],
+      "table": "6-2",
+      "region": "溪頭",
+      "type": "quadratic_dh",
+      "reference": "表6-2 紅檜 溪頭 b",
+      "priority": 12,
+      "a": 0.17571,
+      "b": -0.05571,
+      "c": 0.00173,
+      "d": 0.03085
+    },
+    {
+      "id": "t62_紅檜_大雪山_a",
+      "species_labels": [
+        "紅檜"
+      ],
+      "table": "6-2",
+      "region": "大雪山",
+      "type": "quadratic_dh",
+      "reference": "表6-2 紅檜 大雪山 a",
+      "priority": 11,
+      "a": 0.00486,
+      "b": -0.00592,
+      "c": 0.00052,
+      "d": 0.00446
+    },
+    {
+      "id": "t62_紅檜_大雪山_b",
+      "species_labels": [
+        "紅檜"
+      ],
+      "table": "6-2",
+      "region": "大雪山",
+      "type": "quadratic_dh",
+      "reference": "表6-2 紅檜 大雪山 b",
+      "priority": 11,
+      "a": -0.00181,
+      "b": -0.001,
+      "c": 0.00025,
+      "d": 0.00119
+    },
+    {
+      "id": "t62_紅檜_大雪山_c",
+      "species_labels": [
+        "紅檜"
+      ],
+      "table": "6-2",
+      "region": "大雪山",
+      "type": "quadratic_dh",
+      "reference": "表6-2 紅檜 大雪山 c",
+      "priority": 11,
+      "a": -0.00161,
+      "b": -0.00411,
+      "c": 0.00045,
+      "d": 0.00375
+    },
+    {
+      "id": "t62_紅檜_太平山_a",
+      "species_labels": [
+        "紅檜"
+      ],
+      "table": "6-2",
+      "region": "太平山",
+      "type": "quadratic_dh",
+      "reference": "表6-2 紅檜 太平山 a",
+      "priority": 14,
+      "a": -0.022,
+      "b": -0.00322,
+      "c": 0,
+      "d": 0.00263
+    },
+    {
+      "id": "t62_紅檜_太平山_b",
+      "species_labels": [
+        "紅檜"
+      ],
+      "table": "6-2",
+      "region": "太平山",
+      "type": "quadratic_dh",
+      "reference": "表6-2 紅檜 太平山 b",
+      "priority": 14,
+      "a": -0.029,
+      "b": 0.00381,
+      "c": 0,
+      "d": 0.00284
+    },
+    {
+      "id": "t62_臺灣肖楠",
+      "species_labels": [
+        "臺灣肖楠",
+        "台灣肖楠"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-2 臺灣肖楠 全臺(林相變更20年以下)",
+      "priority": 22,
+      "a": 9.96e-05,
+      "b": 1.8505211,
+      "c": 0.7734288
+    },
+    {
+      "id": "t62_扁柏",
+      "species_labels": [
+        "扁柏",
+        "黃檜"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-2 扁柏(同紅檜young組)",
+      "priority": 24,
+      "a": 9.96e-05,
+      "b": 1.8505211,
+      "c": 0.7734288
+    },
+    {
+      "id": "t62_鐵杉_北",
+      "species_labels": [
+        "鐵杉"
+      ],
+      "table": "6-2",
+      "region": "北部",
+      "type": "quadratic",
+      "reference": "表6-2 鐵杉 北部",
+      "priority": 28,
+      "a": -0.1795,
+      "b": -0.004396,
+      "c": 0.000695
+    },
+    {
+      "id": "t62_鐵杉_中",
+      "species_labels": [
+        "鐵杉",
+        "香杉"
+      ],
+      "table": "6-2",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-2 鐵杉/香杉 中部",
+      "priority": 28,
+      "a": 0.7847,
+      "b": -0.03527,
+      "c": 0.00088
+    },
+    {
+      "id": "t62_鐵杉_南",
+      "species_labels": [
+        "鐵杉"
+      ],
+      "table": "6-2",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-2 鐵杉 南部",
+      "priority": 28,
+      "a": 0.7295,
+      "b": -0.035418,
+      "c": 0.000846
+    },
+    {
+      "id": "t62_香杉_中2",
+      "species_labels": [
+        "香杉"
+      ],
+      "table": "6-2",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-2 香杉 中部(2)",
+      "priority": 36,
+      "a": -0.1997,
+      "b": -0.002171,
+      "c": 0.000783
+    },
+    {
+      "id": "t62_香杉_能高",
+      "species_labels": [
+        "香杉"
+      ],
+      "table": "6-2",
+      "region": "能高",
+      "type": "log_d",
+      "reference": "表6-2 香杉 能高 LogV-LogD",
+      "priority": 34,
+      "a": -3.620459,
+      "b": 2.361074
+    },
+    {
+      "id": "t62_香杉_蓮華池",
+      "species_labels": [
+        "香杉"
+      ],
+      "table": "6-2",
+      "region": "蓮華池",
+      "type": "quadratic",
+      "reference": "表6-2 香杉 蓮華池",
+      "priority": 34,
+      "a": -0.02278,
+      "b": 0,
+      "c": 0.000746
+    },
+    {
+      "id": "t62_雲杉_北",
+      "species_labels": [
+        "雲杉"
+      ],
+      "table": "6-2",
+      "region": "北部",
+      "type": "quadratic",
+      "reference": "表6-2 雲杉 北部(同冷杉列)",
+      "priority": 36,
+      "a": -0.5066,
+      "b": 0.005367,
+      "c": 0.000696
+    },
+    {
+      "id": "t62_冷杉_中",
+      "species_labels": [
+        "冷杉"
+      ],
+      "table": "6-2",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-2 冷杉 中部",
+      "priority": 36,
+      "a": -0.694737,
+      "b": 0.006194,
+      "c": 0.000834
+    },
+    {
+      "id": "t62_琉球松_log",
+      "species_labels": [
+        "琉球松"
+      ],
+      "table": "6-2",
+      "region": "北部",
+      "type": "log_d_h",
+      "reference": "表6-2 琉球松 北部 LogV",
+      "priority": 30,
+      "a": -4.29959,
+      "b": 1.66283,
+      "c": 1.45112
+    },
+    {
+      "id": "t62_二葉松_log",
+      "species_labels": [
+        "二葉松"
+      ],
+      "table": "6-2",
+      "region": "中南部",
+      "type": "log_d_h",
+      "reference": "表6-2 二葉松 中/南部 LogV",
+      "priority": 28,
+      "a": -4.20404,
+      "b": 1.77924,
+      "c": 1.05866
+    },
+    {
+      "id": "t62_黃崑崗松",
+      "species_labels": [
+        "其他松類",
+        "松類"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-2 黃崑崗 全臺松",
+      "priority": 18,
+      "a": 6.25e-05,
+      "b": 1.77924,
+      "c": 1.05866
+    },
+    {
+      "id": "t62_臺灣杉_六龜",
+      "species_labels": [
+        "臺灣杉",
+        "台灣杉"
+      ],
+      "table": "6-2",
+      "region": "六龜",
+      "type": "quadratic_dh",
+      "reference": "表6-2 臺灣杉 六龜",
+      "priority": 14,
+      "a": 0.063,
+      "b": -0.0237,
+      "c": 0.0007,
+      "d": 0.0012
+    },
+    {
+      "id": "t62_臺灣杉_玉山",
+      "species_labels": [
+        "臺灣杉",
+        "台灣杉",
+        "紅檜"
+      ],
+      "table": "6-2",
+      "region": "玉山",
+      "type": "quadratic_dh",
+      "reference": "表6-2 臺灣杉/紅檜 玉山",
+      "priority": 14,
+      "a": -0.5772,
+      "b": 0,
+      "c": 0,
+      "d": 0.002115
+    },
+    {
+      "id": "t62_臺灣杉_logd2h_ntu",
+      "species_labels": [
+        "臺灣杉",
+        "柳杉"
+      ],
+      "table": "6-2",
+      "region": "臺大實驗林",
+      "type": "log_d2h",
+      "reference": "表6-2 臺灣杉/柳杉 臺大 log(D²H)",
+      "priority": 25,
+      "a": -4.193148,
+      "b": 0.933828
+    },
+    {
+      "id": "t62_杉木_2",
+      "species_labels": [
+        "杉木"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "quadratic",
+      "reference": "表6-2 杉木(2)",
+      "priority": 38,
+      "a": -0.1997,
+      "b": -0.002171,
+      "c": 0.000783
+    },
+    {
+      "id": "t62_雲杉_楠梓仙",
+      "species_labels": [
+        "雲杉"
+      ],
+      "table": "6-2",
+      "region": "楠梓仙",
+      "type": "quadratic_dh",
+      "reference": "表6-2 雲杉 楠梓仙",
+      "priority": 20,
+      "a": 1.6784,
+      "b": -0.027338,
+      "c": 0,
+      "d": 0.00542227
+    },
+    {
+      "id": "t62_香杉_蓮華池_logvc",
+      "species_labels": [
+        "香杉"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "log_d",
+      "reference": "表6-2 香杉 蓮華池 LogVc",
+      "priority": 36,
+      "a": -3.7376,
+      "b": 2.4739
+    },
+    {
+      "id": "t63_桃花心木_石弄",
+      "species_labels": [
+        "大葉桃花心木"
+      ],
+      "table": "6-3",
+      "region": "石弄",
+      "type": "quadratic_dh",
+      "reference": "表6-3 大葉桃花心木 石弄",
+      "priority": 8,
+      "a": 0.0088,
+      "b": -0.00727189,
+      "c": 0.00055226,
+      "d": 0.00047152
+    },
+    {
+      "id": "t63_桃花心木_社子",
+      "species_labels": [
+        "大葉桃花心木"
+      ],
+      "table": "6-3",
+      "region": "社子",
+      "type": "quadratic_dh",
+      "reference": "表6-3 大葉桃花心木 社子",
+      "priority": 8,
+      "a": 0.0104,
+      "b": -0.0098401,
+      "c": 0.00029846,
+      "d": 0.00085657
+    },
+    {
+      "id": "t63_桃花心木_太麻里",
+      "species_labels": [
+        "大葉桃花心木"
+      ],
+      "table": "6-3",
+      "region": "太麻里",
+      "type": "quadratic_dh",
+      "reference": "表6-3 大葉桃花心木 太麻里",
+      "priority": 8,
+      "a": 0.0096,
+      "b": -0.0085027,
+      "c": 0.00028041,
+      "d": 0.00086209
+    },
+    {
+      "id": "t63_相思_log_中",
+      "species_labels": [
+        "相思樹",
+        "相思"
+      ],
+      "table": "6-3",
+      "region": "中南部",
+      "type": "log_d_h",
+      "reference": "表6-3 相思 中/南部 LogV(32)",
+      "priority": 25,
+      "a": -4.35079,
+      "b": 1.535731,
+      "c": 1.150657
+    },
+    {
+      "id": "t63_相思_log_788",
+      "species_labels": [
+        "相思樹",
+        "相思"
+      ],
+      "table": "6-3",
+      "region": "中南部",
+      "type": "log_d_h",
+      "reference": "表6-3 相思 中/南部 LogV(788)",
+      "priority": 26,
+      "a": -4.080211,
+      "b": 1.59987,
+      "c": 1.089275
+    },
+    {
+      "id": "t63_泡桐",
+      "species_labels": [
+        "泡桐"
+      ],
+      "table": "6-3",
+      "region": "全臺",
+      "type": "quadratic_dh",
+      "reference": "表6-3 泡桐 V=f(D,Ht) 單木以H代Ht",
+      "priority": 12,
+      "a": 0.095701,
+      "b": -0.006139,
+      "c": 1.3e-05,
+      "d": 0.001436
+    },
+    {
+      "id": "t63_銀合歡_ln",
+      "species_labels": [
+        "銀合歡"
+      ],
+      "table": "6-3",
+      "region": "恆春",
+      "type": "ln_d_h_d2",
+      "reference": "表6-3 銀合歡 恆春 LnV",
+      "priority": 12,
+      "a": -9.8,
+      "b": 1.65041,
+      "c": 1.26416,
+      "d": 0.00245828
+    },
+    {
+      "id": "t63_其他闘葉_log",
+      "species_labels": [
+        "其他闘葉樹",
+        "其他闘葉"
+      ],
+      "table": "6-3",
+      "region": "全臺",
+      "type": "log_d_h",
+      "reference": "表6-3 其他闘葉 log(V×10) 全臺",
+      "priority": 48,
+      "a": -3.0884,
+      "b": 1.803,
+      "c": 0.7347,
+      "v_times_10": true
+    },
+    {
+      "id": "t63_其他闘葉_poly",
+      "species_labels": [
+        "其他闘葉樹"
+      ],
+      "table": "6-3",
+      "region": "濁水溪",
+      "type": "quadratic_dh",
+      "reference": "表6-3 其他闘葉 濁水溪",
+      "priority": 45,
+      "a": -0.2343485022,
+      "b": 0,
+      "c": 0.0005023267,
+      "d": 0.0004289683
+    },
+    {
+      "id": "t63_其他闘葉_ntu",
+      "species_labels": [
+        "其他闘葉樹"
+      ],
+      "table": "6-3",
+      "region": "臺大實驗林",
+      "type": "quadratic_dh",
+      "reference": "表6-3 其他闘葉 臺大",
+      "priority": 45,
+      "a": -0.6172929499,
+      "b": 0.029034521,
+      "c": 0.000271665,
+      "d": 0
+    },
+    {
+      "id": "t63_其他闘葉_power2",
+      "species_labels": [
+        "其他闘葉樹"
+      ],
+      "table": "6-3",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-3 其他闘葉 劉慎孝",
+      "priority": 44,
+      "a": 4.64e-05,
+      "b": 1.53578,
+      "c": 1.50657
+    },
+    {
+      "id": "t63_光臘_潮州",
+      "species_labels": [
+        "光臘樹"
+      ],
+      "table": "6-3",
+      "region": "潮州",
+      "type": "cubic_d",
+      "reference": "表6-3 光臘樹 潮州 V=a+e·D³",
+      "priority": 20,
+      "a": 0.0018,
+      "e": 2e-05
+    },
+    {
+      "id": "t63_光臘_關山",
+      "species_labels": [
+        "光臘樹"
+      ],
+      "table": "6-3",
+      "region": "關山",
+      "type": "quadratic_dh",
+      "reference": "表6-3 光臘樹 關山",
+      "priority": 18,
+      "a": 0.0026,
+      "b": -0.0038,
+      "c": 0.0005,
+      "d": 0.0003
+    },
+    {
+      "id": "t63_樟楠_熱帶_中",
+      "species_labels": [
+        "樟樹",
+        "楠木",
+        "楠木類"
+      ],
+      "table": "6-3",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-3 楠木樟樹(熱帶)中部",
+      "priority": 42,
+      "climate_zone": "熱帶",
+      "a": -0.1792,
+      "b": 0.001526,
+      "c": 0.000519
+    },
+    {
+      "id": "t63_樟楠_熱帶_南",
+      "species_labels": [
+        "樟樹",
+        "楠木"
+      ],
+      "table": "6-3",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-3 楠木樟樹(熱帶)南部",
+      "priority": 42,
+      "climate_zone": "熱帶",
+      "a": 0.2826,
+      "b": 0.003875,
+      "c": 0.000473
+    },
+    {
+      "id": "t63_樟楠_亞熱帶_中",
+      "species_labels": [
+        "樟樹",
+        "楠木"
+      ],
+      "table": "6-3",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-3 楠木樟樹(亞熱帶)中部",
+      "priority": 42,
+      "climate_zone": "亞熱帶",
+      "a": 0.409438,
+      "b": -0.022048,
+      "c": 0.000704
+    },
+    {
+      "id": "t63_樟楠_亞熱帶_南",
+      "species_labels": [
+        "樟樹",
+        "楠木"
+      ],
+      "table": "6-3",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-3 楠木樟樹(亞熱帶)南部",
+      "priority": 42,
+      "climate_zone": "亞熱帶",
+      "a": 0.31845,
+      "b": -0.018914,
+      "c": 0.00062
+    },
+    {
+      "id": "t63_樟楠_溫帶_北",
+      "species_labels": [
+        "樟樹",
+        "楠木"
+      ],
+      "table": "6-3",
+      "region": "北部",
+      "type": "quadratic",
+      "reference": "表6-3 楠木樟樹(溫帶)北部",
+      "priority": 42,
+      "climate_zone": "溫帶",
+      "a": 0.79305,
+      "b": -0.040112,
+      "c": 0.000811
+    },
+    {
+      "id": "t63_樟楠_溫帶_中",
+      "species_labels": [
+        "樟樹",
+        "楠木"
+      ],
+      "table": "6-3",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-3 櫧櫟類(溫帶)中部",
+      "priority": 43,
+      "climate_zone": "溫帶",
+      "a": 0.4565,
+      "b": -0.021812,
+      "c": 0.000679
+    },
+    {
+      "id": "t63_樟楠_溫帶_南",
+      "species_labels": [
+        "樟樹",
+        "楠木"
+      ],
+      "table": "6-3",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-3 櫧櫟類 南部",
+      "priority": 43,
+      "climate_zone": "溫帶",
+      "a": -0.702808,
+      "b": 0.019461,
+      "c": 0.000398
+    },
+    {
+      "id": "t63_櫧_亞熱高_北",
+      "species_labels": [
+        "櫧櫟",
+        "櫧櫟類"
+      ],
+      "table": "6-3",
+      "region": "北部",
+      "type": "quadratic",
+      "reference": "表6-3 櫧櫟(亞熱帶高價)北部",
+      "priority": 38,
+      "climate_zone": "亞熱帶",
+      "a": 0.2225,
+      "b": -0.013141,
+      "c": 0.000584
+    },
+    {
+      "id": "t63_櫧_亞熱高_中",
+      "species_labels": [
+        "櫧櫟",
+        "櫧櫟類"
+      ],
+      "table": "6-3",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-3 櫧櫟(亞熱帶高價)中部",
+      "priority": 38,
+      "climate_zone": "亞熱帶",
+      "a": -0.6897,
+      "b": 0.01739,
+      "c": 0.000448
+    },
+    {
+      "id": "t63_櫧_亞熱高_南",
+      "species_labels": [
+        "櫧櫟",
+        "櫧櫟類"
+      ],
+      "table": "6-3",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-3 櫧櫟(亞熱帶高價)南部",
+      "priority": 38,
+      "climate_zone": "亞熱帶",
+      "a": 0.5903,
+      "b": -0.032226,
+      "c": 0.00076
+    },
+    {
+      "id": "t63_櫧_亞熱低_北",
+      "species_labels": [
+        "櫧櫟",
+        "櫧櫟類"
+      ],
+      "table": "6-3",
+      "region": "北部",
+      "type": "quadratic",
+      "reference": "表6-3 櫧櫟(亞熱帶低價)北部",
+      "priority": 39,
+      "climate_zone": "亞熱帶",
+      "a": -0.0874,
+      "b": 0.00089,
+      "c": 0.000501
+    },
+    {
+      "id": "t63_櫧_亞熱低_中",
+      "species_labels": [
+        "櫧櫟",
+        "櫧櫟類"
+      ],
+      "table": "6-3",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-3 櫧櫟(亞熱帶低價)中部",
+      "priority": 39,
+      "climate_zone": "亞熱帶",
+      "a": 0.1585,
+      "b": -0.0097,
+      "c": 0.00061
+    },
+    {
+      "id": "t63_櫧_亞熱低_南",
+      "species_labels": [
+        "櫧櫟",
+        "櫧櫟類"
+      ],
+      "table": "6-3",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-3 櫧櫟(亞熱帶低價)南部",
+      "priority": 39,
+      "climate_zone": "亞熱帶",
+      "a": 0.35739,
+      "b": -0.019005,
+      "c": 0.000625
+    },
+    {
+      "id": "t63_櫧_溫帶高_北",
+      "species_labels": [
+        "櫧櫟",
+        "櫧櫟類"
+      ],
+      "table": "6-3",
+      "region": "北部",
+      "type": "quadratic",
+      "reference": "表6-3 櫧櫟(溫帶高價)北部",
+      "priority": 39,
+      "climate_zone": "溫帶",
+      "a": -0.629,
+      "b": 0.0222,
+      "c": 0.000375
+    },
+    {
+      "id": "t63_櫧_溫帶高_中",
+      "species_labels": [
+        "櫧櫟",
+        "櫧櫟類"
+      ],
+      "table": "6-3",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-3 櫧櫟(溫帶高價)中部",
+      "priority": 39,
+      "climate_zone": "溫帶",
+      "a": 0.3257,
+      "b": -0.0222,
+      "c": 0.00072
+    },
+    {
+      "id": "t63_櫧_溫帶高_南",
+      "species_labels": [
+        "櫧櫟",
+        "櫧櫟類"
+      ],
+      "table": "6-3",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-3 櫧櫟(溫帶高價)南部",
+      "priority": 39,
+      "climate_zone": "溫帶",
+      "a": 0.491953,
+      "b": -0.027304,
+      "c": 0.000733
+    },
+    {
+      "id": "t63_櫧_溫帶低_北",
+      "species_labels": [
+        "櫧櫟",
+        "櫧櫟類"
+      ],
+      "table": "6-3",
+      "region": "北部",
+      "type": "quadratic",
+      "reference": "表6-3 櫧櫟(溫帶低價)北部",
+      "priority": 40,
+      "climate_zone": "溫帶",
+      "a": -0.2979,
+      "b": 0.005254,
+      "c": 0.000532
+    },
+    {
+      "id": "t63_櫧_溫帶低_中",
+      "species_labels": [
+        "櫧櫟",
+        "櫧櫟類"
+      ],
+      "table": "6-3",
+      "region": "中部",
+      "type": "quadratic",
+      "reference": "表6-3 樟楠櫧 中部",
+      "priority": 40,
+      "climate_zone": "溫帶",
+      "a": 0.1542,
+      "b": -0.00983,
+      "c": 0.000608
+    },
+    {
+      "id": "t63_櫧_溫帶低_南",
+      "species_labels": [
+        "櫧櫟",
+        "櫧櫟類"
+      ],
+      "table": "6-3",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-3 樟楠櫧 南部",
+      "priority": 40,
+      "climate_zone": "溫帶",
+      "a": 0.31845,
+      "b": -0.018914,
+      "c": 0.00062
+    },
+    {
+      "id": "t63_樟楠櫧_power",
+      "species_labels": [
+        "樟樹",
+        "楠木",
+        "櫧櫟",
+        "樟楠類"
+      ],
+      "table": "6-3",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-3 樟楠櫧 全臺 power",
+      "priority": 35,
+      "a": 8.63e-05,
+      "b": 1.8742,
+      "c": 0.8671
+    },
+    {
+      "id": "t62_南洋杉",
+      "species_labels": [
+        "肯氏南洋杉",
+        "小葉南洋杉",
+        "南洋杉"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-2 松類組 fallback 南洋杉",
+      "priority": 35,
+      "a": 0.000143,
+      "b": 1.7009164,
+      "c": 0.7410436
+    },
+    {
+      "id": "t62_龍柏",
+      "species_labels": [
+        "龍柏",
+        "刺柏",
+        "圓柏"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-2 其他松類 龍柏類",
+      "priority": 35,
+      "a": 6.25e-05,
+      "b": 1.77924,
+      "c": 1.05866
+    },
+    {
+      "id": "t62_落羽松",
+      "species_labels": [
+        "落羽松"
+      ],
+      "table": "6-2",
+      "region": "全臺",
+      "type": "power",
+      "reference": "表6-2 落羽松(松類組)",
+      "priority": 22,
+      "a": 0.000143,
+      "b": 1.7009164,
+      "c": 0.7410436
+    },
+    {
+      "id": "t63_欖仁",
+      "species_labels": [
+        "欖仁",
+        "欖仁樹",
+        "台灣欖仁",
+        "臺灣欖仁"
+      ],
+      "table": "6-3",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-3 其他闘葉(亞熱帶)南部",
+      "priority": 48,
+      "climate_zone": "亞熱帶",
+      "a": -0.2675,
+      "b": 0.005054,
+      "c": 0.000507
+    },
+    {
+      "id": "t63_榕",
+      "species_labels": [
+        "榕",
+        "榕樹",
+        "垂榕",
+        "細葉榕",
+        "孟加拉榕"
+      ],
+      "table": "6-3",
+      "region": "南部",
+      "type": "quadratic",
+      "reference": "表6-3 其他闘葉(熱帶)南部",
+      "priority": 48,
+      "climate_zone": "熱帶",
+      "a": -0.3159,
+      "b": 0.006255,
+      "c": 0.000505
+    }
+  ],
+  "conifer_species_hints": [
+    "二葉松",
+    "其他松類",
+    "其他針葉",
+    "其他針葉樹",
+    "冷杉",
+    "刺柏",
+    "南洋杉",
+    "台灣五葉松",
+    "台灣杉",
+    "台灣肖楠",
+    "圓柏",
+    "小葉南洋杉",
+    "扁柏",
+    "杉木",
+    "松類",
+    "柳杉",
+    "濕地松",
+    "琉球松",
+    "紅檜",
+    "肯氏南洋杉",
+    "臺灣五葉松",
+    "臺灣杉",
+    "臺灣肖楠",
+    "華山松",
+    "落羽松",
+    "鐵杉",
+    "雲杉",
+    "香杉",
+    "黃檜",
+    "黑松",
+    "龍柏"
+  ],
+  "bamboo_species_hints": [
+    "桂竹",
+    "孟宗竹",
+    "綠竹",
+    "毛竹"
+  ]
+}
