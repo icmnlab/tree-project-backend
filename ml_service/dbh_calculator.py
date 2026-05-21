@@ -481,43 +481,48 @@ def cylindrical_correction(chord_length_m: float,
     """
     Convert observed visual chord to true cylinder diameter (pure vision).
 
-    The function accepts (chord_m, z_front_m) for backwards compatibility with
-    existing call sites. Internally it recovers u = W_px / f = chord / z_front
-    and applies the closed-form tangent-to-cylinder solution:
+    Closed-form tangent-to-cylinder solution:
+        d = z * u * (u + sqrt(u² + 4)) / 2,   where u = chord / z
 
-        d = z_front * u * (u + sqrt(u² + 4)) / 2
+    Default behaviour (since 2026-05-14): naive pinhole d = chord (no
+    cylinder correction). The closed-form correction was found to
+    over-correct on monocular depth (Depth Anything v3) because the depth
+    is sampled from the mask centre and corresponds to chord depth rather
+    than front-surface depth — applying the closed-form again amplifies
+    mask wpx bias (NDHU MAE 5.51 cm naive vs 12.62 cm closed-form).
 
-    Derivation: A camera at origin views a cylinder of radius R with axis at
-    depth D = z_front + R. Tangent rays meeting the silhouette satisfy
-        W_px = 2 R f / sqrt(D² - R²)
-    Substituting D = z_front + R and solving the quadratic in R:
-        R = W_px * z_front * (W_px + sqrt(W_px² + 4f²)) / (4 f²)
-    Multiplying by two and rewriting in terms of u = W_px/f gives the form
-    used below; u equals chord_m / z_front so no focal length is needed as a
-    separate argument.
+    Environment switches:
+        ML_USE_CLOSEDFORM=1 (or ML_DBH_FORMULA=closed-form):
+            Apply legacy tangent closed-form d = z·u·(u+sqrt(u²+4))/2.
+            Kept for ablation / comparison studies.
 
-    Arguments:
-        chord_length_m   — visible chord in meters, = pixel_width * z_front / f
-        camera_distance_m — front-surface distance from camera to trunk (m)
-
-    Validated on Xiang et al. 2025 dataset (n=294 iPhone LiDAR photos):
-      Naive pinhole (identity):          MAPE 13.3%  bias -12.8%
-      Old chord-at-center formula:       MAPE 12.0%  bias -11.5%
-      This tangent closed-form:          MAPE  7.5%  bias  +6.9%
+    Empirical validation (NDHU N=82, Xiang N=294, both with naive):
+      NDHU all (Mi A1 + DA3):      MAE 5.51 cm  bias +3.76 cm
+      NDHU UI-guided (>=1m):       MAE 3.88 cm  bias +2.03 cm
+      NDHU sweet spot (1.3-1.7m):  MAE 3.32 cm  bias -0.33 cm
+      Xiang all (iPhone 13 + DA3): MAE 14.89 cm bias -11.97 cm
+      Xiang within NDHU range (DBH<=50): MAE 8.02 cm bias -7.51 cm
+      (Xiang remainder bias attributed to DA3 z systematic underestimation
+       at >1m capture distance; Xiang dataset includes 32% large-trunk
+       (DBH>50) near-field samples outside NDHU deployment range.)
     """
     l = chord_length_m
     z = camera_distance_m
     if l <= 0 or z <= 0:
         return max(0.0, chord_length_m)
-    u = l / z
-    # Sanity: for u very large (l comparable to z), cylinder subtends > 90°
-    # -> not physical for DBH scenes. Fall back to chord.
-    if u > 4.0:
-        print(f"[cylindrical_correction] WARNING: u={u:.2f} (chord {l:.3f}m, "
-              f"z_front {z:.3f}m) — out of plausible regime, returning chord.")
-        return chord_length_m
-    diameter = z * u * (u + math.sqrt(u * u + 4.0)) / 2.0
-    return diameter
+    # Environment-controlled formula switch (default: naive)
+    formula = os.environ.get("ML_DBH_FORMULA", "").strip().lower()
+    use_cf_env = os.environ.get("ML_USE_CLOSEDFORM", "0").strip()
+    if formula == "closed-form" or formula == "closedform" or use_cf_env == "1":
+        # Legacy closed-form (assumes z = front-surface depth)
+        u = l / z
+        if u > 4.0:
+            print(f"[cylindrical_correction] WARNING: u={u:.2f} (chord {l:.3f}m, "
+                  f"z_front {z:.3f}m) — out of plausible regime, returning chord.")
+            return chord_length_m
+        return z * u * (u + math.sqrt(u * u + 4.0)) / 2.0
+    # Default: naive pinhole d = chord (assumes z = chord depth from mask centre)
+    return l
 
 
 def compute_confidence(trunk_depth_m: float,

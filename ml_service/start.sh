@@ -92,6 +92,9 @@ else
     : "${PORT:=8100}"
 fi
 
+# Server-side trunk YOLO letterbox size (align with paper / Windows start.ps1)
+: "${ML_SERVER_YOLO_IMGSZ:=832}"
+
 # --- Optional flags ---
 : "${ML_ENABLE_SAM:=true}"
 : "${ML_SEG_MODEL:=sam2_tiny}"
@@ -151,6 +154,7 @@ echo "  -----------------------------------------"
 echo "  Port:      $PORT"
 echo "  Model:     $ML_DEPTH_MODEL"
 echo "  OpenVINO:  $ML_USE_OPENVINO"
+echo "  YOLO imgsz: ${ML_SERVER_YOLO_IMGSZ}"
 echo "  SAM:       $ML_ENABLE_SAM ($ML_SEG_MODEL)"
 echo "  API Key:   ${ML_API_KEY:+${ML_API_KEY:0:8}...}"
 [ -z "${ML_API_KEY:-}" ] && echo "  API Key:   NOT SET"

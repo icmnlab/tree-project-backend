@@ -435,6 +435,7 @@ def print_config_summary():
     print(f"  Est. Time:    ~{depth.expected_cpu_time_s}s on CPU")
     print(f"  Trunk Mask:   {seg.display_name}")
     print(f"  Mask Device:  {os.environ.get('ML_SERVER_YOLO_DEVICE', 'intel:gpu')}")
+    print(f"  Mask imgsz:   {os.environ.get('ML_SERVER_YOLO_IMGSZ', '832')}")
     print(f"  ONNX Runtime: {'Enabled' if USE_ONNX_RUNTIME else 'Disabled'}")
     print(f"  OpenVINO:     {'Enabled' if ENABLE_OPENVINO else 'Disabled'}")
     if os.environ.get("ML_DA3_OV_DEVICE"):

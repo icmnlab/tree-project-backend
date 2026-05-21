@@ -139,6 +139,7 @@ router.get('/map', projectAuthFilter, async (req, res) => {
             SELECT 
                 id,
                 project_location AS "專案區位",
+                project_code AS "專案代碼",
                 project_name AS "專案名稱",
                 species_name AS "樹種名稱",
                 x_coord AS "X坐標",

@@ -22,22 +22,26 @@ flowchart TB
   end
   subgraph mlHost["ML host (separate machine, private network)"]
     nml["Nginx<br/>:443 → uvicorn :8100"]
-    ml["ml_service/ (FastAPI)<br/>Depth Pro 350M (PyTorch fp16 or<br/>OpenVINO INT8-W on Intel Arc iGPU)<br/>+ SAM 2.1 Tiny"]
+    ml["ml_service/ (FastAPI)<br/>Depth Anything v3 metric-large<br/>OpenVINO FP16 on Intel NPU<br/>+ server YOLOv8m-seg on Intel iGPU<br/>+ pure pinhole DBH calculator"]
     nml --> ml
   end
-  ext[("PostgreSQL 14+ · Cloudinary · PlantNet / GBIF /<br/>iNaturalist · OpenAI / Anthropic / Gemini / SiliconFlow")]
+  ext[("PostgreSQL 14+ · Cloudinary · PlantNet / GBIF /<br/>iNaturalist · OpenAI / Gemini / SiliconFlow / Anthropic")]
   app -- "HTTPS (TLS)" --> nbe
-  app -- "HTTPS + X-ML-API-Key" --> nml
+  app -- "HTTPS + JWT<br/>multipart image / EXIF / bbox" --> nbe
+  be -- "multipart + X-ML-API-Key" --> nml
+  nml -- "DBH / mask / warnings" --> be
   be --> ext
   gh["GitHub push (main)"] -- "HMAC-SHA256" --> nbe
-  be -. triggers .-> deploy["scripts/deploy.sh<br/>git pull → npm install → migrate<br/>→ pm2 reload → /health → auto-rollback"]
+  be -. triggers .-> deploy["scripts/deploy.sh<br/>git pull → npm install → migrate<br/>→ pm2 reload tree-backend → /health → auto-rollback"]
 ```
 
-**Two independent services.** The Flutter app talks to the Node backend
-for CRUD/auth/AI, and to the FastAPI `ml_service` **directly** (the URL +
-API key are handed out by `/login`). The Node side only proxies a small
-diagnostic surface (`/api/ml-service/status` etc.) so the browser console
-can health-check the ML service without exposing `ML_API_KEY`.
+**Two-service deployment with a Node ML proxy.** The Flutter app talks to
+the Node backend for CRUD/auth/AI and for static DBH measurement through
+`/api/ml-service/*`. The backend then forwards multipart images to the
+FastAPI `ml_service` and injects `X-ML-API-Key` from the host environment,
+so the ML API key is not stored on the client. Legacy or experimental live
+scan paths may still talk to the FastAPI host directly, but the production
+DBH HTTP flow is `Flutter → Node proxy → FastAPI`.
 
 > The exact public hostnames, private-network IPs and reverse-proxy domains
 > are deployment-specific and **not** committed to this repo. Configure
@@ -137,19 +141,23 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-  fp["Flutter measurement page (V3)<br/>POST https://&lt;ml-host&gt;/api/v1/auto-measure-dbh<br/>X-ML-API-Key · image + reference distance"]
-  app2["ml_service/app.py<br/>verify_api_key (hmac.compare_digest)<br/>RateLimitMiddleware (120 req/hr/IP)"]
-  de["depth_estimation.py<br/>Depth Pro 350M (fp16 / OpenVINO INT8-W on Arc iGPU)<br/>→ metric depth map (focal-length aware)"]
-  seg["tree_segmentation.py<br/>SAM 2.1 Tiny (38.9M) auto-prompt centre<br/>→ trunk binary mask"]
-  dbh["dbh_calculator.py<br/>tangent-pair on mask;<br/>distance = depth at mask centroid"]
-  out["{ dbh_cm, trunk_distance_m, mask_png_b64,<br/>depth_visualisation_b64, confidence,<br/>processing_ms_per_stage }"]
-  ui["Flutter overlay → user confirms<br/>→ backend stores DBH on tree row"]
-  fp --> app2 --> de --> seg --> dbh --> out --> ui
+  fp["Flutter measurement page (V3)<br/>image + EXIF + phone bbox<br/>Authorization: Bearer JWT"]
+  proxy["backend routes/ml_service.js<br/>POST /api/ml-service/auto-measure-dbh<br/>multer memory upload · JWT protected"]
+  app2["ml_service/app.py<br/>verify_api_key (hmac.compare_digest)<br/>RateLimitMiddleware (ML_RATE_LIMIT, default 30/hr/IP)"]
+  seg["ServerYOLO<br/>YOLOv8m-seg OpenVINO<br/>Intel iGPU · 832 px<br/>→ trunk mask"]
+  de["depth_estimation.py<br/>Depth Anything v3 metric-large<br/>OpenVINO FP16 · Intel NPU · 504×378<br/>→ monocular metric depth"]
+  dbh["dbh_calculator.py<br/>mask row chord width Wpx<br/>central 1/3 chord-depth z<br/>pure pinhole d = z · Wpx/fpx"]
+  out["{ dbh_cm, trunk_depth_m, trunk_pixel_width,<br/>quality_code, mask/debug images, confidence }"]
+  ui["Flutter form/scanner<br/>user confirms → tree_survey / pending measurement"]
+  fp --> proxy --> app2
+  app2 --> seg --> dbh
+  app2 --> de --> dbh
+  dbh --> out --> ui
 ```
 
-Live mode reuses the same pipeline via `WebSocket /ws/scan` (~5 fps preview, no persist).
-
-Live mode uses `WebSocket /ws/scan` for ~5 fps preview without saving.
+The production static DBH flow goes through the Node proxy. `WebSocket
+/ws/scan` is kept for live preview experiments and should be treated as
+optional unless it is routed through the same authentication path.
 
 ### 6. Species identification (`/api/species/*`)
 

@@ -158,7 +158,7 @@ def _get_server_yolo_segmenter():
 
     device_env = os.environ.get("ML_SERVER_YOLO_DEVICE", "").strip()
     device = device_env or ("intel:gpu" if model_path.is_dir() else None)
-    imgsz = int(os.environ.get("ML_SERVER_YOLO_IMGSZ", "640"))
+    imgsz = int(os.environ.get("ML_SERVER_YOLO_IMGSZ", "832"))
     _SERVER_YOLO_SEGMENTER = YoloV8mSimulator(
         model_path,
         imgsz=imgsz,
@@ -1401,11 +1401,11 @@ async def auto_measure_dbh_endpoint(
             or result.dbh_cm < 2
         )
 
-        # 2) FOV saturation (new): if the trunk takes up > 70 % of the image
-        #    width, the cropped chord no longer represents the trunk diameter
-        #    (the chord is artificially small; cylindrical correction overshoots).
-        #    Empirically the monocular metric depth model also saturates below
-        #    ~ 0.7 m capture distance, so we flag this aggressively.
+        # 2) FOV ratio (research/diagnostic field only).  Earlier versions
+        #    raised a "too_close" quality warning when fov_ratio > 0.70 or
+        #    trunk_depth_m < 0.7.  The combined NDHU+Xiang analysis showed
+        #    that distance alone is confounded with DBH size, so production now
+        #    reports the ratio without blocking or warning the user.
         try:
             img_w_for_fov = depth_map.shape[1]
         except Exception:
@@ -1414,23 +1414,12 @@ async def auto_measure_dbh_endpoint(
             float(result.trunk_pixel_width) / float(img_w_for_fov)
             if img_w_for_fov > 0 else 0.0
         )
-        is_too_close = (
-            fov_ratio > 0.70
-            or (result.trunk_depth_m is not None and 0 < result.trunk_depth_m < 0.7)
-        )
-
-        if is_too_close:
-            quality_warning = True
-            quality_code = "too_close"
-            quality_message = (
-                "拍攝距離過近,樹幹超出畫面或深度模型已飽和;"
-                "請退至 1–3 m 後重拍"
-            )
+        if fov_ratio > 0.70:
             result.notes.append(
-                f"⚠️ FOV ratio {fov_ratio:.2f} or depth {result.trunk_depth_m:.2f}m "
-                "indicates near-field saturation"
+                f"FOV ratio {fov_ratio:.2f}; record for audit, not a blocking warning"
             )
-        elif is_poor_quality:
+
+        if is_poor_quality:
             quality_warning = True
             quality_code = "low_confidence"
             quality_message = "測量品質偏低,建議靠近樹幹或在白天重拍"

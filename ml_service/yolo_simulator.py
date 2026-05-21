@@ -226,7 +226,7 @@ def get_default_model_path() -> Path:
 class YoloV8mSimulator:
     """Run YOLOv8m-seg .pt via ultralytics (server-grade, ~27M params)."""
 
-    def __init__(self, model_path: Path | str, imgsz: int = 640,
+    def __init__(self, model_path: Path | str, imgsz: int = 832,
                  device: Optional[str] = None):
         from ultralytics import YOLO  # local import → optional dep
         self.model = YOLO(str(model_path), task="segment")
