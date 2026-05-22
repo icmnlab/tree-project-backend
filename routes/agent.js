@@ -129,6 +129,11 @@ router.get('/status', requireRole('調查管理員'), async (req, res) => {
         mode: 'external_retrieval_and_export',
         providers: health.providers,
         tools: [
+            'query_tree_data',
+            'calculate_carbon',
+            'species_carbon_info',
+            'project_summary',
+            'carbon_credit_estimate',
             'list_policy_sources',
             'list_demo_policy_urls',
             'list_allowed_domains',

@@ -5,9 +5,9 @@
  * 具備工具調用能力，專注於碳匯與永續發展領域。
  * 
  * 支援的工具（唯讀，不寫入資料庫）:
- * 1. fetch_allowed_url       - 白名單網址單頁抓取
- * 2. search_public_documents - 政府/IPCC 限定搜尋（可選 Google CSE）
- * 3. export_excel / export_pdf / export_ai_report - 報表匯出
+ * - 資料：query_tree_data, calculate_carbon, species_carbon_info, project_summary, carbon_credit_estimate
+ * - 外部：fetch_allowed_url(s), list_policy_sources, search_public_documents
+ * - 匯出：export_excel, export_pdf, export_ai_report
  * 
  * @module services/agentService
  */
@@ -33,6 +33,10 @@ const {
     toolExportPdf,
     toolExportAiReport,
 } = require('./agentExportService');
+const {
+    AGENT_DATA_TOOL_DEFINITIONS,
+    executeAgentDataTool,
+} = require('./agentDataTools');
 
 // ============================================
 // SiliconFlow / DeepSeek 客戶端初始化
@@ -143,7 +147,7 @@ async function addTokenUsage(userId, tokens) {
 // Agent 工具定義 (OpenAI function calling format)
 // ============================================
 
-const AGENT_TOOLS = [
+const AGENT_RETRIEVAL_EXPORT_TOOLS = [
     {
         type: 'function',
         function: {
@@ -269,8 +273,14 @@ const AGENT_TOOLS = [
     },
 ];
 
+const AGENT_TOOLS = [...AGENT_DATA_TOOL_DEFINITIONS, ...AGENT_RETRIEVAL_EXPORT_TOOLS];
+
 async function executeToolCall(toolName, args, ctx) {
     const { userId, userRole } = ctx;
+    const dataResult = await executeAgentDataTool(toolName, args, ctx);
+    if (dataResult !== null) {
+        return dataResult;
+    }
     switch (toolName) {
         case 'fetch_allowed_url':
             return await fetchAllowedUrl(args.url);
@@ -318,24 +328,32 @@ const AGENT_SYSTEM_PROMPT = `你是「碳匯永續智慧助理」，服務台灣
 
 ## 核心規則
 1. **不得修改或刪除任何資料庫資料**；僅能使用下列工具。
-2. 說明政策、方法學、碳盤查概念時，**必須**先用 search_public_documents 或 fetch_allowed_url 取得公開來源，再回答。
-3. 每段引用官方內容時，回覆末尾列出工具回傳的 **citation** 或「依據：標題（URL，擷取日期）」。
-4. 不可捏造網址；僅使用工具回傳的 url。
-5. 匯出請用 export_excel / export_pdf / export_ai_report，並在回覆中附上 **downloadUrl**（Markdown 連結）。
-6. 不回答碳權市場定價；若被問則說明本系統僅協助盤查與報告匯出。
+2. 查樹木數量、統計、碳儲存、區位比較 → 優先用 **query_tree_data** 或 **project_summary**。
+3. 說明政策、方法學、碳盤查法規 → 用 **list_policy_sources** / **fetch_allowed_url**（或 fetch_allowed_urls）取得公開來源並列 citation。
+4. 單株試算 → **calculate_carbon**；樹種參數 → **species_carbon_info**；盤查總量估算 → **carbon_credit_estimate**（非市場碳權價格）。
+5. 匯出檔案 → **export_excel** / **export_pdf** / **export_ai_report**，回覆附上 **downloadUrl**（相對路徑即可，App 會 App 內下載）。
+6. 不可捏造網址；不回答碳權市場交易定價。
 
 ## 可用工具
-- **list_policy_sources** / **list_demo_policy_urls** — 分類政策入口（環境部、林業署、農業部、IPCC 等）
-- **list_allowed_domains** — 說明可抓取哪些網域（含 .gov.tw）
-- **fetch_allowed_url** — 讀取單一白名單網頁
-- **fetch_allowed_urls** — 一次讀 2～3 頁並比較（跨部會政策時優先）
-- **search_public_documents** — 搜尋政府／IPCC（需 Google CSE，未設定則改 list + fetch）
-- **export_excel** / **export_pdf** / **export_ai_report** — 報表下載
+**資料庫與碳匯**
+- query_tree_data — 自然語言查 tree_survey（安全 SQL）
+- project_summary — 各區位統計
+- species_carbon_info — 樹種碳參數／統計
+- calculate_carbon — 單株碳儲存試算
+- carbon_credit_estimate — 專案碳儲存／年吸碳估算
+
+**政策與外部**
+- list_policy_sources / list_demo_policy_urls / list_allowed_domains
+- fetch_allowed_url / fetch_allowed_urls
+- search_public_documents（需 Google CSE）
+
+**匯出**
+- export_excel / export_pdf / export_ai_report
 
 ## 建議流程
-政策／方法學 → list_policy_sources → fetch_allowed_url 或 fetch_allowed_urls → 綜合回答並列 citation  
-要檔案 → export 工具  
-使用者提供 https://*.gov.tw 連結 → 可直接 fetch_allowed_url  
+「高雄港有多少樹」→ query_tree_data 或 project_summary  
+「環境部政策」→ fetch_allowed_url  
+「匯出 Excel」→ export_excel  
 
 用繁體中文，語氣專業友善。`;
 
