@@ -176,5 +176,6 @@ module.exports = {
     projectAuth,
     projectAuthFilter,
     hasProjectPermission,
-    invalidateUserProjectsCache
+    invalidateUserProjectsCache,
+    getUserProjects,
 };

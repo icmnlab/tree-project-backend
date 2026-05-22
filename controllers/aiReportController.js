@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const OpenAI = require('openai');
+const { chatCompletions, getOpenAIClient } = require('../services/llmProviderService');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
@@ -315,18 +316,17 @@ ${formattedDbh}
         }
 
 
-        // 調用 SiliconFlow API (免費替代 OpenAI)
-        if (!siliconFlowClient) {
-            return '無法生成 AI 分析報告：SiliconFlow API Key 未設定。';
+        if (!siliconFlowClient && !getOpenAIClient()) {
+            return '無法生成 AI 分析報告：SiliconFlow / OpenAI API Key 均未設定。';
         }
-        console.log('[AI Report] Sending request to SiliconFlow API...');
-        const response = await siliconFlowClient.chat.completions.create({
+        console.log('[AI Report] Sending request to LLM API...');
+        const { result: response, provider } = await chatCompletions({
             model: REPORT_MODEL,
-            messages: [{ role: "user", content: prompt }],
+            messages: [{ role: 'user', content: prompt }],
             temperature: 0.5,
             max_tokens: 2000,
         });
-        console.log('[AI Report] Received response from SiliconFlow API.');
+        console.log(`[AI Report] Received response from ${provider} API.`);
 
         // 檢查是否有有效的回應內容
         if (response.choices && response.choices.length > 0 && response.choices[0].message && response.choices[0].message.content) {

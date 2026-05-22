@@ -4,20 +4,35 @@
  * 使用 SiliconFlow API (OpenAI-compatible) 實現 ReAct 風格的 Agent，
  * 具備工具調用能力，專注於碳匯與永續發展領域。
  * 
- * 支援的工具:
- * 1. query_tree_data    - 查詢樹木資料庫
- * 2. calculate_carbon   - 計算碳匯指標
- * 3. species_carbon_info - 查詢樹種碳匯參數
- * 4. project_summary    - 取得專案統計摘要
- * 5. carbon_report      - 生成碳匯報告
+ * 支援的工具（唯讀，不寫入資料庫）:
+ * 1. fetch_allowed_url       - 白名單網址單頁抓取
+ * 2. search_public_documents - 政府/IPCC 限定搜尋（可選 Google CSE）
+ * 3. export_excel / export_pdf / export_ai_report - 報表匯出
  * 
  * @module services/agentService
  */
 
 const db = require('../config/db');
 const OpenAI = require('openai');
-const sqlQueryService = require('./sqlQueryService');
-const carbonCalculationService = require('./carbonCalculationService');
+const {
+    chatCompletions,
+    getOpenAIClient,
+    getSiliconFlowKeyList,
+    mapToOpenAIModel,
+} = require('./llmProviderService');
+const {
+    fetchAllowedUrl,
+    fetchAllowedUrls,
+    searchPublicDocuments,
+    listDemoPolicyUrls,
+    listPolicySources,
+    listAllowedDomains,
+} = require('./agentExternalRetrievalService');
+const {
+    toolExportExcel,
+    toolExportPdf,
+    toolExportAiReport,
+} = require('./agentExportService');
 
 // ============================================
 // SiliconFlow / DeepSeek 客戶端初始化
@@ -56,12 +71,12 @@ function getNextClient() {
 // ============================================
 
 const AGENT_MODELS = {
-    // Qwen2.5-72B: 已驗證支援 SiliconFlow function calling
-    default: 'Qwen/Qwen2.5-72B-Instruct',
-    reasoning: 'Qwen/QwQ-32B',
-    fast: 'Qwen/Qwen2.5-7B-Instruct',
+    /** 預設：OpenAI 性價比最高；SiliconFlow 可用時前端可改選 */
+    default: process.env.AGENT_DEFAULT_MODEL || 'gpt-5.4-mini',
+    reasoning: 'gpt-5.4-mini',
+    fast: 'gpt-5.4-mini',
     deepseek: 'deepseek-ai/DeepSeek-V3',
-    strong: 'Qwen/Qwen3-235B-A22B-Instruct-2507',
+    strong: 'gpt-5.4',
 };
 
 // ============================================
@@ -132,19 +147,75 @@ const AGENT_TOOLS = [
     {
         type: 'function',
         function: {
-            name: 'query_tree_data',
-            description: '查詢樹木資料庫。可以查詢樹木調查數據、碳儲存、樹種分布等。輸入自然語言描述即可，系統會自動轉為 SQL 查詢。',
+            name: 'fetch_allowed_url',
+            description: '抓取白名單內政府／IPCC 等公開網頁內容（gov.tw、moenv.gov.tw、林業署、ipcc.ch 等）。回傳標題、段落摘要、citation 欄位。用於碳盤查方法學、政策、森林碳匯手冊公開頁。',
             parameters: {
                 type: 'object',
                 properties: {
-                    query: {
-                        type: 'string',
-                        description: '使用者的查詢需求，例如：「高雄港有多少棵樹」、「碳儲存量最高的樹種」',
+                    url: { type: 'string', description: '完整 https 網址' },
+                },
+                required: ['url'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'list_demo_policy_urls',
+            description: '列出內建之政府碳匯／環境政策入口網址（白名單）。搜尋 API 不可用或需快速 demo 時使用，再搭配 fetch_allowed_url 讀內容。',
+            parameters: { type: 'object', properties: {}, required: [] },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'list_policy_sources',
+            description: '依分類列出可檢索的政策／方法學入口（環境、森林、農業、國際 IPCC 等）。可選 category 篩選，再 fetch 內容。',
+            parameters: {
+                type: 'object',
+                properties: {
+                    category: { type: 'string', description: '如「森林」「國際」' },
+                },
+                required: [],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'list_allowed_domains',
+            description: '說明 Agent 可抓取的網域白名單規則（gov.tw、IPCC 等）。使用者問「還能查哪些網站」時使用。',
+            parameters: { type: 'object', properties: {}, required: [] },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'fetch_allowed_urls',
+            description: '一次讀取 2～3 個白名單網址並比較摘要（例如環境部＋林業署）。每個 url 須為完整 https。',
+            parameters: {
+                type: 'object',
+                properties: {
+                    urls: {
+                        type: 'array',
+                        items: { type: 'string' },
+                        description: '2～3 個白名單 https 網址',
                     },
-                    project_area: {
-                        type: 'string',
-                        description: '可選，限定查詢的專案區域，如「高雄港」、「花蓮港」',
-                    },
+                },
+                required: ['urls'],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'search_public_documents',
+            description: '在政府與 IPCC 相關網域搜尋公開文件（需伺服器設定 Google CSE）。回傳標題與連結列表，之後可用 fetch_allowed_url 讀內文。',
+            parameters: {
+                type: 'object',
+                properties: {
+                    query: { type: 'string', description: '搜尋關鍵字，如「森林碳匯 調查 手冊」' },
+                    max_results: { type: 'number', description: '最多幾筆，預設 5' },
                 },
                 required: ['query'],
             },
@@ -153,57 +224,13 @@ const AGENT_TOOLS = [
     {
         type: 'function',
         function: {
-            name: 'calculate_carbon',
-            description: '根據樹木的胸徑(DBH)和樹高計算碳匯指標，包括碳儲存量、年碳吸存量、CO2 當量等。支援單棵或批量計算。',
+            name: 'export_excel',
+            description: '匯出樹木調查資料為 Excel（唯讀匯出，不修改資料庫）。回傳 downloadUrl。',
             parameters: {
                 type: 'object',
                 properties: {
-                    dbh_cm: {
-                        type: 'number',
-                        description: '胸高直徑(公分)',
-                    },
-                    height_m: {
-                        type: 'number',
-                        description: '樹高(公尺)',
-                    },
-                    species: {
-                        type: 'string',
-                        description: '樹種名稱（可選，用於查找樹種特定的碳係數）',
-                    },
-                },
-                required: ['dbh_cm'],
-            },
-        },
-    },
-    {
-        type: 'function',
-        function: {
-            name: 'species_carbon_info',
-            description: '查詢特定樹種的碳匯參數，包括碳吸收範圍、生長速率、碳效率等資訊。適合比較不同樹種的碳匯能力。',
-            parameters: {
-                type: 'object',
-                properties: {
-                    species_name: {
-                        type: 'string',
-                        description: '樹種名稱（中文），例如「榕樹」、「欖仁」',
-                    },
-                },
-                required: ['species_name'],
-            },
-        },
-    },
-    {
-        type: 'function',
-        function: {
-            name: 'project_summary',
-            description: '取得指定專案區域或全部區域的統計摘要，包括樹木總數、平均碳儲存、樹種多樣性等。',
-            parameters: {
-                type: 'object',
-                properties: {
-                    project_area: {
-                        type: 'string',
-                        description: '專案區域名稱，留空表示全部區域',
-                    },
+                    project_area: { type: 'string', description: '專案區位名稱，如台中港' },
+                    project_codes: { type: 'string', description: '專案代碼，逗號分隔' },
                 },
                 required: [],
             },
@@ -212,19 +239,29 @@ const AGENT_TOOLS = [
     {
         type: 'function',
         function: {
-            name: 'carbon_credit_estimate',
-            description: '統計樹木碳匯效益。根據調查資料彙總碳儲存量與 CO₂ 當量，計算方法基於 TIPC AR-TMS0001 (環境部/林業署森林碳匯調查手冊式 6-4)。僅提供碳吸存量科學統計，不提供碳權定價或方法學折減率（實際碳信用額度需經授權驗證機構 VVB 核證）。',
+            name: 'export_pdf',
+            description: '匯出樹木調查資料 PDF 摘要（唯讀匯出）。回傳 downloadUrl。',
             parameters: {
                 type: 'object',
                 properties: {
-                    project_area: {
-                        type: 'string',
-                        description: '專案區域名稱',
-                    },
-                    period_years: {
-                        type: 'number',
-                        description: '計算期間(年)，預設 10 年',
-                    },
+                    project_area: { type: 'string' },
+                    project_codes: { type: 'string' },
+                },
+                required: [],
+            },
+        },
+    },
+    {
+        type: 'function',
+        function: {
+            name: 'export_ai_report',
+            description: '產生 AI 永續分析報告 PDF（依現有調查資料統計＋AI 文字分析，不寫入資料庫）。回傳 downloadUrl 與 preview。',
+            parameters: {
+                type: 'object',
+                properties: {
+                    project_areas: { type: 'string', description: '專案區位，逗號分隔' },
+                    min_dbh: { type: 'number' },
+                    max_dbh: { type: 'number' },
                 },
                 required: [],
             },
@@ -232,292 +269,75 @@ const AGENT_TOOLS = [
     },
 ];
 
-// ============================================
-// 工具執行函數
-// ============================================
-
-async function executeToolCall(toolName, args) {
+async function executeToolCall(toolName, args, ctx) {
+    const { userId, userRole } = ctx;
     switch (toolName) {
-        case 'query_tree_data':
-            return await toolQueryTreeData(args);
-        case 'calculate_carbon':
-            return await toolCalculateCarbon(args);
-        case 'species_carbon_info':
-            return await toolSpeciesCarbonInfo(args);
-        case 'project_summary':
-            return await toolProjectSummary(args);
-        case 'carbon_credit_estimate':
-            return await toolCarbonCreditEstimate(args);
+        case 'fetch_allowed_url':
+            return await fetchAllowedUrl(args.url);
+        case 'list_demo_policy_urls':
+            return await listDemoPolicyUrls();
+        case 'list_policy_sources':
+            return await listPolicySources({ category: args.category });
+        case 'list_allowed_domains':
+            return await listAllowedDomains();
+        case 'fetch_allowed_urls':
+            return await fetchAllowedUrls(args.urls);
+        case 'search_public_documents':
+            return await searchPublicDocuments({
+                query: args.query,
+                max_results: args.max_results,
+            });
+        case 'export_excel':
+            return await toolExportExcel({
+                userId,
+                userRole,
+                project_codes: args.project_codes,
+                project_area: args.project_area,
+            });
+        case 'export_pdf':
+            return await toolExportPdf({
+                userId,
+                userRole,
+                project_codes: args.project_codes,
+                project_area: args.project_area,
+            });
+        case 'export_ai_report':
+            return await toolExportAiReport({
+                userId,
+                userRole,
+                project_areas: args.project_areas,
+                min_dbh: args.min_dbh,
+                max_dbh: args.max_dbh,
+            });
         default:
             return { error: `未知的工具: ${toolName}` };
     }
 }
 
-// --- Tool: query_tree_data ---
-async function toolQueryTreeData({ query, project_area }) {
-    try {
-        // 使用 sqlQueryService 的能力生成並執行 SQL
-        const sqlPrompt = sqlQueryService.buildSQLGenerationPrompt(query, []);
-        
-        // 用 SiliconFlow 生成 SQL (最便宜的模型)
-        const client = siliconFlowClient || getNextClient();
-        if (!client) return { error: 'SiliconFlow 未配置' };
+const AGENT_SYSTEM_PROMPT = `你是「碳匯永續智慧助理」，服務台灣港務公司(TIPC)智慧樹木碳匯管理平台。
 
-        const sqlCompletion = await client.chat.completions.create({
-            model: 'Qwen/Qwen2.5-7B-Instruct',
-            messages: [{ role: 'user', content: sqlPrompt }],
-            temperature: 0.1,
-            max_tokens: 500,
-        });
-        
-        let generatedSQL = sqlCompletion.choices[0].message.content.trim();
-        
-        if (generatedSQL === 'NOT_A_DATA_QUERY') {
-            return { result: '此問題不需要查詢資料庫', query };
-        }
-
-        // 如果指定了區域，在 SQL prompt 中加入提示讓 LLM 自行處理
-        // 注意：不直接拼接到 SQL 中，由 LLM 生成的 SQL 經 executeSecureQuery 驗證
-        if (project_area) {
-            const safeArea = project_area.replace(/[^\u4e00-\u9fff\u3400-\u4dbfa-zA-Z0-9\s]/g, '');
-            if (safeArea && !generatedSQL.toUpperCase().includes('PROJECT_LOCATION')) {
-                if (generatedSQL.toUpperCase().includes('WHERE')) {
-                    generatedSQL = generatedSQL.replace(/WHERE/i, `WHERE project_location ILIKE '%${safeArea}%' AND`);
-                } else {
-                    generatedSQL = generatedSQL.replace(/FROM\s+(\w+)/i, `FROM $1 WHERE project_location ILIKE '%${safeArea}%'`);
-                }
-            }
-        }
-
-        const queryResult = await sqlQueryService.executeSecureQuery(generatedSQL, {
-            maxRetries: 0,
-        });
-
-        if (queryResult.success) {
-            return {
-                data: queryResult.rows,
-                rowCount: queryResult.rowCount,
-                sql: queryResult.executedSQL,
-            };
-        } else {
-            return { error: queryResult.error };
-        }
-    } catch (err) {
-        return { error: err.message };
-    }
-}
-
-// --- Tool: calculate_carbon ---
-async function toolCalculateCarbon({ dbh_cm, height_m, species }) {
-    // 碳匯計算公式 — TIPC AR-TMS0001 / 林業署森林碳匯調查與監測手冊式 6-4
-    // 邏輯統一委派 services/carbonCalculationService.js (與 transfer route 共用)
-    const detail = carbonCalculationService.calculateCarbonStorageDetail(species, dbh_cm, height_m);
-    if (detail.error) return { error: detail.error };
-
-    const carbonStorage_kgCO2e = detail.value;
-    const carbonStorage_tonCO2e = Math.round(carbonStorage_kgCO2e / 1000 * 1000) / 1000;
-
-    return {
-        input: { dbh_cm, height_m, species: species || '未提供' },
-        formula: detail.formula,
-        coefficients: {
-            ...detail.coefficients,
-            source: detail.source,
-            species_matched: detail.species_matched,
-        },
-        carbon: {
-            storage_kg_co2e: carbonStorage_kgCO2e,
-            storage_ton_co2e: carbonStorage_tonCO2e,
-        },
-        annual: {
-            note: 'TIPC 年固碳量 (carbon_sequestration_per_year) 內部公式涉及樹齡且未公開，本工具不進行客端重算；請查詢資料庫中的 carbon_sequestration_per_year 欄位。',
-        },
-        methodology: detail.methodology,
-        note: '本計算為 TIPC 平台一致之估算值；實際碳信用需經授權驗證機構 (VVB) 查驗。',
-    };
-}
-
-// --- Tool: species_carbon_info ---
-async function toolSpeciesCarbonInfo({ species_name }) {
-    try {
-        const result = await db.query(
-            `SELECT * FROM tree_carbon_data WHERE common_name_zh ILIKE $1 LIMIT 5`,
-            [`%${species_name}%`]
-        );
-
-        if (result.rows.length > 0) {
-            return { species: result.rows };
-        }
-
-        // 也查詢 tree_survey 中的統計資料
-        const stats = await db.query(
-            `SELECT 
-                species_name,
-                COUNT(*) as tree_count,
-                ROUND(AVG(dbh_cm)::numeric, 1) as avg_dbh,
-                ROUND(AVG(tree_height_m)::numeric, 1) as avg_height,
-                ROUND(AVG(carbon_storage)::numeric, 1) as avg_carbon_storage,
-                ROUND(SUM(carbon_storage)::numeric, 1) as total_carbon,
-                ROUND(AVG(carbon_sequestration_per_year)::numeric, 2) as avg_annual_seq
-            FROM tree_survey 
-            WHERE species_name ILIKE $1
-            GROUP BY species_name
-            LIMIT 5`,
-            [`%${species_name}%`]
-        );
-
-        if (stats.rows.length > 0) {
-            return { species_stats: stats.rows };
-        }
-
-        return { message: `未找到樹種「${species_name}」的資料` };
-    } catch (err) {
-        return { error: err.message };
-    }
-}
-
-// --- Tool: project_summary ---
-async function toolProjectSummary({ project_area }) {
-    try {
-        let whereClause = '';
-        const params = [];
-        if (project_area) {
-            whereClause = `WHERE project_location ILIKE $1`;
-            params.push(`%${project_area}%`);
-        }
-
-        const summary = await db.query(
-            `SELECT 
-                project_location,
-                COUNT(*) as tree_count,
-                COUNT(DISTINCT species_name) as species_count,
-                ROUND(AVG(dbh_cm)::numeric, 1) as avg_dbh_cm,
-                ROUND(AVG(tree_height_m)::numeric, 1) as avg_height_m,
-                ROUND(SUM(carbon_storage)::numeric, 1) as total_carbon_kg,
-                ROUND(AVG(carbon_storage)::numeric, 1) as avg_carbon_kg,
-                ROUND(SUM(carbon_sequestration_per_year)::numeric, 1) as total_annual_seq_kg
-            FROM tree_survey 
-            ${whereClause}
-            GROUP BY project_location 
-            ORDER BY tree_count DESC`,
-            params
-        );
-
-        // 計算全局統計
-        const totals = await db.query(
-            `SELECT 
-                COUNT(*) as total_trees,
-                COUNT(DISTINCT species_name) as total_species,
-                COUNT(DISTINCT project_location) as total_areas,
-                ROUND(SUM(carbon_storage)::numeric, 1) as total_carbon_kg,
-                ROUND(SUM(carbon_sequestration_per_year)::numeric, 1) as total_annual_seq_kg
-            FROM tree_survey ${whereClause}`,
-            params
-        );
-
-        return {
-            areas: summary.rows,
-            totals: totals.rows[0],
-            // DB carbon_storage 已是 kg CO₂e (TIPC 公式內含 44/12)，不再乘 3.667
-            co2_equivalent_tons: totals.rows[0]
-                ? Math.round((parseFloat(totals.rows[0].total_carbon_kg) || 0) / 1000 * 100) / 100
-                : 0,
-        };
-    } catch (err) {
-        return { error: err.message };
-    }
-}
-
-// --- Tool: carbon_credit_estimate (已重構：僅提供碳吸存科學統計) ---
-// [2026-04-13] 移除原先未經驗證的方法學折減率(VCS/Gold Standard/台灣抵換)及碳權定價。
-// 原因：Gold Standard 無 buffer pool 機制，VCS 折減率因專案而異(10-60%)，
-//       碳價數據無明確出處。改為僅回傳碳儲存量與 CO₂ 當量的科學計算結果。
-async function toolCarbonCreditEstimate({ project_area, period_years = 10 }) {
-    try {
-        let whereClause = '';
-        const params = [];
-        if (project_area) {
-            whereClause = `WHERE project_location ILIKE $1`;
-            params.push(`%${project_area}%`);
-        }
-
-        const data = await db.query(
-            `SELECT 
-                COUNT(*) as tree_count,
-                ROUND(SUM(carbon_storage)::numeric, 1) as total_carbon_kg,
-                ROUND(SUM(carbon_sequestration_per_year)::numeric, 1) as annual_seq_kg,
-                ROUND(AVG(dbh_cm)::numeric, 1) as avg_dbh
-            FROM tree_survey ${whereClause}`,
-            params
-        );
-
-        const stats = data.rows[0];
-        if (!stats || stats.tree_count === 0) {
-            return { message: '未找到符合條件的樹木資料' };
-        }
-
-        // DB 中 carbon_storage / carbon_sequestration_per_year 已是 kg CO₂e
-        // (TIPC K_sp 公式內含 44/12)，不再乘 3.667
-        const totalCO2_kg = parseFloat(stats.total_carbon_kg) || 0;
-        const annualCO2_kg = parseFloat(stats.annual_seq_kg) || 0;
-
-        const currentCO2_ton = totalCO2_kg / 1000;
-        const annualCO2_ton = annualCO2_kg / 1000;
-        const periodCO2_ton = annualCO2_ton * period_years;
-
-        return {
-            project: project_area || '全部區域',
-            tree_count: parseInt(stats.tree_count),
-            avg_dbh_cm: parseFloat(stats.avg_dbh) || 0,
-            period_years,
-            methodology: 'TIPC AR-TMS0001 / 林業署森林碳匯手冊式 6-4 (K_sp · DBH² · H)',
-            current_stock: {
-                co2_equivalent_ton: Math.round(currentCO2_ton * 100) / 100,
-            },
-            projected: {
-                annual_co2_ton: Math.round(annualCO2_ton * 100) / 100,
-                period_co2_ton: Math.round(periodCO2_ton * 100) / 100,
-            },
-            note: '本統計適用 TIPC 平台一致之公式；實際碳信用額度需經授權驗證機構 (VVB) 依特定方法學核證後方可取得，'
-                + '本系統不提供碳權定價或方法學折減率估算。',
-        };
-    } catch (err) {
-        return { error: err.message };
-    }
-}
-
-// ============================================
-// Agent 主函數: ReAct Loop
-// ============================================
-
-const AGENT_SYSTEM_PROMPT = `你是「碳匯永續智慧助理」，一個專門服務於台灣港務公司(TIPC)永續碳匯管理系統的 AI Agent。
-
-## 核心規則 (必須遵守)
-1. **你必須使用工具查詢數據，絕對不可以編造或猜測任何數字。**
-2. 即使是簡單的問題（例如「有多少棵樹」），也必須先調用工具取得真實數據再回答。
-3. 當使用者的問題涉及多個面向時，你應該調用多個工具分別取得數據，再綜合回答。
-4. 如果工具傳回錯誤，嘗試換一種方式查詢，或誠實告知使用者查詢失敗。
+## 核心規則
+1. **不得修改或刪除任何資料庫資料**；僅能使用下列工具。
+2. 說明政策、方法學、碳盤查概念時，**必須**先用 search_public_documents 或 fetch_allowed_url 取得公開來源，再回答。
+3. 每段引用官方內容時，回覆末尾列出工具回傳的 **citation** 或「依據：標題（URL，擷取日期）」。
+4. 不可捏造網址；僅使用工具回傳的 url。
+5. 匯出請用 export_excel / export_pdf / export_ai_report，並在回覆中附上 **downloadUrl**（Markdown 連結）。
+6. 不回答碳權市場定價；若被問則說明本系統僅協助盤查與報告匯出。
 
 ## 可用工具
-1. **query_tree_data** — 查詢樹木資料庫 (胸徑、樹高、碳儲存、樹種分布等)
-2. **calculate_carbon** — 計算碳匯指標 (碳儲存量、CO₂ 當量、年碳吸存)
-3. **species_carbon_info** — 查詢特定樹種的碳匯參數
-4. **project_summary** — 取得專案區域統計摘要
-5. **carbon_credit_estimate** — 統計樹木碳匯效益 (碳儲存量與 CO₂ 當量，不含碳權定價)
+- **list_policy_sources** / **list_demo_policy_urls** — 分類政策入口（環境部、林業署、農業部、IPCC 等）
+- **list_allowed_domains** — 說明可抓取哪些網域（含 .gov.tw）
+- **fetch_allowed_url** — 讀取單一白名單網頁
+- **fetch_allowed_urls** — 一次讀 2～3 頁並比較（跨部會政策時優先）
+- **search_public_documents** — 搜尋政府／IPCC（需 Google CSE，未設定則改 list + fetch）
+- **export_excel** / **export_pdf** / **export_ai_report** — 報表下載
 
-## 回答準則
-- 回答時必須引用工具返回的實際數據
-- 碳匯計算要說明使用的方法學和公式
-- 涉及碳匯效益評估時要聲明「此為學術估算，需經第三方驗證」
-- 當使用者詢問「碳匯」「減碳效益」「碳吸存評估」「碳儲存統計」等問題時，務必調用 carbon_credit_estimate 工具
-- 若使用者詢問「碳權價格」「碳交易價值」等碳權定價問題，應說明本系統僅提供碳吸存量科學統計，碳信用額度與定價需經授權驗證機構 (VVB) 核證
-- 用繁體中文回答，語氣專業但友善
-- 可以結合多個工具回答複雜問題
+## 建議流程
+政策／方法學 → list_policy_sources → fetch_allowed_url 或 fetch_allowed_urls → 綜合回答並列 citation  
+要檔案 → export 工具  
+使用者提供 https://*.gov.tw 連結 → 可直接 fetch_allowed_url  
 
-## 服務對象
-- 環境學院教授和研究生 (學術研究)
-- TIPC 永續發展部門 (碳盤查和碳交易)
-- 林業調查員 (現場數據管理)`;
+用繁體中文，語氣專業友善。`;
 
 /**
  * 執行 Agent ReAct Loop
@@ -541,17 +361,16 @@ async function runAgent(message, userId, chatHistory = [], options = {}) {
         };
     }
 
-    const client = siliconFlowClient;
-    if (!client) {
+    if (!siliconFlowClient && !getOpenAIClient()) {
         return {
-            response: '❌ AI Agent 服務未配置 (SiliconFlow API Key 未設定)',
+            response: '❌ AI Agent 服務未配置 (SiliconFlow / OpenAI API Key 均未設定)',
             toolCalls: [],
             tokensUsed: 0,
         };
     }
 
-    // 使用局部變數追蹤當前使用的 client，以支援 key 輪替
-    let activeClient = client;
+    let activeModel = model;
+    let useSiliconFlowFirst = Boolean(siliconFlowClient || getSiliconFlowKeyList().length);
 
     // 構建 messages
     const messages = [
@@ -570,17 +389,28 @@ async function runAgent(message, userId, chatHistory = [], options = {}) {
     const allToolCalls = [];
     let totalTokens = 0;
 
+    async function agentCompletion(msgs) {
+        const { result, provider, modelUsed } = await chatCompletions({
+            model: activeModel,
+            messages: msgs,
+            tools: AGENT_TOOLS,
+            tool_choice: 'auto',
+            temperature: 0.1,
+            max_tokens: 2000,
+            preferSiliconFlow: useSiliconFlowFirst,
+        });
+        if (provider === 'openai') {
+            useSiliconFlowFirst = false;
+            activeModel = modelUsed || mapToOpenAIModel(activeModel);
+            console.log(`[Agent] 使用 OpenAI 備援模型: ${activeModel}`);
+        }
+        return result;
+    }
+
     // ReAct Loop
     for (let step = 0; step < maxSteps; step++) {
         try {
-            const completion = await activeClient.chat.completions.create({
-                model,
-                messages,
-                tools: AGENT_TOOLS,
-                tool_choice: 'auto',
-                temperature: 0.1,
-                max_tokens: 2000,
-            });
+            const completion = await agentCompletion(messages);
 
             const assistantMsg = completion.choices[0].message;
             const usage = completion.usage || {};
@@ -599,7 +429,7 @@ async function runAgent(message, userId, chatHistory = [], options = {}) {
                     messages.pop(); // 移除剛才的 user message
                     messages.push({
                         role: 'user',
-                        content: `請使用工具回答以下環境科學研究問題：${message}`,
+                        content: `請使用 search_public_documents 或 fetch_allowed_url 等工具回答：${message}`,
                     });
                     continue; // 重試 ReAct loop
                 }
@@ -630,7 +460,10 @@ async function runAgent(message, userId, chatHistory = [], options = {}) {
 
                 console.log(`[Agent] Step ${step + 1}: ${fnName}(${JSON.stringify(fnArgs).substring(0, 100)})`);
 
-                const result = await executeToolCall(fnName, fnArgs);
+                const result = await executeToolCall(fnName, fnArgs, {
+                    userId,
+                    userRole: options.userRole || '調查管理員',
+                });
                 // 限制結果大小: 先截斷資料陣列，再 stringify，避免產生無效 JSON
                 let resultForMsg = result;
                 if (result && result.data && Array.isArray(result.data) && result.data.length > 50) {
@@ -653,13 +486,13 @@ async function runAgent(message, userId, chatHistory = [], options = {}) {
         } catch (err) {
             console.error(`[Agent] Step ${step + 1} error:`, err.message);
             
-            // 如果是 API key 錯誤，嘗試切換 key
-            if (err.status === 401 || err.status === 429) {
-                const nextClient = getNextClient();
-                if (nextClient) {
-                    activeClient = nextClient;
-                    console.log(`[Agent] 切換到備用 SiliconFlow API Key (index ${currentKeyIndex})`);
-                    continue; // 重試這一步
+            // SiliconFlow 403/401/429 → 改用 OpenAI 重試
+            if (err.status === 401 || err.status === 403 || err.status === 429) {
+                if (getOpenAIClient()) {
+                    useSiliconFlowFirst = false;
+                    activeModel = mapToOpenAIModel(activeModel);
+                    console.log(`[Agent] API ${err.status}，切換 OpenAI 備援 (${activeModel})`);
+                    continue;
                 }
             }
             
@@ -677,14 +510,15 @@ async function runAgent(message, userId, chatHistory = [], options = {}) {
     
     // 嘗試獲取最終回應
     try {
-        const finalCompletion = await activeClient.chat.completions.create({
-            model,
+        const { result: finalCompletion } = await chatCompletions({
+            model: activeModel,
             messages: [
                 ...messages,
                 { role: 'user', content: '請根據以上工具結果，給出最終的完整回答。' },
             ],
             temperature: 0.3,
             max_tokens: 2000,
+            preferSiliconFlow: useSiliconFlowFirst,
         });
         return {
             response: finalCompletion.choices[0].message.content,

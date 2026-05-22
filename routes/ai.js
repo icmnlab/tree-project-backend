@@ -11,6 +11,8 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { requireRole } = require('../middleware/roleAuth');
+const { chatCompletions } = require('../services/llmProviderService');
+const { getLlmHealth } = require('../services/llmProviderHealth');
 
 // [NEW] 引入 SQL Query Service
 const sqlQueryService = require('../services/sqlQueryService');
@@ -118,6 +120,26 @@ setInterval(() => {
 // 透過 JWT 取得 user_id 來保證跨裝置/同裝置不同帳號互相隔離。
 
 // GET /chat/sessions — 列出當前使用者所有對話 session（最新 50 筆）
+/** GET /api/ai/llm-options — 依實際 API 可用性回傳前端模型清單 */
+router.get('/llm-options', requireRole('調查管理員'), async (req, res) => {
+    try {
+        const health = await getLlmHealth(req.query.refresh === '1');
+        res.json({
+            success: true,
+            ...health,
+            demoHints: [
+                '匯出高雄港樹木 Excel',
+                '比較環境部與林業署碳匯政策',
+                '列出可查的政策網站',
+                'IPCC 森林碳匯方法學摘要',
+            ],
+        });
+    } catch (e) {
+        console.error('[LLM Options]', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 router.get('/chat/sessions', requireRole('調查管理員'), async (req, res) => {
     try {
         const userId = String(req.user.user_id);
@@ -411,8 +433,7 @@ WHERE project_location IN (${areasCondition})
                         if (model_preference.startsWith('gemini-')) {
                             aiResponse = await generateGeminiChatResponse(explanationPrompt, explainSystemPrompt, [], model_preference);
                         } else if (model_preference.startsWith('Qwen/') || model_preference.startsWith('deepseek-ai/')) {
-                            if (!siliconFlowLlm) throw new Error('SiliconFlow 服務未配置');
-                            const completion = await siliconFlowLlm.chat.completions.create({
+                            const { result: completion } = await chatCompletions({
                                 model: model_preference,
                                 messages: [
                                     { role: 'system', content: explainSystemPrompt },
@@ -488,8 +509,7 @@ WHERE project_location IN (${areasCondition})
                     const messageWithHistory = historyText ? `${historyText}\n\n用戶: ${message}` : message;
                     aiResponse = await generateGeminiChatResponse(messageWithHistory, systemPrompt, [], model_preference);
                 } else if (model_preference.startsWith('Qwen/') || model_preference.startsWith('deepseek-ai/')) {
-                    if (!siliconFlowLlm) throw new Error('SiliconFlow 服務未配置');
-                    const completion = await siliconFlowLlm.chat.completions.create({
+                    const { result: completion } = await chatCompletions({
                         model: model_preference,
                         messages: messages,
                         temperature: 0.7,
@@ -697,8 +717,9 @@ router.get('/reports/ai-sustainability/pdf', requireRole('調查管理員'), aiL
 router.get('/download/:filename', (req, res) => {
     const { filename } = req.params;
     
-    // 安全檢查：只允許 .xlsx 檔案，防止路徑遍歷攻擊
-    if (!filename || !filename.endsWith('.xlsx') || filename.includes('..') || filename.includes('/')) {
+    const allowedExt = ['.xlsx', '.pdf'];
+    const ext = filename && path.extname(filename).toLowerCase();
+    if (!filename || !allowedExt.includes(ext) || filename.includes('..') || filename.includes('/')) {
         return res.status(400).json({ success: false, message: '無效的檔案名稱' });
     }
     
@@ -712,8 +733,10 @@ router.get('/download/:filename', (req, res) => {
         });
     }
     
-    // 設定下載 headers
-    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    const contentType = ext === '.pdf'
+        ? 'application/pdf'
+        : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+    res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(filename)}"`);
     
     // 串流傳輸檔案

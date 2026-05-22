@@ -11,6 +11,7 @@ const router = express.Router();
 const rateLimit = require('express-rate-limit');
 const { requireRole } = require('../middleware/roleAuth');
 const { runAgent, AGENT_MODELS, checkTokenBudget } = require('../services/agentService');
+const { getLlmHealth } = require('../services/llmProviderHealth');
 const db = require('../config/db');
 
 // Agent 專用速率限制 (比一般 AI 更嚴格)
@@ -55,9 +56,19 @@ router.post('/chat', requireRole('調查管理員'), agentLimiter, async (req, r
             }
         }
 
+        const health = await getLlmHealth();
+        const availableIds = (health.categories || []).flatMap((c) =>
+            c.models.map((m) => m.id)
+        );
+        let resolvedModel = model || health.defaultModel || AGENT_MODELS.default;
+        if (availableIds.length && !availableIds.includes(resolvedModel)) {
+            resolvedModel = health.defaultModel || AGENT_MODELS.default;
+        }
+
         // 執行 Agent
         const result = await runAgent(message, userId, chatHistory, {
-            model: model || AGENT_MODELS.default,
+            model: resolvedModel,
+            userRole: req.user.role,
         });
 
         // 儲存對話記錄
@@ -71,7 +82,7 @@ router.post('/chat', requireRole('調查管理員'), agentLimiter, async (req, r
                     finalSessionId,
                     message,
                     result.response,
-                    model || AGENT_MODELS.default,
+                    resolvedModel,
                     'agent',
                     JSON.stringify({
                         toolCalls: result.toolCalls.map(tc => ({
@@ -96,7 +107,7 @@ router.post('/chat', requireRole('調查管理員'), agentLimiter, async (req, r
                 resultSummary: summarizeToolResult(tc.result),
             })),
             tokensUsed: result.tokensUsed,
-            model: model || AGENT_MODELS.default,
+            model: resolvedModel,
         });
     } catch (err) {
         console.error('[Agent] 錯誤:', err);
@@ -110,16 +121,26 @@ router.post('/chat', requireRole('調查管理員'), agentLimiter, async (req, r
 router.get('/status', requireRole('調查管理員'), async (req, res) => {
     const userId = req.user.user_id;
     const hasBudget = await checkTokenBudget(userId);
-    const sfConfigured = !!(
-        process.env.SiliconFlow_API_KEY ||
-        process.env.Alt1_SiliconFlow_API_KEY
-    );
+    const health = await getLlmHealth();
 
     res.json({
-        available: sfConfigured,
+        available: Boolean(health.defaultModel),
         tokenBudget: hasBudget ? 'ok' : 'exceeded',
-        models: Object.keys(AGENT_MODELS),
-        defaultModel: AGENT_MODELS.default,
+        mode: 'external_retrieval_and_export',
+        providers: health.providers,
+        tools: [
+            'list_policy_sources',
+            'list_demo_policy_urls',
+            'list_allowed_domains',
+            'fetch_allowed_url',
+            'fetch_allowed_urls',
+            'search_public_documents',
+            'export_excel',
+            'export_pdf',
+            'export_ai_report',
+        ],
+        defaultModel: health.agentMode?.defaultModel || AGENT_MODELS.default,
+        showModelPicker: health.agentMode?.showModelPicker ?? false,
     });
 });
 
@@ -129,10 +150,7 @@ router.get('/status', requireRole('調查管理員'), async (req, res) => {
 router.get('/models', requireRole('調查管理員'), (req, res) => {
     res.json({
         models: [
-            { id: AGENT_MODELS.default, name: 'DeepSeek V3', description: '推薦 - 平衡速度與品質', free: true },
-            { id: AGENT_MODELS.reasoning, name: 'QwQ-32B', description: '深度推理 - 適合複雜分析', free: true },
-            { id: AGENT_MODELS.fast, name: 'Qwen2.5-7B', description: '快速回應 - 簡單查詢', free: true },
-            { id: AGENT_MODELS.strong, name: 'Qwen3-235B', description: '最強模型 - 碳匯報告生成', free: true },
+            { id: AGENT_MODELS.default, name: '碳匯 Agent', description: '受控外部檢索 + 報表匯出', free: false },
         ],
     });
 });
@@ -146,10 +164,21 @@ function summarizeToolResult(result) {
     if (result.data && Array.isArray(result.data)) {
         return { rowCount: result.data.length, preview: result.data.slice(0, 3) };
     }
-    if (result.areas && Array.isArray(result.areas)) {
-        return { areaCount: result.areas.length, totals: result.totals };
+    if (result.downloadUrl) {
+        return {
+            downloadUrl: result.downloadUrl,
+            rowCount: result.rowCount,
+            message: result.message,
+        };
     }
-    // 其他工具結果直接返回 (已經是摘要格式)
+    if (result.citation) {
+        return {
+            citation: result.citation,
+            title: result.title,
+            url: result.url,
+            resultCount: result.results?.length,
+        };
+    }
     return result;
 }
 

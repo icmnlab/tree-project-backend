@@ -1,4 +1,5 @@
 const { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } = require('@google/generative-ai');
+const { generateText, isGeminiAndroidKeyBlocked } = require('./llmProviderService');
 
 const API_KEY = process.env.GEMINI_API_KEY;
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -83,11 +84,20 @@ async function generateGeminiChatResponse(userMessage, systemInstruction, histor
 
     } catch (error) {
         console.error('[Gemini Service] 調用 Gemini API 時發生錯誤:', error);
+        if (isGeminiAndroidKeyBlocked(error) || error.status === 403) {
+            try {
+                const fallback = await generateText(userMessage, systemInstruction, 'deepseek-ai/DeepSeek-V3');
+                console.log('[Gemini Service] 已改用 OpenAI/SiliconFlow 備援。');
+                return fallback;
+            } catch (fallbackErr) {
+                console.error('[Gemini Service] 備援 LLM 也失敗:', fallbackErr.message);
+            }
+        }
         let errorMessage = '處理 AI 回應時發生內部錯誤 (Gemini)。';
         if (error.message) {
             errorMessage += ` 詳情: ${error.message}`;
         }
-        if (error.status) { // 來自 API 的錯誤通常有 status
+        if (error.status) {
              errorMessage += ` (狀態碼: ${error.status})`;
         }
         return errorMessage;
