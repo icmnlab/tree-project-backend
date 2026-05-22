@@ -715,14 +715,21 @@ router.get('/reports/ai-sustainability/pdf', requireRole('調查管理員'), aiL
 // ============================================
 
 router.get('/download/:filename', (req, res) => {
-    const { filename } = req.params;
-    
+    let filename = req.params.filename || '';
+    try {
+        filename = decodeURIComponent(filename);
+    } catch {
+        return res.status(400).json({ success: false, message: '無效的檔案名稱編碼' });
+    }
+
     const allowedExt = ['.xlsx', '.pdf'];
-    const ext = filename && path.extname(filename).toLowerCase();
-    if (!filename || !allowedExt.includes(ext) || filename.includes('..') || filename.includes('/')) {
+    const ext = path.extname(filename).toLowerCase();
+    const base = path.basename(filename);
+    if (!base || !allowedExt.includes(ext) || base.includes('..') || base !== filename) {
         return res.status(400).json({ success: false, message: '無效的檔案名稱' });
     }
-    
+    filename = base;
+
     const filePath = path.join(EXPORT_DIR, filename);
     
     // 檢查檔案是否存在

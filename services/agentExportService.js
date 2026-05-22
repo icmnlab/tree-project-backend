@@ -28,9 +28,9 @@ function getBaseUrl() {
     return `http://localhost:${process.env.PORT || 3000}`;
 }
 
-/** 回傳相對路徑，由 App 依 ApiService.baseUrl 組完整 URL（避免外部瀏覽器開 .ts.net 失敗） */
+/** 回傳相對路徑（檔名不編碼，避免伺服器找不到實體檔） */
 function getDownloadUrl(fileName) {
-    return `${EXPORT_URL_PREFIX}${encodeURIComponent(fileName)}`;
+    return `${EXPORT_URL_PREFIX}${fileName}`;
 }
 
 /** 僅供日誌或後台除錯用的絕對 URL */
