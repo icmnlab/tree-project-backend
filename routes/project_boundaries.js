@@ -14,6 +14,7 @@ const db = require('../config/db');
 const turf = require('@turf/turf');
 const { requireRole } = require('../middleware/roleAuth');
 const { projectAuthFilter } = require('../middleware/projectAuth');
+const { suggestBoundaryFromTrees } = require('../utils/boundarySuggest');
 
 /**
  * 初始化資料表 (如果不存在)
@@ -95,6 +96,124 @@ router.get('/', projectAuthFilter, async (req, res) => {
     } catch (err) {
         console.error('[project_boundaries] 取得邊界列表錯誤:', err);
         res.status(500).json({ success: false, message: '取得專案邊界列表失敗' });
+    }
+});
+
+/**
+ * 專案邊界狀態（metadata vs spatial）
+ * GET /api/project_boundaries/status/:projectName
+ */
+router.get('/status/:projectName', async (req, res) => {
+    const { projectName } = req.params;
+    try {
+        const { rows: boundaryRows } = await db.query(
+            'SELECT id FROM project_boundaries WHERE project_name = $1',
+            [projectName],
+        );
+        const { rows: treeRows } = await db.query(
+            `SELECT COUNT(*)::int AS cnt
+             FROM tree_survey
+             WHERE project_name = $1
+               AND x_coord IS NOT NULL AND y_coord IS NOT NULL
+               AND NOT (x_coord = 0 AND y_coord = 0)`,
+            [projectName],
+        );
+        const treeCountWithGps = treeRows[0]?.cnt ?? 0;
+        const hasBoundary = boundaryRows.length > 0;
+
+        let canSuggest = !hasBoundary && treeCountWithGps >= 3;
+        let suggestBlockedReason = null;
+        if (hasBoundary) {
+            suggestBlockedReason = 'ALREADY_HAS_BOUNDARY';
+        } else if (treeCountWithGps < 3) {
+            suggestBlockedReason = 'INSUFFICIENT_TREES';
+        }
+
+        res.json({
+            success: true,
+            projectName,
+            hasBoundary,
+            boundaryState: hasBoundary ? 'manual' : 'none',
+            treeCountWithGps,
+            canSuggest,
+            suggestBlockedReason,
+        });
+    } catch (err) {
+        console.error('[project_boundaries] 取得邊界狀態錯誤:', err);
+        res.status(500).json({ success: false, message: '取得專案邊界狀態失敗' });
+    }
+});
+
+/**
+ * 從既有 tree_survey GPS 產生「建議邊界」預覽（不寫入 DB）
+ * POST /api/project_boundaries/suggest
+ *
+ * Body: { projectName, bufferM?, maxSpanM? }
+ * 主群集 outlier 排除 + 跨度上限，避免後續 APP 遠距樹木污染邊界。
+ */
+router.post('/suggest', requireRole('專案管理員'), async (req, res) => {
+    const { projectName, bufferM, maxSpanM } = req.body;
+
+    if (!projectName || typeof projectName !== 'string') {
+        return res.status(400).json({ success: false, message: '請提供 projectName' });
+    }
+
+    try {
+        const { rows: existing } = await db.query(
+            'SELECT id FROM project_boundaries WHERE project_name = $1',
+            [projectName],
+        );
+        if (existing.length > 0) {
+            return res.status(409).json({
+                success: false,
+                code: 'ALREADY_HAS_BOUNDARY',
+                message: '此專案已有邊界，請使用「重新繪製」修改',
+                hasBoundary: true,
+            });
+        }
+
+        const { rows: trees } = await db.query(
+            `SELECT id, system_tree_id, x_coord, y_coord
+             FROM tree_survey
+             WHERE project_name = $1
+               AND x_coord IS NOT NULL AND y_coord IS NOT NULL
+               AND NOT (x_coord = 0 AND y_coord = 0)`,
+            [projectName],
+        );
+
+        const treePoints = trees.map((t) => ({
+            id: t.id,
+            system_tree_id: t.system_tree_id,
+            lng: t.x_coord,
+            lat: t.y_coord,
+        }));
+
+        const result = suggestBoundaryFromTrees(treePoints, {
+            bufferM: typeof bufferM === 'number' ? bufferM : undefined,
+            maxSpanM: typeof maxSpanM === 'number' ? maxSpanM : undefined,
+        });
+
+        if (!result.ok) {
+            return res.status(422).json({
+                success: false,
+                code: result.code,
+                message: result.message,
+                stats: result.stats,
+            });
+        }
+
+        res.json({
+            success: true,
+            preview: true,
+            projectName,
+            coordinates: result.coordinates,
+            stats: result.stats,
+            warnings: result.warnings,
+            message: '建議邊界預覽（尚未儲存）。請確認後再儲存。',
+        });
+    } catch (err) {
+        console.error('[project_boundaries] 建議邊界錯誤:', err);
+        res.status(500).json({ success: false, message: '產生建議邊界失敗' });
     }
 });
 
