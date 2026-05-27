@@ -206,8 +206,13 @@ router.post('/login', loginLimiter, async (req, res) => {
 // 取得使用者列表 (業務管理員以上)
 router.get('/users', requireRole('業務管理員'), async (req, res) => {
     try {
-        // [FIX] 明確轉換 is_active 為布林值 (true/false)，避免前端混淆
-        const { rows } = await db.query('SELECT user_id, username, display_name, role, is_active FROM users ORDER BY user_id ASC');
+        const pendingOnly = req.query.pending_approval === 'true';
+        let sql = 'SELECT user_id, username, display_name, role, is_active, created_at FROM users';
+        if (pendingOnly) {
+            sql += ' WHERE is_active = false';
+        }
+        sql += pendingOnly ? ' ORDER BY created_at DESC NULLS LAST' : ' ORDER BY user_id ASC';
+        const { rows } = await db.query(sql);
         
         // 確保 is_active 輸出為 boolean
         const users = rows.map(user => ({

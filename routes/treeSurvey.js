@@ -312,9 +312,14 @@ router.get('/map', projectAuthFilter, async (req, res) => {
         const swLng = parseFloat(req.query.sw_lng);
         const neLat = parseFloat(req.query.ne_lat);
         const neLng = parseFloat(req.query.ne_lng);
-        let limit = parseInt(req.query.limit, 10);
-        if (!Number.isFinite(limit) || limit <= 0) limit = 2500;
-        limit = Math.min(limit, 5000);
+        // 未傳 limit 時回傳符合篩選的全量標記（由前端 clustering 處理密度）
+        let limit = null;
+        if (req.query.limit !== undefined && req.query.limit !== '') {
+            const parsed = parseInt(req.query.limit, 10);
+            if (Number.isFinite(parsed) && parsed > 0) {
+                limit = parsed;
+            }
+        }
 
         let sql = `
             SELECT 
@@ -362,12 +367,15 @@ router.get('/map', projectAuthFilter, async (req, res) => {
             paramIdx += 4;
         }
 
-        sql += ` ORDER BY id ASC LIMIT $${paramIdx}`;
-        params.push(limit + 1);
-        paramIdx++;
+        sql += ' ORDER BY id ASC';
+        if (limit != null) {
+            sql += ` LIMIT $${paramIdx}`;
+            params.push(limit + 1);
+            paramIdx++;
+        }
 
         const { rows } = await db.query(sql, params);
-        const truncated = rows.length > limit;
+        const truncated = limit != null && rows.length > limit;
         const dataRows = truncated ? rows.slice(0, limit) : rows;
 
         const { resolveAreaCity, matchCity } = require('../utils/county');
