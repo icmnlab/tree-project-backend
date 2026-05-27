@@ -18,12 +18,18 @@ function getBearerToken(req) {
 }
 
 /**
- * 判斷是否跳過驗證的路徑
- * 只有 OPTIONS 和 /login 跳過，其餘皆需 JWT
+ * 判斷是否跳過驗證的路徑（公開端點，無需 JWT）
  */
+const PUBLIC_PATHS = new Set([
+    '/login',
+    '/register',
+    '/password-reset-request',
+    '/password-reset',
+]);
+
 function shouldSkipAuth(req) {
     if (req.method === 'OPTIONS') return true;
-    if (req.path === '/login') return true;
+    if (PUBLIC_PATHS.has(req.path)) return true;
     return false;
 }
 
