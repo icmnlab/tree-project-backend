@@ -23,6 +23,7 @@ router.post('/login', loginLimiter, async (req, res) => {
     }
 
     try {
+        await ensureUsersPendingApprovalColumn();
         // Phase 4.4: 檢查帳號是否被鎖定
         const lockStatus = await checkAccountLocked(account);
         if (lockStatus.locked) {
@@ -43,7 +44,7 @@ router.post('/login', loginLimiter, async (req, res) => {
             queryParams.push(allowedAdminRoles);
         }
 
-        const query = `SELECT user_id, username, password_hash, display_name, role, associated_projects, is_active FROM users WHERE username = $1 ${roleCheck}`;
+        const query = `SELECT user_id, username, password_hash, display_name, role, associated_projects, is_active, COALESCE(pending_approval, false) AS pending_approval FROM users WHERE username = $1 ${roleCheck}`;
         
         const { rows } = await db.query(query, queryParams);
 
@@ -68,12 +69,17 @@ router.post('/login', loginLimiter, async (req, res) => {
                 userId: user.user_id,
                 username: user.username,
                 action: 'LOGIN_FAILED',
-                details: { reason: 'Account disabled', loginType },
+                details: {
+                    reason: user.pending_approval ? 'Pending approval' : 'Account disabled',
+                    loginType,
+                },
                 req
             });
             return res.status(403).json({
                 success: false,
-                message: '您的帳號已被禁用，請聯繫管理員'
+                message: user.pending_approval
+                    ? '帳號待管理員審核啟用，請稍後再試'
+                    : '您的帳號已被禁用，請聯繫管理員',
             });
         }
 
@@ -285,8 +291,10 @@ router.post('/users', requireRole('業務管理員'), async (req, res) => {
     }
 
     try {
+        await ensureUsersPendingApprovalColumn();
         const hashedPassword = await bcrypt.hash(password, 10);
-        const sql = 'INSERT INTO users (username, password_hash, display_name, role, is_active) VALUES ($1, $2, $3, $4, $5) RETURNING user_id';
+        const sql = `INSERT INTO users (username, password_hash, display_name, role, is_active, pending_approval)
+            VALUES ($1, $2, $3, $4, $5, false) RETURNING user_id`;
         
         const { rows } = await db.query(sql, [username, hashedPassword, display_name || username, role || '一般使用者', isActive]);
         
