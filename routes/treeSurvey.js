@@ -355,6 +355,20 @@ router.get('/map', projectAuthFilter, async (req, res) => {
             paramIdx++;
         }
 
+        const cityTrim = city && typeof city === 'string' && city.trim() !== '' && city !== '全部'
+            ? city.trim()
+            : null;
+        if (cityTrim) {
+            const { getCountyBboxForCandidate } = require('../utils/geo');
+            const countyBbox = getCountyBboxForCandidate(cityTrim);
+            if (countyBbox) {
+                sql += ` AND y_coord BETWEEN $${paramIdx} AND $${paramIdx + 1}
+                         AND x_coord BETWEEN $${paramIdx + 2} AND $${paramIdx + 3}`;
+                params.push(countyBbox.minLat, countyBbox.maxLat, countyBbox.minLng, countyBbox.maxLng);
+                paramIdx += 4;
+            }
+        }
+
         if (Number.isFinite(swLat) && Number.isFinite(swLng)
             && Number.isFinite(neLat) && Number.isFinite(neLng)) {
             const minLat = Math.min(swLat, neLat);
@@ -388,8 +402,8 @@ router.get('/map', projectAuthFilter, async (req, res) => {
             }),
         }));
 
-        if (city && typeof city === 'string' && city.trim() !== '' && city !== '全部') {
-            annotated = annotated.filter(r => matchCity(r._city, city));
+        if (cityTrim) {
+            annotated = annotated.filter(r => matchCity(r._city, cityTrim));
         }
 
         mapApiLog('map response', {
@@ -397,10 +411,20 @@ router.get('/map', projectAuthFilter, async (req, res) => {
             returned: annotated.length,
             truncated,
             limit,
+            city: cityTrim,
             ms: Date.now() - t0,
         });
 
-        res.json({ success: true, data: annotated, truncated, limit });
+        res.json({
+            success: true,
+            data: annotated,
+            truncated,
+            limit,
+            filter: {
+                project_code: project_code || null,
+                city: cityTrim,
+            },
+        });
     } catch (err) {
         console.error('獲取地圖樹木資料錯誤:', err);
         res.status(500).json({ success: false, message: '查詢資料庫時發生錯誤' });

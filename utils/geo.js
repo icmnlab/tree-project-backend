@@ -83,7 +83,41 @@ function resolveCounty(input) {
     return resolveCountyByLngLat(Number(lng), Number(lat));
 }
 
+/**
+ * 依使用者輸入的縣市名稱回傳官方界線 bbox，供 SQL 粗篩（仍須 point-in-polygon 精確過濾）。
+ * @returns {{ minLng: number, minLat: number, maxLng: number, maxLat: number } | null}
+ */
+function getCountyBboxForCandidate(cityInput) {
+    _load();
+    if (_loadError || !_features || !cityInput || typeof cityInput !== 'string') {
+        return null;
+    }
+    const trimmed = cityInput.trim();
+    if (!trimmed || trimmed === '全部') return null;
+
+    const { normalizeCityCandidates } = require('./county');
+    const candidates = new Set(normalizeCityCandidates(trimmed));
+    for (const c of [...candidates]) {
+        candidates.add(c.replace(/台/g, '臺'));
+        candidates.add(c.replace(/臺/g, '台'));
+    }
+
+    for (const item of _features) {
+        const name = item.props.COUNTYNAME;
+        if (!name) continue;
+        const variants = new Set([name, name.replace(/台/g, '臺'), name.replace(/臺/g, '台')]);
+        for (const v of variants) {
+            if (candidates.has(v)) {
+                const [minLng, minLat, maxLng, maxLat] = item.bbox;
+                return { minLng, minLat, maxLng, maxLat };
+            }
+        }
+    }
+    return null;
+}
+
 module.exports = {
     resolveCounty,
     resolveCountyByLngLat,
+    getCountyBboxForCandidate,
 };
