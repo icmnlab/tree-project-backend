@@ -51,6 +51,12 @@ router.get('/', projectAuthFilter, async (req, res) => {
         // 支援分頁參數
         const limit = req.query.limit ? parseInt(req.query.limit) : null;
         const offset = req.query.offset ? parseInt(req.query.offset) : 0;
+        const projectCode = req.query.project_code
+            ? String(req.query.project_code).trim()
+            : null;
+        const projectName = req.query.project_name
+            ? String(req.query.project_name).trim()
+            : null;
 
         // 使用 AS 將欄位名稱轉換為前端期望的中文名稱
         let sql = `
@@ -92,6 +98,16 @@ router.get('/', projectAuthFilter, async (req, res) => {
             paramIdx++;
         }
 
+        if (projectCode && projectCode !== '全部') {
+            sql += ` AND project_code = $${paramIdx}`;
+            params.push(projectCode);
+            paramIdx++;
+        } else if (projectName && projectName !== '全部') {
+            sql += ` AND project_name = $${paramIdx}`;
+            params.push(projectName);
+            paramIdx++;
+        }
+
         sql += ` ORDER BY id ASC`;
 
         // 使用參數化查詢避免 SQL injection
@@ -117,6 +133,15 @@ router.get('/', projectAuthFilter, async (req, res) => {
             if (req.projectFilter && req.projectFilter.length > 0) {
                 countSql += ` AND project_code = ANY($${countIdx}::text[])`;
                 countParams.push(req.projectFilter);
+                countIdx++;
+            }
+            if (projectCode && projectCode !== '全部') {
+                countSql += ` AND project_code = $${countIdx}`;
+                countParams.push(projectCode);
+                countIdx++;
+            } else if (projectName && projectName !== '全部') {
+                countSql += ` AND project_name = $${countIdx}`;
+                countParams.push(projectName);
             }
             const countResult = await db.query(countSql, countParams);
             response.totalCount = parseInt(countResult.rows[0].count, 10);
@@ -131,11 +156,80 @@ router.get('/', projectAuthFilter, async (req, res) => {
 });
 
 // [優化] 地圖專用精簡 API (依使用者權限過濾)
-// [Stage 1 commit 3] 每筆 row 標註權威 _city（utils/county.resolveAreaCity，
-//   座標優先 + areaName fallback）。前端不再需要硬編碼 cityBounds/keywords。
-//   選擇性 ?city= 在 server 端做最終過濾（前端通常用 _city 直接 client filter）。
+// Query: project_code, city, sw_lat, sw_lng, ne_lat, ne_lng, limit (default 2500, max 5000)
+router.get('/map/meta', projectAuthFilter, async (req, res) => {
+    try {
+        let sql = `
+            SELECT DISTINCT project_name, project_code, project_location
+            FROM tree_survey
+            WHERE (is_placeholder IS NULL OR is_placeholder = false)
+              AND x_coord IS NOT NULL AND y_coord IS NOT NULL
+              AND x_coord != 0 AND y_coord != 0
+        `;
+        const params = [];
+        if (req.projectFilter) {
+            if (req.projectFilter.length === 0) {
+                return res.json({ success: true, projects: [], totalTrees: 0 });
+            }
+            sql += ' AND project_code = ANY($1::text[])';
+            params.push(req.projectFilter);
+        }
+        const { rows } = await db.query(sql, params);
+        const { resolveAreaCity } = require('../utils/county');
+        const projects = [];
+        const cities = new Set();
+        for (const r of rows) {
+            if (r.project_name) {
+                projects.push({
+                    name: r.project_name,
+                    code: r.project_code,
+                    area: r.project_location,
+                });
+            }
+        }
+        // 輕量 count
+        let countSql = `SELECT COUNT(*) FROM tree_survey
+            WHERE (is_placeholder IS NULL OR is_placeholder = false)
+              AND x_coord IS NOT NULL AND y_coord IS NOT NULL
+              AND x_coord != 0 AND y_coord != 0`;
+        const countParams = [];
+        if (req.projectFilter && req.projectFilter.length > 0) {
+            countSql += ' AND project_code = ANY($1::text[])';
+            countParams.push(req.projectFilter);
+        }
+        const countRes = await db.query(countSql, countParams);
+        // 縣市從抽樣列解析（避免全表 scan）
+        for (const r of rows.slice(0, 500)) {
+            const c = resolveAreaCity({
+                lng: null,
+                lat: null,
+                areaName: r.project_location,
+            });
+            if (c) cities.add(c);
+        }
+        res.json({
+            success: true,
+            projects,
+            cities: [...cities],
+            totalTrees: parseInt(countRes.rows[0].count, 10),
+        });
+    } catch (err) {
+        console.error('地圖 meta 錯誤:', err);
+        res.status(500).json({ success: false, message: '查詢資料庫時發生錯誤' });
+    }
+});
+
 router.get('/map', projectAuthFilter, async (req, res) => {
     try {
+        const { project_code, city } = req.query;
+        const swLat = parseFloat(req.query.sw_lat);
+        const swLng = parseFloat(req.query.sw_lng);
+        const neLat = parseFloat(req.query.ne_lat);
+        const neLng = parseFloat(req.query.ne_lng);
+        let limit = parseInt(req.query.limit, 10);
+        if (!Number.isFinite(limit) || limit <= 0) limit = 2500;
+        limit = Math.min(limit, 5000);
+
         let sql = `
             SELECT 
                 id,
@@ -157,19 +251,41 @@ router.get('/map', projectAuthFilter, async (req, res) => {
 
         if (req.projectFilter) {
             if (req.projectFilter.length === 0) {
-                return res.json({ success: true, data: [] });
+                return res.json({ success: true, data: [], truncated: false });
             }
             sql += ` AND project_code = ANY($${paramIdx}::text[])`;
             params.push(req.projectFilter);
             paramIdx++;
         }
 
-        sql += ` ORDER BY id ASC`;
-        const { rows } = await db.query(sql, params);
+        if (project_code && String(project_code).trim() !== '' && project_code !== '全部') {
+            sql += ` AND project_code = $${paramIdx}`;
+            params.push(String(project_code).trim());
+            paramIdx++;
+        }
 
-        // [Stage 1] 每筆標註權威縣市，前端不再自行解析
+        if (Number.isFinite(swLat) && Number.isFinite(swLng)
+            && Number.isFinite(neLat) && Number.isFinite(neLng)) {
+            const minLat = Math.min(swLat, neLat);
+            const maxLat = Math.max(swLat, neLat);
+            const minLng = Math.min(swLng, neLng);
+            const maxLng = Math.max(swLng, neLng);
+            sql += ` AND y_coord BETWEEN $${paramIdx} AND $${paramIdx + 1}
+                     AND x_coord BETWEEN $${paramIdx + 2} AND $${paramIdx + 3}`;
+            params.push(minLat, maxLat, minLng, maxLng);
+            paramIdx += 4;
+        }
+
+        sql += ` ORDER BY id ASC LIMIT $${paramIdx}`;
+        params.push(limit + 1);
+        paramIdx++;
+
+        const { rows } = await db.query(sql, params);
+        const truncated = rows.length > limit;
+        const dataRows = truncated ? rows.slice(0, limit) : rows;
+
         const { resolveAreaCity, matchCity } = require('../utils/county');
-        const annotated = rows.map(r => ({
+        let annotated = dataRows.map(r => ({
             ...r,
             _city: resolveAreaCity({
                 lng: r['X坐標'],
@@ -178,14 +294,11 @@ router.get('/map', projectAuthFilter, async (req, res) => {
             }),
         }));
 
-        // 選擇性 ?city= 過濾
-        const { city } = req.query;
         if (city && typeof city === 'string' && city.trim() !== '' && city !== '全部') {
-            const filtered = annotated.filter(r => matchCity(r._city, city));
-            return res.json({ success: true, data: filtered });
+            annotated = annotated.filter(r => matchCity(r._city, city));
         }
 
-        res.json({ success: true, data: annotated });
+        res.json({ success: true, data: annotated, truncated, limit });
     } catch (err) {
         console.error('獲取地圖樹木資料錯誤:', err);
         res.status(500).json({ success: false, message: '查詢資料庫時發生錯誤' });

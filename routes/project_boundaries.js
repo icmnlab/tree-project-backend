@@ -661,7 +661,12 @@ router.post('/batch_match', projectAuthFilter, async (req, res) => {
             
             for (const { projectName, projectCode, projectArea, polygon } of polygons) {
                 if (turf.booleanPointInPolygon(point, polygon)) {
-                    matchedProjects.push({ projectName, projectCode, projectArea });
+                    matchedProjects.push({
+                        projectName,
+                        projectCode,
+                        projectArea,
+                        polygon,
+                    });
                 }
             }
             
@@ -673,28 +678,35 @@ router.post('/batch_match', projectAuthFilter, async (req, res) => {
                     matched: false,
                     reason: '座標不在任何專案邊界內'
                 };
-            } else if (matchedProjects.length === 1) {
+            }
+
+            // 重疊邊界：取面積最小者
+            matchedProjects.sort((a, b) => turf.area(a.polygon) - turf.area(b.polygon));
+            const best = matchedProjects[0];
+            
+            if (matchedProjects.length === 1) {
                 return {
                     index: treeIndex,
                     lat,
                     lng,
                     matched: true,
-                    projectName: matchedProjects[0].projectName,
-                    projectCode: matchedProjects[0].projectCode,
-                    projectArea: matchedProjects[0].projectArea
+                    projectName: best.projectName,
+                    projectCode: best.projectCode,
+                    projectArea: best.projectArea
                 };
             } else {
-                // 多個匹配，返回第一個並標記有多個匹配
                 return {
                     index: treeIndex,
                     lat,
                     lng,
                     matched: true,
-                    projectName: matchedProjects[0].projectName,
-                    projectCode: matchedProjects[0].projectCode,
-                    projectArea: matchedProjects[0].projectArea,
+                    projectName: best.projectName,
+                    projectCode: best.projectCode,
+                    projectArea: best.projectArea,
                     multipleMatches: matchedProjects.length,
-                    allMatches: matchedProjects
+                    allMatches: matchedProjects.map(({ projectName, projectCode, projectArea }) => ({
+                        projectName, projectCode, projectArea,
+                    })),
                 };
             }
         });
