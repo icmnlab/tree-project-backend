@@ -289,4 +289,32 @@ router.delete('/apikeys/:id', requireRole('系統管理員'), (req, res) => {
     }
 });
 
+// GET /api/admin/audit-logs — 稽核日誌（業務管理員以上）
+router.get('/audit-logs', requireRole('業務管理員'), async (req, res) => {
+    try {
+        const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+        const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+        const action = req.query.action ? String(req.query.action).trim() : null;
+
+        let sql = `
+            SELECT id, user_id, username, action, resource_type, resource_id,
+                   details, ip_address, created_at
+            FROM audit_logs
+        `;
+        const params = [];
+        if (action) {
+            sql += ' WHERE action = $1';
+            params.push(action);
+        }
+        sql += ` ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+        params.push(limit, offset);
+
+        const { rows } = await db.query(sql, params);
+        res.json({ success: true, logs: rows, limit, offset });
+    } catch (err) {
+        console.error('查詢稽核日誌失敗:', err);
+        res.status(500).json({ success: false, message: '查詢稽核日誌失敗' });
+    }
+});
+
 module.exports = router;
