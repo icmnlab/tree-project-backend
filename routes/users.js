@@ -431,7 +431,13 @@ router.put('/users/:id/status', requireRole('業務管理員'), async (req, res)
         }
 
         const { rowCount } = await db.query(
-            'UPDATE users SET is_active = $1, pending_approval = CASE WHEN $1 = true THEN false ELSE pending_approval END WHERE user_id = $2',
+            `UPDATE users SET
+                is_active = $1,
+                pending_approval = CASE
+                    WHEN $1 = true THEN false
+                    ELSE false
+                END
+             WHERE user_id = $2`,
             [isActive, id]
         );
 
@@ -636,6 +642,18 @@ async function ensureUsersPendingApprovalColumn() {
     await db.query(`
         ALTER TABLE users
             ADD COLUMN IF NOT EXISTS pending_approval BOOLEAN NOT NULL DEFAULT false;
+    `);
+    // 回填歷史邀請註冊、尚未標記 pending_approval 的帳號
+    await db.query(`
+        UPDATE users u
+        SET pending_approval = true
+        WHERE u.is_active = false
+          AND COALESCE(u.pending_approval, false) = false
+          AND EXISTS (
+              SELECT 1 FROM audit_logs a
+              WHERE a.user_id = u.user_id
+                AND a.action = 'REGISTER_INVITE'
+          )
     `);
     usersPendingApprovalReady = true;
 }
