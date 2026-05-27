@@ -206,10 +206,11 @@ router.post('/login', loginLimiter, async (req, res) => {
 // 取得使用者列表 (業務管理員以上)
 router.get('/users', requireRole('業務管理員'), async (req, res) => {
     try {
+        await ensureUsersPendingApprovalColumn();
         const pendingOnly = req.query.pending_approval === 'true';
-        let sql = 'SELECT user_id, username, display_name, role, is_active, created_at FROM users';
+        let sql = 'SELECT user_id, username, display_name, role, is_active, pending_approval, created_at FROM users';
         if (pendingOnly) {
-            sql += ' WHERE is_active = false';
+            sql += ' WHERE pending_approval = true AND is_active = false';
         }
         sql += pendingOnly ? ' ORDER BY created_at DESC NULLS LAST' : ' ORDER BY user_id ASC';
         const { rows } = await db.query(sql);
@@ -217,7 +218,8 @@ router.get('/users', requireRole('業務管理員'), async (req, res) => {
         // 確保 is_active 輸出為 boolean
         const users = rows.map(user => ({
             ...user,
-            is_active: !!user.is_active // 強制轉為 bool，PostgreSQL BOOLEAN 類型驅動可能已處理，但雙重保險
+            is_active: !!user.is_active,
+            pending_approval: !!user.pending_approval,
         }));
 
         res.json({
@@ -428,7 +430,10 @@ router.put('/users/:id/status', requireRole('業務管理員'), async (req, res)
             });
         }
 
-        const { rowCount } = await db.query('UPDATE users SET is_active = $1 WHERE user_id = $2', [isActive, id]);
+        const { rowCount } = await db.query(
+            'UPDATE users SET is_active = $1, pending_approval = CASE WHEN $1 = true THEN false ELSE pending_approval END WHERE user_id = $2',
+            [isActive, id]
+        );
 
         await AuditLogService.log({
             userId: req.user?.user_id,
@@ -625,6 +630,16 @@ router.put('/users/:userId/projects', requireRole('業務管理員'), async (req
 
 // --- 邀請碼註冊 ---
 
+let usersPendingApprovalReady = false;
+async function ensureUsersPendingApprovalColumn() {
+    if (usersPendingApprovalReady) return;
+    await db.query(`
+        ALTER TABLE users
+            ADD COLUMN IF NOT EXISTS pending_approval BOOLEAN NOT NULL DEFAULT false;
+    `);
+    usersPendingApprovalReady = true;
+}
+
 let invitesTableReady = false;
 async function ensureInvitesTable() {
     if (invitesTableReady) return;
@@ -774,6 +789,7 @@ router.post('/register', loginLimiter, async (req, res) => {
     const client = await db.pool.connect();
     try {
         await ensureInvitesTable();
+        await ensureUsersPendingApprovalColumn();
         await client.query('BEGIN');
 
         const normalizedCode = String(invite_code).trim().toUpperCase();
@@ -798,15 +814,17 @@ router.post('/register', loginLimiter, async (req, res) => {
 
         const hashedPassword = await bcrypt.hash(password, 10);
         const accountActive = !inv.requires_approval;
+        const needsPendingApproval = !!inv.requires_approval;
         const { rows: userRows } = await client.query(
-            `INSERT INTO users (username, password_hash, display_name, role, is_active)
-             VALUES ($1, $2, $3, $4, $5) RETURNING user_id`,
+            `INSERT INTO users (username, password_hash, display_name, role, is_active, pending_approval)
+             VALUES ($1, $2, $3, $4, $5, $6) RETURNING user_id`,
             [
                 username.trim(),
                 hashedPassword,
                 display_name?.trim() || username.trim(),
                 inv.role,
                 accountActive,
+                needsPendingApproval,
             ]
         );
         const newUserId = userRows[0].user_id;
