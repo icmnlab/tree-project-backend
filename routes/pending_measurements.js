@@ -18,6 +18,7 @@ const db = require('../config/db');
 const pool = db.pool;
 const { projectAuthFilter, hasProjectPermission } = require('../middleware/projectAuth');
 const carbonCalculationService = require('../services/carbonCalculationService');
+const requestIdDedup = require('../middleware/requestIdDedup');
 
 // 內部小工具：把 req.projectFilter 套用到 SQL
 // 回傳 { clause, params, nextIdx }
@@ -259,6 +260,16 @@ async function initTable() {
  * 批量創建待測量記錄
  */
 router.post('/batch', projectAuthFilter, async (req, res) => {
+  const dedupRoute = 'POST /pending-measurements/batch';
+  try {
+    const cached = await requestIdDedup.getCachedResponse(req, dedupRoute);
+    if (cached) {
+      return res.status(cached.status_code).json(cached.response_body);
+    }
+  } catch (e) {
+    console.warn('[pending-measurements] request dedup read skipped:', e.message);
+  }
+
   const { measurements } = req.body;
   
   if (!measurements || !Array.isArray(measurements) || measurements.length === 0) {
@@ -354,12 +365,20 @@ router.post('/batch', projectAuthFilter, async (req, res) => {
     
     await client.query('COMMIT');
     
-    res.status(201).json({
+    const payload = {
       success: true,
       message: `成功創建 ${insertedIds.length} 筆待測量記錄`,
       session_id: measurements[0].session_id,
       inserted_ids: insertedIds
-    });
+    };
+
+    try {
+      await requestIdDedup.storeResponse(req, dedupRoute, 201, payload);
+    } catch (e) {
+      console.warn('[pending-measurements] request dedup store skipped:', e.message);
+    }
+
+    res.status(201).json(payload);
     
   } catch (error) {
     await client.query('ROLLBACK');

@@ -73,7 +73,8 @@ router.get('/', projectAuthFilter, async (req, res) => {
                 survey_notes AS "調查備註",
                 survey_time AS "調查時間",
                 carbon_storage AS "碳儲存量",
-                carbon_sequestration_per_year AS "推估年碳吸存量"
+                carbon_sequestration_per_year AS "推估年碳吸存量",
+                updated_at
             FROM tree_survey 
             WHERE (is_placeholder IS NULL OR is_placeholder = false)
         `;
@@ -215,7 +216,8 @@ router.get('/by_id/:id', projectAuthFilter, async (req, res) => {
                 survey_notes AS "調查備註",
                 survey_time AS "調查時間",
                 carbon_storage AS "碳儲存量",
-                carbon_sequestration_per_year AS "推估年碳吸存量"
+                carbon_sequestration_per_year AS "推估年碳吸存量",
+                updated_at
             FROM tree_survey 
             WHERE id = $1
         `;
@@ -271,7 +273,8 @@ router.get('/by_project/:projectNameOrCode', projectAuthFilter, async (req, res)
                 survey_notes AS "調查備註",
                 survey_time AS "調查時間",
                 carbon_storage AS "碳儲存量",
-                carbon_sequestration_per_year AS "推估年碳吸存量"
+                carbon_sequestration_per_year AS "推估年碳吸存量",
+                updated_at
             FROM tree_survey 
             WHERE (
                 project_code IN (
@@ -328,7 +331,8 @@ router.get('/by_area/:areaName', projectAuthFilter, async (req, res) => {
                 survey_notes AS "調查備註",
                 survey_time AS "調查時間",
                 carbon_storage AS "碳儲存量",
-                carbon_sequestration_per_year AS "推估年碳吸存量"
+                carbon_sequestration_per_year AS "推估年碳吸存量",
+                updated_at
             FROM tree_survey 
             WHERE project_location = $1
         `;

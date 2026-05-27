@@ -607,5 +607,140 @@ router.put('/users/:userId/projects', requireRole('業務管理員'), async (req
     }
 });
 
+// --- 邀請碼註冊 ---
+
+let invitesTableReady = false;
+async function ensureInvitesTable() {
+    if (invitesTableReady) return;
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS registration_invites (
+            invite_id SERIAL PRIMARY KEY,
+            code VARCHAR(32) UNIQUE NOT NULL,
+            role VARCHAR(50) DEFAULT '一般使用者',
+            max_uses INT DEFAULT 1,
+            use_count INT DEFAULT 0,
+            expires_at TIMESTAMP,
+            created_by INT REFERENCES users(user_id),
+            is_active BOOLEAN DEFAULT true,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_registration_invites_code
+            ON registration_invites(code);
+    `);
+    invitesTableReady = true;
+}
+
+// 建立邀請碼（業務管理員以上）
+router.post('/invites', requireRole('業務管理員'), async (req, res) => {
+    const { role, max_uses, expires_in_days } = req.body;
+    const targetRole = role || '一般使用者';
+    if (getRoleLevel(targetRole) >= getRoleLevel(req.user.role)) {
+        return res.status(403).json({
+            success: false,
+            message: '不能建立同等或更高權限的邀請碼',
+        });
+    }
+    const maxUses = Math.min(Math.max(parseInt(max_uses, 10) || 1, 1), 100);
+    const days = Math.min(Math.max(parseInt(expires_in_days, 10) || 7, 1), 90);
+    const code = `INV-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+
+    try {
+        await ensureInvitesTable();
+        const { rows } = await db.query(
+            `INSERT INTO registration_invites (code, role, max_uses, expires_at, created_by)
+             VALUES ($1, $2, $3, NOW() + ($4 || ' days')::interval, $5)
+             RETURNING invite_id, code, role, max_uses, expires_at`,
+            [code, targetRole, maxUses, String(days), req.user.user_id]
+        );
+        res.status(201).json({ success: true, invite: rows[0] });
+    } catch (err) {
+        console.error('建立邀請碼失敗:', err);
+        res.status(500).json({ success: false, message: '建立邀請碼失敗' });
+    }
+});
+
+// 公開註冊（需有效邀請碼）
+router.post('/register', loginLimiter, async (req, res) => {
+    const { invite_code, username, password, display_name } = req.body;
+    if (!invite_code || !username || !password) {
+        return res.status(400).json({
+            success: false,
+            message: '請提供邀請碼、帳號與密碼',
+        });
+    }
+    const passwordError = validatePasswordStrength(password);
+    if (passwordError) {
+        return res.status(400).json({ success: false, message: passwordError });
+    }
+
+    const client = await db.pool.connect();
+    try {
+        await ensureInvitesTable();
+        await client.query('BEGIN');
+
+        const normalizedCode = String(invite_code).trim().toUpperCase();
+        const { rows: invRows } = await client.query(
+            `SELECT * FROM registration_invites
+             WHERE UPPER(code) = $1 AND is_active = true FOR UPDATE`,
+            [normalizedCode]
+        );
+        if (invRows.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ success: false, message: '邀請碼無效' });
+        }
+        const inv = invRows[0];
+        if (inv.expires_at && new Date(inv.expires_at) < new Date()) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ success: false, message: '邀請碼已過期' });
+        }
+        if (inv.use_count >= inv.max_uses) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ success: false, message: '邀請碼已達使用上限' });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+        const { rows: userRows } = await client.query(
+            `INSERT INTO users (username, password_hash, display_name, role, is_active)
+             VALUES ($1, $2, $3, $4, true) RETURNING user_id`,
+            [
+                username.trim(),
+                hashedPassword,
+                display_name?.trim() || username.trim(),
+                inv.role,
+            ]
+        );
+
+        await client.query(
+            `UPDATE registration_invites SET use_count = use_count + 1 WHERE invite_id = $1`,
+            [inv.invite_id]
+        );
+
+        await client.query('COMMIT');
+
+        await AuditLogService.log({
+            userId: userRows[0].user_id,
+            username,
+            action: 'REGISTER_INVITE',
+            details: { invite_id: inv.invite_id, role: inv.role },
+            req,
+        });
+
+        res.status(201).json({
+            success: true,
+            message: '註冊成功，請登入',
+            userId: userRows[0].user_id,
+        });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        if (err.code === '23505') {
+            return res.status(409).json({ success: false, message: '帳號已存在' });
+        }
+        console.error('邀請註冊失敗:', err);
+        res.status(500).json({ success: false, message: '註冊失敗' });
+    } finally {
+        client.release();
+    }
+});
+
 
 module.exports = router;
