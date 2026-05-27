@@ -43,6 +43,18 @@ function hasMinimumRole(userRole, requiredRole) {
 }
 
 /**
+ * 是否可修改目標使用者（顯示名稱、角色、啟用狀態等）
+ * - 系統管理員：可管理所有帳號（含其他系統管理員；仍不可透過 API 刪除自己）
+ * - 其餘角色：僅能管理權限低於自己的帳號
+ */
+function canModifyTargetUser(actorRole, targetRole) {
+    if (actorRole === '系統管理員') {
+        return true;
+    }
+    return getRoleLevel(targetRole) < getRoleLevel(actorRole);
+}
+
+/**
  * 角色權限中間件工廠
  * 產生一個中間件，要求使用者角色 >= 指定的最低角色
  *
@@ -81,5 +93,6 @@ module.exports = {
     ROLE_HIERARCHY,
     getRoleLevel,
     hasMinimumRole,
+    canModifyTargetUser,
     requireRole,
 };

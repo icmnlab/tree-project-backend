@@ -627,11 +627,12 @@ router.patch('/:id', projectAuthFilter, async (req, res) => {
       }
     }
 
-    // [T6] 樂觀鎖比對
+    // [T6] 樂觀鎖比對（±2s 容差，避免 ISO 字串與 DB timestamptz 精度差造成假 409）
     if (expectedUpdatedAt) {
       const serverTs = new Date(existing.rows[0].updated_at).getTime();
       const clientTs = new Date(expectedUpdatedAt).getTime();
-      if (Number.isFinite(serverTs) && Number.isFinite(clientTs) && serverTs !== clientTs) {
+      const driftMs = Math.abs(serverTs - clientTs);
+      if (Number.isFinite(serverTs) && Number.isFinite(clientTs) && driftMs > 2000) {
         return res.status(409).json({
           success: false,
           code: 'CONFLICT',
@@ -643,24 +644,12 @@ router.patch('/:id', projectAuthFilter, async (req, res) => {
 
     values.push(id);
     const idIdx = paramIndex++;
-    let sql;
-    if (expectedUpdatedAt) {
-      values.push(expectedUpdatedAt);
-      const tsIdx = paramIndex++;
-      sql = `
-        UPDATE pending_tree_measurements
-        SET ${setClauses.join(', ')}
-        WHERE id = $${idIdx} AND updated_at = $${tsIdx}
-        RETURNING *
-      `;
-    } else {
-      sql = `
+    const sql = `
         UPDATE pending_tree_measurements
         SET ${setClauses.join(', ')}
         WHERE id = $${idIdx}
         RETURNING *
       `;
-    }
 
     const result = await pool.query(sql, values);
 

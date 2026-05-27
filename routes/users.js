@@ -6,7 +6,7 @@ const { loginLimiter } = require('../middleware/rateLimiter');
 const { signJwt } = require('../middleware/jwtAuth');
 const AuditLogService = require('../services/auditLogService');
 const { checkAccountLocked, recordLoginFailure, resetLoginAttempts } = require('../middleware/loginAttemptMonitor');
-const { requireRole, getRoleLevel } = require('../middleware/roleAuth');
+const { requireRole, getRoleLevel, canModifyTargetUser } = require('../middleware/roleAuth');
 const { invalidateUserProjectsCache } = require('../middleware/projectAuth');
 
 // 使用者管理相關 API
@@ -320,14 +320,14 @@ router.put('/users/:id', requireRole('業務管理員'), async (req, res) => {
         if (targetUser.length === 0) {
             return res.status(404).json({ success: false, message: '找不到指定的使用者' });
         }
-        if (getRoleLevel(targetUser[0].role) >= getRoleLevel(req.user.role)) {
+        if (!canModifyTargetUser(req.user.role, targetUser[0].role)) {
             return res.status(403).json({
                 success: false,
-                message: '權限不足：不能修改與自己同等或更高權限的使用者'
+                message: '權限不足：不能修改與自己同等或更高權限的使用者（系統管理員可管理所有帳號）'
             });
         }
-        // 如果要修改角色，新角色也不能 >= 操作者
-        if (role !== undefined && getRoleLevel(role) >= getRoleLevel(req.user.role)) {
+        // 如果要修改角色，新角色也不能 >= 操作者（系統管理員除外）
+        if (role !== undefined && req.user.role !== '系統管理員' && getRoleLevel(role) >= getRoleLevel(req.user.role)) {
             return res.status(403).json({
                 success: false,
                 message: '權限不足：不能將使用者提升至與自己同等或更高的角色'
@@ -411,14 +411,18 @@ router.put('/users/:id/status', requireRole('業務管理員'), async (req, res)
     }
 
     try {
-        const { rowCount } = await db.query('UPDATE users SET is_active = $1 WHERE user_id = $2', [isActive, id]);
-        
-        if (rowCount === 0) {
-            return res.status(404).json({
+        const { rows: targetUser } = await db.query('SELECT role FROM users WHERE user_id = $1', [id]);
+        if (targetUser.length === 0) {
+            return res.status(404).json({ success: false, message: '找不到指定的使用者' });
+        }
+        if (!canModifyTargetUser(req.user.role, targetUser[0].role)) {
+            return res.status(403).json({
                 success: false,
-                message: '找不到指定的使用者'
+                message: '權限不足：不能變更與自己同等或更高權限使用者的狀態（系統管理員除外）'
             });
         }
+
+        const { rowCount } = await db.query('UPDATE users SET is_active = $1 WHERE user_id = $2', [isActive, id]);
 
         await AuditLogService.log({
             userId: req.user?.user_id,
@@ -450,10 +454,16 @@ router.delete('/users/:id', requireRole('業務管理員'), async (req, res) => 
     try {
         // 檢查目標使用者角色，不能刪除同等或更高權限的使用者
         const { rows: targetUser } = await db.query('SELECT role FROM users WHERE user_id = $1', [id]);
-        if (targetUser.length > 0 && getRoleLevel(targetUser[0].role) >= getRoleLevel(req.user.role)) {
+        if (targetUser.length > 0 && !canModifyTargetUser(req.user.role, targetUser[0].role)) {
             return res.status(403).json({
                 success: false,
-                message: '權限不足：不能刪除與自己同等或更高權限的使用者'
+                message: '權限不足：不能刪除與自己同等或更高權限的使用者（系統管理員可管理所有帳號）'
+            });
+        }
+        if (String(id) === String(req.user.user_id)) {
+            return res.status(400).json({
+                success: false,
+                message: '不能刪除自己的帳號'
             });
         }
         const { rowCount } = await db.query('DELETE FROM users WHERE user_id = $1', [id]);
@@ -627,12 +637,56 @@ async function ensureInvitesTable() {
         CREATE INDEX IF NOT EXISTS idx_registration_invites_code
             ON registration_invites(code);
     `);
+    await db.query(`
+        ALTER TABLE registration_invites
+            ADD COLUMN IF NOT EXISTS project_codes TEXT[] DEFAULT '{}';
+        ALTER TABLE registration_invites
+            ADD COLUMN IF NOT EXISTS project_locations TEXT[] DEFAULT '{}';
+        ALTER TABLE registration_invites
+            ADD COLUMN IF NOT EXISTS requires_approval BOOLEAN DEFAULT false;
+    `);
     invitesTableReady = true;
 }
 
+function normalizeInviteProjectCodes(codes) {
+    if (!Array.isArray(codes)) return [];
+    return [...new Set(codes.map((c) => String(c).trim()).filter(Boolean))];
+}
+
+function normalizeInviteProjectLocations(locations) {
+    if (!Array.isArray(locations)) return [];
+    return [...new Set(locations.map((l) => String(l).trim()).filter(Boolean))];
+}
+
+// 列出邀請碼（業務管理員以上）
+router.get('/invites', requireRole('業務管理員'), async (req, res) => {
+    try {
+        await ensureInvitesTable();
+        const { rows } = await db.query(
+            `SELECT invite_id, code, role, max_uses, use_count, expires_at,
+                    project_codes, project_locations, requires_approval,
+                    is_active, created_at
+             FROM registration_invites
+             ORDER BY created_at DESC
+             LIMIT 200`
+        );
+        res.json({ success: true, invites: rows });
+    } catch (err) {
+        console.error('列出邀請碼失敗:', err);
+        res.status(500).json({ success: false, message: '列出邀請碼失敗' });
+    }
+});
+
 // 建立邀請碼（業務管理員以上）
 router.post('/invites', requireRole('業務管理員'), async (req, res) => {
-    const { role, max_uses, expires_in_days } = req.body;
+    const {
+        role,
+        max_uses,
+        expires_in_days,
+        project_codes,
+        project_locations,
+        requires_approval,
+    } = req.body;
     const targetRole = role || '一般使用者';
     if (getRoleLevel(targetRole) >= getRoleLevel(req.user.role)) {
         return res.status(403).json({
@@ -642,20 +696,58 @@ router.post('/invites', requireRole('業務管理員'), async (req, res) => {
     }
     const maxUses = Math.min(Math.max(parseInt(max_uses, 10) || 1, 1), 100);
     const days = Math.min(Math.max(parseInt(expires_in_days, 10) || 7, 1), 90);
-    const code = `INV-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const codes = normalizeInviteProjectCodes(project_codes);
+    const locations = normalizeInviteProjectLocations(project_locations);
+    const needsApproval = requires_approval === true;
+    const inviteCode = `INV-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 
     try {
         await ensureInvitesTable();
         const { rows } = await db.query(
-            `INSERT INTO registration_invites (code, role, max_uses, expires_at, created_by)
-             VALUES ($1, $2, $3, NOW() + ($4 || ' days')::interval, $5)
-             RETURNING invite_id, code, role, max_uses, expires_at`,
-            [code, targetRole, maxUses, String(days), req.user.user_id]
+            `INSERT INTO registration_invites (
+                code, role, max_uses, expires_at, created_by,
+                project_codes, project_locations, requires_approval
+             )
+             VALUES ($1, $2, $3, NOW() + ($4 || ' days')::interval, $5, $6, $7, $8)
+             RETURNING invite_id, code, role, max_uses, expires_at,
+                       project_codes, project_locations, requires_approval`,
+            [
+                inviteCode,
+                targetRole,
+                maxUses,
+                String(days),
+                req.user.user_id,
+                codes,
+                locations,
+                needsApproval,
+            ]
         );
         res.status(201).json({ success: true, invite: rows[0] });
     } catch (err) {
         console.error('建立邀請碼失敗:', err);
         res.status(500).json({ success: false, message: '建立邀請碼失敗' });
+    }
+});
+
+// 停用邀請碼
+router.patch('/invites/:inviteId/deactivate', requireRole('業務管理員'), async (req, res) => {
+    const inviteId = parseInt(req.params.inviteId, 10);
+    if (!Number.isFinite(inviteId)) {
+        return res.status(400).json({ success: false, message: '無效的邀請碼 ID' });
+    }
+    try {
+        await ensureInvitesTable();
+        const { rowCount } = await db.query(
+            `UPDATE registration_invites SET is_active = false WHERE invite_id = $1`,
+            [inviteId]
+        );
+        if (rowCount === 0) {
+            return res.status(404).json({ success: false, message: '邀請碼不存在' });
+        }
+        res.json({ success: true, message: '已停用邀請碼' });
+    } catch (err) {
+        console.error('停用邀請碼失敗:', err);
+        res.status(500).json({ success: false, message: '停用邀請碼失敗' });
     }
 });
 
@@ -699,16 +791,35 @@ router.post('/register', loginLimiter, async (req, res) => {
         }
 
         const hashedPassword = await bcrypt.hash(password, 10);
+        const accountActive = !inv.requires_approval;
         const { rows: userRows } = await client.query(
             `INSERT INTO users (username, password_hash, display_name, role, is_active)
-             VALUES ($1, $2, $3, $4, true) RETURNING user_id`,
+             VALUES ($1, $2, $3, $4, $5) RETURNING user_id`,
             [
                 username.trim(),
                 hashedPassword,
                 display_name?.trim() || username.trim(),
                 inv.role,
+                accountActive,
             ]
         );
+        const newUserId = userRows[0].user_id;
+
+        const projectCodes = Array.isArray(inv.project_codes) ? inv.project_codes : [];
+        if (projectCodes.length > 0) {
+            const values = projectCodes
+                .map((_, i) => `($1, $${i + 2})`)
+                .join(', ');
+            await client.query(
+                `INSERT INTO user_projects (user_id, project_code) VALUES ${values}
+                 ON CONFLICT DO NOTHING`,
+                [newUserId, ...projectCodes]
+            );
+            await client.query(
+                `UPDATE users SET associated_projects = $2 WHERE user_id = $1`,
+                [newUserId, projectCodes.join(',')]
+            );
+        }
 
         await client.query(
             `UPDATE registration_invites SET use_count = use_count + 1 WHERE invite_id = $1`,
@@ -725,10 +836,16 @@ router.post('/register', loginLimiter, async (req, res) => {
             req,
         });
 
+        const message = accountActive
+            ? '註冊成功，請登入'
+            : '註冊成功，帳號待管理員審核啟用後方可登入';
+
         res.status(201).json({
             success: true,
-            message: '註冊成功，請登入',
-            userId: userRows[0].user_id,
+            message,
+            userId: newUserId,
+            pending_approval: !accountActive,
+            project_codes: projectCodes,
         });
     } catch (err) {
         await client.query('ROLLBACK');
