@@ -418,6 +418,7 @@ router.get('/sessions', projectAuthFilter, async (req, res) => {
         MIN(created_at) as created_at,
         COUNT(*) as total_trees,
         COUNT(*) FILTER (WHERE status = 'completed') as completed_trees,
+        COUNT(*) FILTER (WHERE status IN ('pending', 'in_progress')) as pending_trees,
         'system' as created_by
       FROM pending_tree_measurements
       ${where}

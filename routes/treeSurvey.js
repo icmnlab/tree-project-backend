@@ -163,8 +163,7 @@ router.get('/map/meta', projectAuthFilter, async (req, res) => {
         const { resolveAreaCity, matchCity } = require('../utils/county');
 
         let sql = `
-            SELECT DISTINCT ON (project_code, project_name)
-                project_name, project_code, project_location, x_coord, y_coord
+            SELECT project_name, project_code, project_location, x_coord, y_coord
             FROM tree_survey
             WHERE (is_placeholder IS NULL OR is_placeholder = false)
               AND x_coord IS NOT NULL AND y_coord IS NOT NULL
@@ -178,12 +177,13 @@ router.get('/map/meta', projectAuthFilter, async (req, res) => {
             sql += ' AND project_code = ANY($1::text[])';
             params.push(req.projectFilter);
         }
-        sql += ' ORDER BY project_code, project_name, id ASC';
         const { rows } = await db.query(sql, params);
 
-        const projects = [];
+        const cityTrim = city && String(city).trim() !== '' && city !== '全部'
+            ? String(city).trim()
+            : null;
+        const projectAgg = new Map();
         const cities = new Set();
-        const seen = new Set();
         for (const r of rows) {
             const resolvedCity = resolveAreaCity({
                 lng: r.x_coord,
@@ -193,21 +193,30 @@ router.get('/map/meta', projectAuthFilter, async (req, res) => {
             if (resolvedCity) cities.add(resolvedCity);
             if (!r.project_name) continue;
 
-            const cityFilter = city && String(city).trim() !== '' && city !== '全部';
-            if (cityFilter && !matchCity(resolvedCity, String(city).trim())) {
-                continue;
-            }
-
             const key = `${r.project_code || ''}|${r.project_name}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
+            if (!projectAgg.has(key)) {
+                projectAgg.set(key, {
+                    name: r.project_name,
+                    code: r.project_code,
+                    area: r.project_location,
+                    hasCityMatch: false,
+                });
+            }
+            if (!cityTrim || matchCity(resolvedCity, cityTrim)) {
+                projectAgg.get(key).hasCityMatch = true;
+            }
+        }
+
+        const projects = [];
+        for (const p of projectAgg.values()) {
+            if (cityTrim && !p.hasCityMatch) continue;
             projects.push({
-                name: r.project_name,
-                code: r.project_code,
-                area: r.project_location,
-                city: resolvedCity,
+                name: p.name,
+                code: p.code,
+                area: p.area,
             });
         }
+        projects.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'zh-Hant'));
         // 輕量 count
         let countSql = `SELECT COUNT(*) FROM tree_survey
             WHERE (is_placeholder IS NULL OR is_placeholder = false)
