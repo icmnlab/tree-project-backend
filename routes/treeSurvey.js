@@ -159,8 +159,12 @@ router.get('/', projectAuthFilter, async (req, res) => {
 // Query: project_code, city, sw_lat, sw_lng, ne_lat, ne_lng, limit (default 2500, max 5000)
 router.get('/map/meta', projectAuthFilter, async (req, res) => {
     try {
+        const { city } = req.query;
+        const { resolveAreaCity, matchCity } = require('../utils/county');
+
         let sql = `
-            SELECT DISTINCT project_name, project_code, project_location
+            SELECT DISTINCT ON (project_code, project_name)
+                project_name, project_code, project_location, x_coord, y_coord
             FROM tree_survey
             WHERE (is_placeholder IS NULL OR is_placeholder = false)
               AND x_coord IS NOT NULL AND y_coord IS NOT NULL
@@ -169,23 +173,40 @@ router.get('/map/meta', projectAuthFilter, async (req, res) => {
         const params = [];
         if (req.projectFilter) {
             if (req.projectFilter.length === 0) {
-                return res.json({ success: true, projects: [], totalTrees: 0 });
+                return res.json({ success: true, projects: [], cities: [], totalTrees: 0 });
             }
             sql += ' AND project_code = ANY($1::text[])';
             params.push(req.projectFilter);
         }
+        sql += ' ORDER BY project_code, project_name, id ASC';
         const { rows } = await db.query(sql, params);
-        const { resolveAreaCity } = require('../utils/county');
+
         const projects = [];
         const cities = new Set();
+        const seen = new Set();
         for (const r of rows) {
-            if (r.project_name) {
-                projects.push({
-                    name: r.project_name,
-                    code: r.project_code,
-                    area: r.project_location,
-                });
+            const resolvedCity = resolveAreaCity({
+                lng: r.x_coord,
+                lat: r.y_coord,
+                areaName: r.project_location,
+            });
+            if (resolvedCity) cities.add(resolvedCity);
+            if (!r.project_name) continue;
+
+            const cityFilter = city && String(city).trim() !== '' && city !== '全部';
+            if (cityFilter && !matchCity(resolvedCity, String(city).trim())) {
+                continue;
             }
+
+            const key = `${r.project_code || ''}|${r.project_name}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            projects.push({
+                name: r.project_name,
+                code: r.project_code,
+                area: r.project_location,
+                city: resolvedCity,
+            });
         }
         // 輕量 count
         let countSql = `SELECT COUNT(*) FROM tree_survey
@@ -198,14 +219,16 @@ router.get('/map/meta', projectAuthFilter, async (req, res) => {
             countParams.push(req.projectFilter);
         }
         const countRes = await db.query(countSql, countParams);
-        // 縣市從抽樣列解析（避免全表 scan）
-        for (const r of rows.slice(0, 500)) {
-            const c = resolveAreaCity({
-                lng: null,
-                lat: null,
-                areaName: r.project_location,
-            });
-            if (c) cities.add(c);
+        // 若未指定 city，補充從 area 名稱解析的縣市（相容舊資料）
+        if (!city || city === '全部') {
+            for (const r of rows.slice(0, 500)) {
+                const c = resolveAreaCity({
+                    lng: r.x_coord,
+                    lat: r.y_coord,
+                    areaName: r.project_location,
+                });
+                if (c) cities.add(c);
+            }
         }
         res.json({
             success: true,
