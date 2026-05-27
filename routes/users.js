@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const db = require('../config/db');
 const bcrypt = require('bcryptjs');
 const { loginLimiter } = require('../middleware/rateLimiter');
@@ -854,6 +855,177 @@ router.post('/register', loginLimiter, async (req, res) => {
         }
         console.error('邀請註冊失敗:', err);
         res.status(500).json({ success: false, message: '註冊失敗' });
+    } finally {
+        client.release();
+    }
+});
+
+
+// --- 密碼重設（無 email 欄位：管理員提供重設碼）---
+
+let resetTokenTableReady = false;
+async function ensureResetTokenTable() {
+    if (resetTokenTableReady) return;
+    await db.query(`
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+            id SERIAL PRIMARY KEY,
+            user_id INT NOT NULL REFERENCES users(user_id) ON DELETE CASCADE,
+            token_hash VARCHAR(64) NOT NULL,
+            reset_code_plain VARCHAR(8),
+            expires_at TIMESTAMP NOT NULL,
+            used_at TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_password_reset_user
+            ON password_reset_tokens(user_id);
+    `);
+    resetTokenTableReady = true;
+    await db.query(`
+        ALTER TABLE password_reset_tokens
+            ADD COLUMN IF NOT EXISTS reset_code_plain VARCHAR(8);
+    `);
+}
+
+function hashResetCode(code) {
+    return crypto.createHash('sha256').update(String(code).trim()).digest('hex');
+}
+
+function generateResetCode() {
+    return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+// 申請重設（公開；一律回相同訊息，避免帳號枚舉）
+router.post('/password-reset-request', loginLimiter, async (req, res) => {
+    const username = String(req.body.username || '').trim();
+    if (!username) {
+        return res.status(400).json({ success: false, message: '請提供帳號' });
+    }
+    const genericMsg =
+        '若帳號存在，重設碼已產生。請向業務管理員索取重設碼後完成重設。';
+    try {
+        await ensureResetTokenTable();
+        const { rows } = await db.query(
+            'SELECT user_id, username, is_active FROM users WHERE username = $1',
+            [username]
+        );
+        if (rows.length === 0 || !rows[0].is_active) {
+            return res.json({ success: true, message: genericMsg });
+        }
+        const user = rows[0];
+        const code = generateResetCode();
+        const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+        await db.query(
+            `UPDATE password_reset_tokens SET used_at = NOW()
+             WHERE user_id = $1 AND used_at IS NULL`,
+            [user.user_id]
+        );
+        await db.query(
+            `INSERT INTO password_reset_tokens (user_id, token_hash, reset_code_plain, expires_at)
+             VALUES ($1, $2, $3, $4)`,
+            [user.user_id, hashResetCode(code), code, expiresAt]
+        );
+        await AuditLogService.log({
+            userId: user.user_id,
+            username: user.username,
+            action: 'PASSWORD_RESET_REQUEST',
+            resourceType: 'users',
+            resourceId: String(user.user_id),
+            details: {
+                reset_code: code,
+                expires_at: expiresAt.toISOString(),
+                note: '管理員將重設碼提供給使用者（實驗室流程；正式環境可改 email）',
+            },
+            req,
+        });
+        res.json({ success: true, message: genericMsg });
+    } catch (err) {
+        console.error('密碼重設申請失敗:', err);
+        res.status(500).json({ success: false, message: '申請失敗' });
+    }
+});
+
+// 待處理重設碼（業務管理員以上）
+router.get('/pending-password-resets', requireRole('業務管理員'), async (req, res) => {
+    try {
+        await ensureResetTokenTable();
+        const { rows } = await db.query(`
+            SELECT pr.id, u.username, u.display_name, pr.reset_code_plain AS reset_code,
+                   pr.expires_at, pr.created_at
+            FROM password_reset_tokens pr
+            JOIN users u ON u.user_id = pr.user_id
+            WHERE pr.used_at IS NULL AND pr.expires_at > NOW()
+            ORDER BY pr.created_at DESC
+            LIMIT 50
+        `);
+        res.json({ success: true, pending: rows });
+    } catch (err) {
+        console.error('列出待重設密碼失敗:', err);
+        res.status(500).json({ success: false, message: '查詢失敗' });
+    }
+});
+
+// 使用重設碼重設密碼（公開）
+router.post('/password-reset', loginLimiter, async (req, res) => {
+    const username = String(req.body.username || '').trim();
+    const code = String(req.body.code || '').trim();
+    const newPassword = req.body.new_password;
+    if (!username || !code || !newPassword) {
+        return res.status(400).json({
+            success: false,
+            message: '請提供帳號、重設碼與新密碼',
+        });
+    }
+    const pwdError = validatePasswordStrength(newPassword);
+    if (pwdError) {
+        return res.status(400).json({ success: false, message: pwdError });
+    }
+    const client = await db.pool.connect();
+    try {
+        await ensureResetTokenTable();
+        await client.query('BEGIN');
+        const { rows: users } = await client.query(
+            'SELECT user_id FROM users WHERE username = $1 AND is_active = true',
+            [username]
+        );
+        if (users.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ success: false, message: '重設碼無效或已過期' });
+        }
+        const userId = users[0].user_id;
+        const { rows: tokens } = await client.query(
+            `SELECT id FROM password_reset_tokens
+             WHERE user_id = $1 AND token_hash = $2
+               AND used_at IS NULL AND expires_at > NOW()
+             FOR UPDATE`,
+            [userId, hashResetCode(code)]
+        );
+        if (tokens.length === 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ success: false, message: '重設碼無效或已過期' });
+        }
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await client.query('UPDATE users SET password_hash = $1 WHERE user_id = $2', [
+            hashed,
+            userId,
+        ]);
+        await client.query(
+            'UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1',
+            [tokens[0].id]
+        );
+        await client.query('COMMIT');
+        await AuditLogService.log({
+            userId,
+            username,
+            action: 'PASSWORD_RESET_COMPLETE',
+            resourceType: 'users',
+            resourceId: String(userId),
+            req,
+        });
+        res.json({ success: true, message: '密碼已重設，請使用新密碼登入' });
+    } catch (err) {
+        await client.query('ROLLBACK');
+        console.error('密碼重設失敗:', err);
+        res.status(500).json({ success: false, message: '重設失敗' });
     } finally {
         client.release();
     }
