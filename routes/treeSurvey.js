@@ -14,6 +14,13 @@ const AuditLogService = require('../services/auditLogService');
 const { projectAuth, projectAuthFilter } = require('../middleware/projectAuth');
 const { requireRole } = require('../middleware/roleAuth');
 
+const DEBUG_MAP = process.env.DEBUG_MAP === '1' || process.env.DEBUG_MAP === 'true';
+function mapApiLog(msg, extra) {
+    if (!DEBUG_MAP) return;
+    const suffix = extra ? ` ${JSON.stringify(extra)}` : '';
+    console.log(`[MapAPI] ${msg}${suffix}`);
+}
+
 // --- Multer 設定 (用於檔案上傳) ---
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
@@ -56,6 +63,9 @@ router.get('/', projectAuthFilter, async (req, res) => {
             : null;
         const projectName = req.query.project_name
             ? String(req.query.project_name).trim()
+            : null;
+        const searchQ = req.query.q
+            ? String(req.query.q).trim()
             : null;
 
         // 使用 AS 將欄位名稱轉換為前端期望的中文名稱
@@ -108,6 +118,19 @@ router.get('/', projectAuthFilter, async (req, res) => {
             paramIdx++;
         }
 
+        if (searchQ) {
+            const like = `%${searchQ}%`;
+            sql += ` AND (
+                species_name ILIKE $${paramIdx}
+                OR project_name ILIKE $${paramIdx}
+                OR project_location ILIKE $${paramIdx}
+                OR CAST(project_tree_id AS TEXT) ILIKE $${paramIdx}
+                OR CAST(species_id AS TEXT) ILIKE $${paramIdx}
+            )`;
+            params.push(like);
+            paramIdx++;
+        }
+
         sql += ` ORDER BY id ASC`;
 
         // 使用參數化查詢避免 SQL injection
@@ -142,6 +165,19 @@ router.get('/', projectAuthFilter, async (req, res) => {
             } else if (projectName && projectName !== '全部') {
                 countSql += ` AND project_name = $${countIdx}`;
                 countParams.push(projectName);
+                countIdx++;
+            }
+            if (searchQ) {
+                const like = `%${searchQ}%`;
+                countSql += ` AND (
+                    species_name ILIKE $${countIdx}
+                    OR project_name ILIKE $${countIdx}
+                    OR project_location ILIKE $${countIdx}
+                    OR CAST(project_tree_id AS TEXT) ILIKE $${countIdx}
+                    OR CAST(species_id AS TEXT) ILIKE $${countIdx}
+                )`;
+                countParams.push(like);
+                countIdx++;
             }
             const countResult = await db.query(countSql, countParams);
             response.totalCount = parseInt(countResult.rows[0].count, 10);
@@ -158,8 +194,10 @@ router.get('/', projectAuthFilter, async (req, res) => {
 // [優化] 地圖專用精簡 API (依使用者權限過濾)
 // Query: project_code, city, sw_lat, sw_lng, ne_lat, ne_lng, limit (default 2500, max 5000)
 router.get('/map/meta', projectAuthFilter, async (req, res) => {
+    const t0 = Date.now();
     try {
         const { city } = req.query;
+        mapApiLog('meta request', { city, projectFilter: req.projectFilter?.length ?? 'all' });
         const { resolveAreaCity, matchCity } = require('../utils/county');
 
         let sql = `
@@ -239,6 +277,12 @@ router.get('/map/meta', projectAuthFilter, async (req, res) => {
                 if (c) cities.add(c);
             }
         }
+        mapApiLog('meta response', {
+            projects: projects.length,
+            cities: cities.size,
+            totalTrees: parseInt(countRes.rows[0].count, 10),
+            ms: Date.now() - t0,
+        });
         res.json({
             success: true,
             projects,
@@ -252,8 +296,18 @@ router.get('/map/meta', projectAuthFilter, async (req, res) => {
 });
 
 router.get('/map', projectAuthFilter, async (req, res) => {
+    const t0 = Date.now();
     try {
         const { project_code, city } = req.query;
+        mapApiLog('map request', {
+            project_code,
+            city,
+            sw_lat: req.query.sw_lat,
+            sw_lng: req.query.sw_lng,
+            ne_lat: req.query.ne_lat,
+            ne_lng: req.query.ne_lng,
+            limit: req.query.limit,
+        });
         const swLat = parseFloat(req.query.sw_lat);
         const swLng = parseFloat(req.query.sw_lng);
         const neLat = parseFloat(req.query.ne_lat);
@@ -329,6 +383,14 @@ router.get('/map', projectAuthFilter, async (req, res) => {
         if (city && typeof city === 'string' && city.trim() !== '' && city !== '全部') {
             annotated = annotated.filter(r => matchCity(r._city, city));
         }
+
+        mapApiLog('map response', {
+            rows: dataRows.length,
+            returned: annotated.length,
+            truncated,
+            limit,
+            ms: Date.now() - t0,
+        });
 
         res.json({ success: true, data: annotated, truncated, limit });
     } catch (err) {
