@@ -179,6 +179,9 @@ exports.updateTreeV2 = async (req, res) => {
 
         if (updates.length === 0) {
             // 雖然 body 有 key，但都不是我們要更新的欄位
+            // [併發] 已 BEGIN，必須先 ROLLBACK 釋放交易，否則連線停在 open transaction
+            // 直到 timeout，高併發下會耗盡連線池。
+            await client.query('ROLLBACK');
             return res.status(400).json({ success: false, message: '沒有有效的更新欄位' });
         }
         

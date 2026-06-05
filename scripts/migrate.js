@@ -41,6 +41,7 @@ const migrationFiles = [
   '11_species_cascade_trigger.pg.sql', // [Stage 2] tree_species rename 時 cascade 更新 species_name cache
   '12_research_dataset.pg.sql', // [Research] 研究用 DBH 校準資料集（管理員蒐集捲尺實測 + 拍攝距離）
   '13_users_pending_approval.pg.sql', // pending_approval 欄位 + 邀請註冊回填
+  '14_tree_survey_unique_ids.pg.sql', // [併發] tree_survey 樹木 ID 唯一約束（最後防線）
 ];
 
 // Define the order for view creation

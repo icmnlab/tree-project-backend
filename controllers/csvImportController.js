@@ -311,7 +311,10 @@ async function execute(req, res) {
         }
 
         await client.query('BEGIN');
-        await client.query('SELECT pg_advisory_xact_lock(3)'); // Key 3 for CSV import
+        // [併發] 統一用 key 1：所有「產生 tree_survey 的 system_tree_id / project_tree_id」
+        // 的路徑（create_v2、batch、transfer、CSV execute）必須共用同一把 advisory lock，
+        // 否則併發時各自 MAX+1 會產生相同 ID。配合 DB 唯一約束作最後防線。
+        await client.query('SELECT pg_advisory_xact_lock(1)');
 
         let insertedCount = 0;
         let updatedCount = 0;
