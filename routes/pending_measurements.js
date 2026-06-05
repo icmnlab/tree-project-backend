@@ -747,18 +747,29 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
     }
     
     // 獲取已完成的記錄；smoke-test rows 只供 App 實機測試，不可轉入正式 tree_survey。
+    //
+    // [併發安全] FOR UPDATE 鎖定這批 completed 列：前端在「每棵提交後」皆以
+    // sessionId 觸發 transfer，若兩個 transfer 請求重疊（網路重試 / 連續快速提交），
+    // 沒有列鎖時兩交易會讀到同一批列並各自 INSERT，造成 tree_survey 重複樹木。
+    // 加 FOR UPDATE 後，第二筆交易會阻塞等待第一筆 commit，再重新評估條件時
+    // 這批列已變為 'transferred' → 取得 0 列，安全地不重複轉移。
     const pendingResult = await client.query(`
       SELECT * FROM pending_tree_measurements 
       WHERE session_id = $1
         AND status = 'completed'
         AND COALESCE(raw_data_snapshot->>'is_smoke_test', 'false') <> 'true'
+      FOR UPDATE
     `, [session_id]);
     
     if (pendingResult.rows.length === 0) {
-      await client.query('ROLLBACK');
-      return res.status(400).json({ 
-        success: false, 
-        message: '沒有已完成的記錄可轉移' 
+      // [冪等] 可能是併發/重試的第二筆 transfer：資料已由前一筆成功轉移。
+      // 回傳成功且 0 筆，避免前端 auto-transfer 顯示假錯誤。
+      await client.query('COMMIT');
+      return res.json({
+        success: true,
+        message: '沒有待轉移的已完成記錄（可能已轉移）',
+        transferred_tree_ids: [],
+        id_mapping: [],
       });
     }
 
