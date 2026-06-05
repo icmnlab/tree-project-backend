@@ -437,10 +437,12 @@ router.get('/sessions', projectAuthFilter, async (req, res) => {
         COUNT(*) as total_trees,
         COUNT(*) FILTER (WHERE status = 'completed') as completed_trees,
         COUNT(*) FILTER (WHERE status IN ('pending', 'in_progress')) as pending_trees,
+        COUNT(*) FILTER (WHERE status = 'transferred') as transferred_trees,
         'system' as created_by
       FROM pending_tree_measurements
       ${where}
       GROUP BY session_id
+      HAVING COUNT(*) FILTER (WHERE status IN ('pending', 'in_progress', 'completed')) > 0
       ORDER BY MIN(created_at) DESC
     `, params);
     
