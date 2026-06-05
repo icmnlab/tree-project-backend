@@ -124,6 +124,8 @@ router.get('/', projectAuthFilter, async (req, res) => {
                 species_name ILIKE $${paramIdx}
                 OR project_name ILIKE $${paramIdx}
                 OR project_location ILIKE $${paramIdx}
+                OR survey_notes ILIKE $${paramIdx}
+                OR tree_notes ILIKE $${paramIdx}
                 OR CAST(project_tree_id AS TEXT) ILIKE $${paramIdx}
                 OR CAST(species_id AS TEXT) ILIKE $${paramIdx}
             )`;
@@ -173,6 +175,8 @@ router.get('/', projectAuthFilter, async (req, res) => {
                     species_name ILIKE $${countIdx}
                     OR project_name ILIKE $${countIdx}
                     OR project_location ILIKE $${countIdx}
+                    OR survey_notes ILIKE $${countIdx}
+                    OR tree_notes ILIKE $${countIdx}
                     OR CAST(project_tree_id AS TEXT) ILIKE $${countIdx}
                     OR CAST(species_id AS TEXT) ILIKE $${countIdx}
                 )`;
