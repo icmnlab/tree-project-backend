@@ -694,6 +694,44 @@ router.patch('/:id', projectAuthFilter, async (req, res) => {
 /**
  * 建構 survey_notes 字串，安全處理 null 值
  */
+/**
+ * 每次 transfer 成功後追加歷次量測紀錄（初測與維護皆寫入）。
+ */
+async function insertTreeSurveyMeasurementHistory(client, {
+  treeId,
+  pendingRow,
+  speciesId,
+  finalDbh,
+  finalStatus,
+  surveyNotes,
+  finalCarbonStorage,
+  surveyMode,
+}) {
+  const measuredAt = pendingRow.completed_at ?? new Date();
+  await client.query(`
+    INSERT INTO tree_survey_measurements (
+      tree_id, pending_id, survey_time,
+      tree_height_m, dbh_cm, species_name, species_id,
+      status, survey_notes, carbon_storage,
+      x_coord, y_coord, survey_mode
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+  `, [
+    treeId,
+    pendingRow.id,
+    measuredAt,
+    pendingRow.tree_height,
+    finalDbh,
+    pendingRow.species_name ?? '待辨識',
+    speciesId,
+    finalStatus,
+    surveyNotes,
+    finalCarbonStorage,
+    pendingRow.tree_longitude,
+    pendingRow.tree_latitude,
+    surveyMode,
+  ]);
+}
+
 function buildSurveyNotes(p) {
   const parts = ['VLGEO2+Vision測量'];
   if (p.measurement_method) {
@@ -901,6 +939,21 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
 
         treeSurveyId = target.id;
         systemTreeId = target.system_tree_id;
+
+        try {
+          await insertTreeSurveyMeasurementHistory(client, {
+            treeId: treeSurveyId,
+            pendingRow: p,
+            speciesId,
+            finalDbh,
+            finalStatus,
+            surveyNotes,
+            finalCarbonStorage,
+            surveyMode,
+          });
+        } catch (histErr) {
+          console.warn(`[Transfer] tree_survey_measurements insert skipped pending_id=${p.id}:`, histErr.message);
+        }
       } else {
         // 生成 system_tree_id
         systemTreeId = `ST-${nextSysId}`;
@@ -955,6 +1008,21 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
           finalCarbonStorage,
         ]);
         treeSurveyId = insertResult.rows[0].id;
+
+        try {
+          await insertTreeSurveyMeasurementHistory(client, {
+            treeId: treeSurveyId,
+            pendingRow: p,
+            speciesId,
+            finalDbh,
+            finalStatus,
+            surveyNotes,
+            finalCarbonStorage,
+            surveyMode,
+          });
+        } catch (histErr) {
+          console.warn(`[Transfer] tree_survey_measurements insert skipped pending_id=${p.id}:`, histErr.message);
+        }
       }
       
       transferredIds.push(treeSurveyId);

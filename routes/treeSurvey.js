@@ -484,6 +484,65 @@ router.get('/by_id/:id', projectAuthFilter, async (req, res) => {
     }
 });
 
+// 歷次量測紀錄（最新在上）— 須在動態 :id 路由之前
+router.get('/by_id/:id/measurements', projectAuthFilter, async (req, res) => {
+    const { id } = req.params;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+
+    try {
+        const treeRes = await db.query(
+            'SELECT id, project_code FROM tree_survey WHERE id = $1',
+            [id],
+        );
+        if (treeRes.rows.length === 0) {
+            return res.status(404).json({ success: false, message: '找不到指定的樹木資料' });
+        }
+
+        const row = treeRes.rows[0];
+        if (req.projectFilter != null) {
+            if (req.projectFilter.length === 0) {
+                return res.status(403).json({ success: false, message: '無權限查看此資料' });
+            }
+            if (!row.project_code || !req.projectFilter.includes(row.project_code)) {
+                return res.status(403).json({ success: false, message: '無權限查看此資料' });
+            }
+        }
+
+        const histRes = await db.query(`
+            SELECT
+                id,
+                tree_id,
+                pending_id,
+                survey_time,
+                tree_height_m,
+                dbh_cm,
+                species_name,
+                species_id,
+                status,
+                survey_notes,
+                carbon_storage,
+                x_coord,
+                y_coord,
+                survey_mode,
+                created_at
+            FROM tree_survey_measurements
+            WHERE tree_id = $1
+            ORDER BY survey_time DESC, id DESC
+            LIMIT $2
+        `, [id, limit]);
+
+        res.json({
+            success: true,
+            tree_id: parseInt(id, 10),
+            count: histRes.rows.length,
+            data: histRes.rows,
+        });
+    } catch (err) {
+        console.error(`獲取樹木 ID [${id}] 歷次量測錯誤:`, err);
+        res.status(500).json({ success: false, message: '查詢資料庫時發生錯誤' });
+    }
+});
+
 // 根據專案名稱或專案代碼獲取樹木 (依使用者權限過濾)
 // [P3 / Bug 3] 改成 name OR code 解析：
 //   - 透過 projects 表把 name → code，避免 projects.name='X（B1）'
