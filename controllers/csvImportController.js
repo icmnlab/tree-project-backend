@@ -477,6 +477,20 @@ async function execute(req, res) {
             }
         }
 
+        if (importErrors.length > 0) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({
+                success: false,
+                message: `匯入失敗 ${importErrors.length} 筆，已全部復原`,
+                report: {
+                    inserted: 0,
+                    updated: 0,
+                    skipped: skippedCount,
+                    errors: importErrors,
+                },
+            });
+        }
+
         await client.query('COMMIT');
 
         // 審計日誌
@@ -489,7 +503,7 @@ async function execute(req, res) {
                 inserted: insertedCount,
                 updated: updatedCount,
                 skipped: skippedCount,
-                errors: importErrors.length,
+                errors: 0,
                 projects: projectCodesInBatch
             },
             req

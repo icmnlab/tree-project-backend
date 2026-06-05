@@ -11,7 +11,7 @@ const treeSurveyBatchController = require('../controllers/treeSurveyBatchControl
 const treeSurveyCreateController = require('../controllers/treeSurveyCreateController');
 const treeSurveyUpdateController = require('../controllers/treeSurveyUpdateController'); // 引入新的 Update Controller
 const AuditLogService = require('../services/auditLogService');
-const { projectAuth, projectAuthFilter } = require('../middleware/projectAuth');
+const { projectAuth, projectAuthFilter, hasProjectPermission } = require('../middleware/projectAuth');
 const { requireRole } = require('../middleware/roleAuth');
 
 const DEBUG_MAP = process.env.DEBUG_MAP === '1' || process.env.DEBUG_MAP === 'true';
@@ -488,6 +488,7 @@ router.get('/by_id/:id', projectAuthFilter, async (req, res) => {
 router.get('/by_id/:id/measurements', projectAuthFilter, async (req, res) => {
     const { id } = req.params;
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
 
     try {
         const treeRes = await db.query(
@@ -507,6 +508,12 @@ router.get('/by_id/:id/measurements', projectAuthFilter, async (req, res) => {
                 return res.status(403).json({ success: false, message: '無權限查看此資料' });
             }
         }
+
+        const countRes = await db.query(
+            'SELECT COUNT(*)::int AS total FROM tree_survey_measurements WHERE tree_id = $1',
+            [id],
+        );
+        const total = countRes.rows[0]?.total ?? 0;
 
         const histRes = await db.query(`
             SELECT
@@ -528,13 +535,16 @@ router.get('/by_id/:id/measurements', projectAuthFilter, async (req, res) => {
             FROM tree_survey_measurements
             WHERE tree_id = $1
             ORDER BY survey_time DESC, id DESC
-            LIMIT $2
-        `, [id, limit]);
+            LIMIT $2 OFFSET $3
+        `, [id, limit, offset]);
 
         res.json({
             success: true,
             tree_id: parseInt(id, 10),
             count: histRes.rows.length,
+            total,
+            offset,
+            limit,
             data: histRes.rows,
         });
     } catch (err) {
@@ -818,6 +828,23 @@ router.post('/import', requireRole('專案管理員'), upload.single('file'), as
         }
 
         await client.query('BEGIN');
+        await client.query('SELECT pg_advisory_xact_lock(1)');
+
+        const projectCodes = [...new Set(
+            data.map((r) => r['專案代碼']).filter((c) => c && c !== '無')
+        )];
+        if (req.user.role !== '系統管理員' && req.user.role !== '業務管理員') {
+            for (const code of projectCodes) {
+                const allowed = await hasProjectPermission(req.user.user_id, code, req.user.role);
+                if (!allowed) {
+                    await client.query('ROLLBACK');
+                    return res.status(403).json({
+                        success: false,
+                        message: `權限不足：無法匯入專案 ${code}`,
+                    });
+                }
+            }
+        }
 
         let successCount = 0;
         const errors = [];

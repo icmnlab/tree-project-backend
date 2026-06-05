@@ -43,6 +43,8 @@ const migrationFiles = [
   '13_users_pending_approval.pg.sql', // pending_approval 欄位 + 邀請註冊回填
   '14_tree_survey_unique_ids.pg.sql', // [併發] tree_survey 樹木 ID 唯一約束（最後防線）
   '15_tree_survey_measurements.pg.sql', // [P2] 歷次量測紀錄表
+  '16_project_boundaries_backfill.pg.sql', // [2NF] 邊界表 project_code 回填
+  '17_backfill_tree_survey_measurements.pg.sql', // [歷史] 既有樹木 baseline 歷次
 ];
 
 // Define the order for view creation

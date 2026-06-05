@@ -166,7 +166,7 @@ router.get('/export/pdf', requireRole('調查管理員'), projectAuthFilter, asy
 });
 
 // 簡易永續報告 (調查管理員以上)
-router.get('/sustainability_report', requireRole('調查管理員'), reportController.generateSustainabilityReport);
+router.get('/sustainability_report', requireRole('調查管理員'), projectAuthFilter, reportController.generateSustainabilityReport);
 
 
 // ... (AI 報告路由將在 ai.js 中處理) ...

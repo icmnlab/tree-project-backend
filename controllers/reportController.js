@@ -1,10 +1,56 @@
 const db = require('../config/db');
 
+const EMPTY_REPORT = {
+    basicStats: {
+        total_trees: 0,
+        species_count: 0,
+        avg_height: null,
+        avg_dbh: null,
+        total_carbon_storage: null,
+        total_annual_carbon_sequestration: null,
+    },
+    speciesDiversity: [],
+    healthStatus: [],
+    dbhDistribution: [],
+    projectAnalysis: [],
+};
+
+function buildScopedSource(req) {
+    if (req.projectFilter != null && req.projectFilter.length === 0) {
+        return { empty: true };
+    }
+    if (req.projectFilter != null) {
+        return {
+            cte: 'WITH ts AS (SELECT * FROM tree_survey WHERE project_code = ANY($1::text[]))',
+            params: [req.projectFilter],
+            empty: false,
+        };
+    }
+    return {
+        cte: 'WITH ts AS (SELECT * FROM tree_survey)',
+        params: [],
+        empty: false,
+    };
+}
+
 // 生成永續報告
 exports.generateSustainabilityReport = async (req, res) => {
     try {
-        // 1. 基本統計數據
+        const scope = buildScopedSource(req);
+        if (scope.empty) {
+            return res.json({
+                success: true,
+                data: {
+                    ...EMPTY_REPORT,
+                    generatedAt: new Date().toISOString(),
+                },
+            });
+        }
+
+        const { cte, params } = scope;
+
         const { rows: basicStatsRows } = await db.query(`
+            ${cte}
             SELECT 
                 COUNT(*) as total_trees,
                 COUNT(DISTINCT species_name) as species_count,
@@ -12,35 +58,35 @@ exports.generateSustainabilityReport = async (req, res) => {
                 AVG(dbh_cm) as avg_dbh,
                 SUM(carbon_storage) as total_carbon_storage,
                 SUM(carbon_sequestration_per_year) as total_annual_carbon_sequestration
-            FROM tree_survey
-        `);
+            FROM ts
+        `, params);
         const basicStats = basicStatsRows[0];
 
-        // 2. 物種多樣性分析
         const { rows: speciesDiversity } = await db.query(`
+            ${cte}
             SELECT 
                 species_name,
                 COUNT(*) as count,
-                (COUNT(*) * 100.0 / (SELECT COUNT(*) FROM tree_survey)) as percentage
-            FROM tree_survey
+                (COUNT(*) * 100.0 / NULLIF((SELECT COUNT(*) FROM ts), 0)) as percentage
+            FROM ts
             WHERE species_name IS NOT NULL AND species_name != ''
             GROUP BY species_name
             ORDER BY count DESC
-        `);
+        `, params);
 
-        // 3. 健康狀況分析
         const { rows: healthStatus } = await db.query(`
+            ${cte}
             SELECT 
                 status,
                 COUNT(*) as count,
-                (COUNT(*) * 100.0 / (SELECT COUNT(*) FROM tree_survey)) as percentage
-            FROM tree_survey
+                (COUNT(*) * 100.0 / NULLIF((SELECT COUNT(*) FROM ts), 0)) as percentage
+            FROM ts
             WHERE status IS NOT NULL AND status != ''
             GROUP BY status
-        `);
+        `, params);
 
-        // 4. 徑級分佈
         const { rows: dbhDistribution } = await db.query(`
+            ${cte}
             SELECT 
                 CASE 
                     WHEN dbh_cm < 10 THEN '小於10公分'
@@ -50,37 +96,34 @@ exports.generateSustainabilityReport = async (req, res) => {
                     ELSE '大於40公分'
                 END as dbh_range,
                 COUNT(*) as count,
-                (COUNT(*) * 100.0 / (SELECT COUNT(*) FROM tree_survey)) as percentage
-            FROM tree_survey
+                (COUNT(*) * 100.0 / NULLIF((SELECT COUNT(*) FROM ts), 0)) as percentage
+            FROM ts
             GROUP BY dbh_range
             ORDER BY MIN(dbh_cm)
-        `);
+        `, params);
 
-        // 5. 專案區位分析
         const { rows: projectAnalysis } = await db.query(`
+            ${cte}
             SELECT 
                 project_location,
                 COUNT(*) as tree_count,
                 SUM(carbon_storage) as total_carbon,
                 SUM(carbon_sequestration_per_year) as annual_carbon
-            FROM tree_survey
+            FROM ts
             WHERE project_location IS NOT NULL AND project_location != ''
             GROUP BY project_location
-        `);
-
-        // 組合報告數據
-        const report = {
-            basicStats,
-            speciesDiversity,
-            healthStatus,
-            dbhDistribution,
-            projectAnalysis,
-            generatedAt: new Date().toISOString()
-        };
+        `, params);
 
         res.json({
             success: true,
-            data: report
+            data: {
+                basicStats,
+                speciesDiversity,
+                healthStatus,
+                dbhDistribution,
+                projectAnalysis,
+                generatedAt: new Date().toISOString(),
+            },
         });
 
     } catch (error) {
@@ -90,4 +133,4 @@ exports.generateSustainabilityReport = async (req, res) => {
             error: '生成永續報告時發生錯誤'
         });
     }
-}; 
+};

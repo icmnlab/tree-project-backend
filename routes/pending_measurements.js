@@ -253,6 +253,24 @@ async function initTable() {
   } catch (e) {
     console.warn('[pending-measurements] v19.0 migration skipped:', e.message);
   }
+
+  // [P3] 歷次量測表 + 2NF 回填（冪等 SQL 檔）
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const schemaDir = path.join(__dirname, '../database/initial_data');
+    for (const file of [
+      '15_tree_survey_measurements.pg.sql',
+      '16_project_boundaries_backfill.pg.sql',
+      '17_backfill_tree_survey_measurements.pg.sql',
+    ]) {
+      const sql = fs.readFileSync(path.join(schemaDir, file), 'utf8');
+      await pool.query(sql);
+    }
+    console.log('[pending-measurements] tree_survey_measurements + 2NF backfill ready');
+  } catch (e) {
+    console.warn('[pending-measurements] P3 schema migration skipped:', e.message);
+  }
 })();
 
 /**
@@ -628,12 +646,11 @@ router.patch('/:id', projectAuthFilter, async (req, res) => {
       }
     }
 
-    // [T6] 樂觀鎖比對（±2s 容差，避免 ISO 字串與 DB timestamptz 精度差造成假 409）
+    // [T6] 樂觀鎖比對（精確比對 updated_at）
     if (expectedUpdatedAt) {
       const serverTs = new Date(existing.rows[0].updated_at).getTime();
       const clientTs = new Date(expectedUpdatedAt).getTime();
-      const driftMs = Math.abs(serverTs - clientTs);
-      if (Number.isFinite(serverTs) && Number.isFinite(clientTs) && driftMs > 2000) {
+      if (Number.isFinite(serverTs) && Number.isFinite(clientTs) && serverTs !== clientTs) {
         return res.status(409).json({
           success: false,
           code: 'CONFLICT',
@@ -645,12 +662,24 @@ router.patch('/:id', projectAuthFilter, async (req, res) => {
 
     values.push(id);
     const idIdx = paramIndex++;
-    const sql = `
+    let sql;
+    if (expectedUpdatedAt) {
+      values.push(expectedUpdatedAt);
+      const tsIdx = paramIndex++;
+      sql = `
+        UPDATE pending_tree_measurements
+        SET ${setClauses.join(', ')}
+        WHERE id = $${idIdx} AND updated_at = $${tsIdx}
+        RETURNING *
+      `;
+    } else {
+      sql = `
         UPDATE pending_tree_measurements
         SET ${setClauses.join(', ')}
         WHERE id = $${idIdx}
         RETURNING *
       `;
+    }
 
     const result = await pool.query(sql, values);
 

@@ -3,7 +3,73 @@ const router = express.Router();
 const db = require('../config/db');
 const { v4: uuidv4 } = require('uuid');
 const { requireRole } = require('../middleware/roleAuth');
+const { hasProjectPermission } = require('../middleware/projectAuth');
 const cloudinaryService = require('../config/cloudinary');
+
+async function assertOwnerProjectAccess(req, ownerType, ownerId) {
+    if (!req.user?.user_id) {
+        return { ok: false, status: 401, message: '未授權：請先登入' };
+    }
+    if (req.user.role === '系統管理員' || req.user.role === '業務管理員') {
+        return { ok: true };
+    }
+
+    const table = ownerType === 'survey' ? 'tree_survey' : 'pending_tree_measurements';
+    const { rows } = await db.query(
+        `SELECT project_code FROM ${table} WHERE id = $1`,
+        [ownerId]
+    );
+    const projectCode = rows[0]?.project_code;
+    if (!projectCode) return { ok: true };
+
+    const allowed = await hasProjectPermission(req.user.user_id, projectCode, req.user.role);
+    if (!allowed) {
+        return { ok: false, status: 403, message: '權限不足：您沒有此專案的存取權限' };
+    }
+    return { ok: true };
+}
+
+async function resolveOwner(treeId, source, metadata, client) {
+    const requestedSource = source === 'pending' || source === 'survey' ? source : null;
+    let ownerType = requestedSource || 'pending';
+    let ownerId = parseInt(treeId, 10) || 0;
+
+    if (source === 'pending' && !isNaN(parseInt(treeId, 10))) {
+        const pendingCheck = await client.query('SELECT id FROM pending_tree_measurements WHERE id = $1', [treeId]);
+        if (pendingCheck.rows.length > 0) {
+            ownerType = 'pending';
+            ownerId = parseInt(treeId, 10);
+        }
+    } else if (source === 'survey' && !isNaN(parseInt(treeId, 10))) {
+        const surveyCheck = await client.query('SELECT id FROM tree_survey WHERE id = $1', [treeId]);
+        if (surveyCheck.rows.length > 0) {
+            ownerType = 'survey';
+            ownerId = parseInt(treeId, 10);
+        }
+    } else if (!isNaN(parseInt(treeId, 10))) {
+        const pendingCheck = await client.query('SELECT id FROM pending_tree_measurements WHERE id = $1', [treeId]);
+        if (pendingCheck.rows.length > 0) {
+            ownerType = 'pending';
+            ownerId = parseInt(treeId, 10);
+        } else {
+            const surveyCheck = await client.query('SELECT id FROM tree_survey WHERE id = $1', [treeId]);
+            if (surveyCheck.rows.length > 0) {
+                ownerType = 'survey';
+                ownerId = parseInt(treeId, 10);
+            }
+        }
+    }
+
+    if (ownerId === 0 && metadata && metadata.task_id) {
+        const pendingCheck = await client.query('SELECT id FROM pending_tree_measurements WHERE id = $1', [metadata.task_id]);
+        if (pendingCheck.rows.length > 0) {
+            ownerType = 'pending';
+            ownerId = metadata.task_id;
+        }
+    }
+
+    return { ownerType, ownerId };
+}
 
 /**
  * 上傳樹木影像 — Cloudinary 雲端儲存 + 2NF schema
@@ -38,6 +104,13 @@ router.post('/upload', async (req, res) => {
             buffer = Buffer.from(image_data, 'base64');
         }
 
+        const { ownerType, ownerId } = await resolveOwner(tree_id, source, metadata, client);
+        const auth = await assertOwnerProjectAccess(req, ownerType, ownerId);
+        if (!auth.ok) {
+            await client.query('ROLLBACK');
+            return res.status(auth.status).json({ success: false, message: auth.message });
+        }
+
         // 2. 上傳到 Cloudinary（含縮圖 URL 生成）
         const finalImageId = image_id || uuidv4();
         const cloudResult = await cloudinaryService.uploadWithThumbnail(buffer, {
@@ -45,48 +118,7 @@ router.post('/upload', async (req, res) => {
             publicId: finalImageId,
         });
 
-        // 3. 確定 owner_type + owner_id（2NF 正規化）
-        const requestedSource = source === 'pending' || source === 'survey' ? source : null;
-        let ownerType = requestedSource || 'pending';
-        let ownerId = parseInt(tree_id, 10) || 0;
-
-        if (source === 'pending' && !isNaN(parseInt(tree_id, 10))) {
-            const pendingCheck = await client.query('SELECT id FROM pending_tree_measurements WHERE id = $1', [tree_id]);
-            if (pendingCheck.rows.length > 0) {
-                ownerType = 'pending';
-                ownerId = parseInt(tree_id, 10);
-            }
-        } else if (source === 'survey' && !isNaN(parseInt(tree_id, 10))) {
-            const surveyCheck = await client.query('SELECT id FROM tree_survey WHERE id = $1', [tree_id]);
-            if (surveyCheck.rows.length > 0) {
-                ownerType = 'survey';
-                ownerId = parseInt(tree_id, 10);
-            }
-        } else if (!isNaN(parseInt(tree_id, 10))) {
-            // 向下相容：未傳 source 時先查 pending 再查 survey
-            const pendingCheck = await client.query('SELECT id FROM pending_tree_measurements WHERE id = $1', [tree_id]);
-            if (pendingCheck.rows.length > 0) {
-                ownerType = 'pending';
-                ownerId = parseInt(tree_id, 10);
-            } else {
-                const surveyCheck = await client.query('SELECT id FROM tree_survey WHERE id = $1', [tree_id]);
-                if (surveyCheck.rows.length > 0) {
-                    ownerType = 'survey';
-                    ownerId = parseInt(tree_id, 10);
-                }
-            }
-        }
-
-        // Fallback: metadata.task_id
-        if (ownerId === 0 && metadata && metadata.task_id) {
-            const pendingCheck = await client.query('SELECT id FROM pending_tree_measurements WHERE id = $1', [metadata.task_id]);
-            if (pendingCheck.rows.length > 0) {
-                ownerType = 'pending';
-                ownerId = metadata.task_id;
-            }
-        }
-
-        // 4. 插入資料（2NF schema）
+        // 3. 插入資料（2NF schema）
         const insertQuery = `
             INSERT INTO tree_images 
             (owner_type, owner_id, image_type, cloud_url, cloud_public_id, thumbnail_url, storage_type, captured_at, metadata)
@@ -137,7 +169,7 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
 
     try {
-        const query = 'SELECT cloud_url, image_type, storage_type FROM tree_images WHERE id = $1';
+        const query = 'SELECT cloud_url, image_type, storage_type, owner_type, owner_id FROM tree_images WHERE id = $1';
         const { rows } = await db.query(query, [id]);
 
         if (rows.length === 0) {
@@ -145,6 +177,10 @@ router.get('/:id', async (req, res) => {
         }
 
         const imageRecord = rows[0];
+        const auth = await assertOwnerProjectAccess(req, imageRecord.owner_type, imageRecord.owner_id);
+        if (!auth.ok) {
+            return res.status(auth.status).json({ success: false, message: auth.message });
+        }
 
         // Cloudinary 直接重導向到 CDN URL
         if (imageRecord.cloud_url && imageRecord.cloud_url.startsWith('http')) {
@@ -181,6 +217,13 @@ router.get('/tree/:treeId', async (req, res) => {
     const { source } = req.query;
 
     try {
+        if (source === 'pending' || source === 'survey') {
+            const auth = await assertOwnerProjectAccess(req, source, parseInt(treeId, 10));
+            if (!auth.ok) {
+                return res.status(auth.status).json({ success: false, message: auth.message });
+            }
+        }
+
         let query;
         let params;
 
@@ -232,12 +275,18 @@ router.delete('/:id', requireRole('專案管理員'), async (req, res) => {
         await client.query('BEGIN');
 
         // 1. 查詢 cloud_public_id
-        const query = 'SELECT cloud_public_id, cloud_url FROM tree_images WHERE id = $1';
+        const query = 'SELECT cloud_public_id, cloud_url, owner_type, owner_id FROM tree_images WHERE id = $1';
         const { rows } = await client.query(query, [id]);
 
         if (rows.length === 0) {
             await client.query('ROLLBACK');
             return res.status(404).json({ success: false, message: '找不到影像' });
+        }
+
+        const auth = await assertOwnerProjectAccess(req, rows[0].owner_type, rows[0].owner_id);
+        if (!auth.ok) {
+            await client.query('ROLLBACK');
+            return res.status(auth.status).json({ success: false, message: auth.message });
         }
 
         const { cloud_public_id } = rows[0];

@@ -1,5 +1,25 @@
 const db = require('../config/db');
 
+async function assertActionProjectAccess(req, actionId) {
+    if (req.projectFilter == null) return { ok: true };
+
+    const { rows } = await db.query(
+        `SELECT ts.project_code
+         FROM tree_management_actions tma
+         JOIN tree_survey ts ON tma.tree_id = ts.id
+         WHERE tma.action_id = $1`,
+        [actionId]
+    );
+    if (rows.length === 0) {
+        return { ok: false, status: 404, message: '找不到要操作的管理建議' };
+    }
+    const code = rows[0].project_code;
+    if (!code || !req.projectFilter.includes(code)) {
+        return { ok: false, status: 403, message: '權限不足：您沒有此專案的存取權限' };
+    }
+    return { ok: true };
+}
+
 /**
  * @description 生成樹木管理建議並存入資料庫
  * @param {object} req - Express request object
@@ -21,6 +41,14 @@ exports.generateManagementActions = async (req, res) => {
             queryParams.push(area_name);
         } else {
             return res.status(400).json({ success: false, message: '請提供 project_code 或 area_name' });
+        }
+
+        if (req.projectFilter != null) {
+            if (req.projectFilter.length === 0) {
+                return res.status(403).json({ success: false, message: '權限不足：您沒有任何專案存取權限' });
+            }
+            query += ` AND "project_code" = ANY($${queryParams.length + 1}::text[])`;
+            queryParams.push(req.projectFilter);
         }
 
         const { rows: trees } = await db.query(query, queryParams);
@@ -137,6 +165,13 @@ exports.getManagementActions = async (req, res) => {
             query += ` AND tma.category = $${paramIndex++}`;
             queryParams.push(category);
         }
+        if (req.projectFilter != null) {
+            if (req.projectFilter.length === 0) {
+                return res.json({ success: true, data: [], total: 0, limit, offset });
+            }
+            query += ` AND ts.project_code = ANY($${paramIndex++}::text[])`;
+            queryParams.push(req.projectFilter);
+        }
 
         const countQuery = query.replace(/SELECT tma.\*.*?FROM/s, 'SELECT COUNT(DISTINCT tma.action_id) as total FROM');
         const { rows: countRows } = await db.query(countQuery, queryParams);
@@ -169,6 +204,11 @@ exports.updateManagementAction = async (req, res) => {
     }
 
     try {
+        const access = await assertActionProjectAccess(req, action_id);
+        if (!access.ok) {
+            return res.status(access.status).json({ success: false, message: access.message });
+        }
+
         let updateFields = [];
         let queryParams = [];
         let paramIndex = 1;
@@ -216,6 +256,11 @@ exports.deleteManagementAction = async (req, res) => {
     const { action_id } = req.params;
 
     try {
+        const access = await assertActionProjectAccess(req, action_id);
+        if (!access.ok) {
+            return res.status(access.status).json({ success: false, message: access.message });
+        }
+
         const query = 'DELETE FROM tree_management_actions WHERE action_id = $1';
         const { rowCount } = await db.query(query, [action_id]);
 
