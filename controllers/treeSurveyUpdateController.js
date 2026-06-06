@@ -52,6 +52,30 @@ exports.updateTreeV2 = async (req, res) => {
         }
         const existingTree = checkExist.rows[0];
 
+        const finalDbhEarly = dbh_cm ?? req.body.dbh;
+        if (finalDbhEarly !== undefined && finalDbhEarly !== null) {
+            const { assertHandbookDbhWrite } = require('../utils/handbookDbhGuard');
+            const meta = req.body.v3_metadata || {};
+            const method = req.body.measurement_method ?? meta.measurement_method;
+            let dbhSource = req.body.dbh_source || 'manual';
+            if (method === 'remote_diameter') dbhSource = 'remote_diameter';
+            else if (method && /vision/i.test(String(method))) dbhSource = 'vision';
+
+            const dbhCheck = assertHandbookDbhWrite({
+                dbhSource,
+                researchMode: req.body.research_mode === true,
+                measuredDbhCm: finalDbhEarly,
+            });
+            if (!dbhCheck.ok) {
+                await client.query('ROLLBACK');
+                return res.status(422).json({
+                    success: false,
+                    code: 'HANDBOOK_DBH',
+                    message: dbhCheck.message,
+                });
+            }
+        }
+
         // [T6][S1] 樂觀鎖：若前端有送 expected_updated_at，比對 server 端
         // - 不送 → 退化為舊行為（後寫贏）以維持向後相容
         // - 送了但不符 → 409，附 server 最新版本給前端做三選一對話框

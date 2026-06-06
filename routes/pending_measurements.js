@@ -622,6 +622,20 @@ router.patch('/:id', projectAuthFilter, async (req, res) => {
   }
 
   try {
+    const { assertHandbookDbhWrite } = require('../utils/handbookDbhGuard');
+    const dbhCheck = assertHandbookDbhWrite({
+      dbhSource: updates.dbh_source,
+      researchMode: updates.research_mode === true,
+      measuredDbhCm: updates.measured_dbh_cm,
+    });
+    if (!dbhCheck.ok) {
+      return res.status(422).json({
+        success: false,
+        code: 'HANDBOOK_DBH',
+        message: dbhCheck.message,
+      });
+    }
+
     // [T6] 先查存在：不在 → 410 DELETED
     const existing = await pool.query(
       'SELECT * FROM pending_tree_measurements WHERE id = $1',

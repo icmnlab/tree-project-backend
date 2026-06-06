@@ -1,88 +1,99 @@
-# 工作狀態總覽（2026-05-27）
+# 工作狀態總覽（2026-06-06）
 
-> 本文件整合產品路線圖、BUG 審計、修復紀錄、驗證與部署；與 `APP_PRODUCT_ROADMAP.md` 互補。  
-> 口試 handover 佇列：`口試準備/_session_handover/work_queue.md`
-
----
-
-## 1. 本輪已完成
-
-### 產品功能（P0）
-- [x] 三種拍照模式 + `ScannerPage` 整合拍照（YOLO 框）
-- [x] 現場測量 Wizard + BLE 手選裝置
-- [x] `X-Request-Id` 批次去重（後端）
-- [x] 邀請碼註冊（`POST /api/register`、`RegisterPage`）
-- [x] i18n 主要流程（`lib/l10n/app_strings.dart`）
-
-### 409 樂觀鎖修復
-- [x] `in_progress` 後刷新 `updated_at`（待測量 / BLE / 整合表單 `_lockUpdatedAt`）
-- [x] 提交檢查 `success`、manualMerge 更新 lock
-- [x] `tree_survey` GET 回傳 `updated_at`
-
-### 專案邊界修復
-- [x] 路由順序（`/:projectName` 移到最后）
-- [x] 登出清邊界快取
-- [x] 繪製頁依專案解析 `project_code`
-- [x] UPSERT `COALESCE` 保留 code/area
-- [x] `find_project` / `batch_match` / `check` / `status` 權限過濾
-
-### 文件
-- [x] `VERIFICATION_CHECKLIST.md` — 一次驗證用
-- [x] `LAB_DEPLOYMENT_GUIDE.md` — 實驗室脫離個人帳號
-- [x] `DATABASE_NORMALIZATION.md` — 2NF 說明
+> 執行清單請依序勾選。細節見 `PROJECT_DATA_AND_DOMAIN.md`（CSV／專案語意）、`VERIFICATION_CHECKLIST.md`（實機驗證）。
 
 ---
 
-## 2. 進行中 / 待做
+## 1. 本輪已完成（2026-06-05 ~ 06-06）
 
-| 優先 | 項目 | 說明 |
-|------|------|------|
-| P1 | 邊界驗證 fail-closed | 本輪改 async 失敗不放行、BLE 強制刷新快取 |
-| P1 | 重疊邊界 UX | 多專案匹配時讓使用者選擇 |
-| P1 | 管理 Web UI | 見 `LAB_DEPLOYMENT_GUIDE.md` §5 |
-| P2 | 邊界主鍵改 `project_code` | DB 遷移 + App 全面改 code |
-| P2 | 全 App i18n（ARB） | 其餘頁面字串 |
-| P2 | `create_lab_admin.js` | 實驗室首次建管理員腳本 |
+### 後端
+- [x] Migration **18**：`project_boundaries.project_code` → FK `projects`
+- [x] Migration **18** 已在實驗室伺服器執行（2026-06-06）
+- [x] `ensureProjectForBoundary`：儲存邊界前自動 upsert `projects`（commit `e9e8420`，已部署）
+- [x] `run_migration_file.js`：單檔 SQL 執行
+- [x] **`run_pending_migrations.js`** + `schema_migrations` 表（上線增量 deploy）
+- [x] `migrate.js`：`tree_survey` 已有資料時**跳過 CSV COPY**
+- [x] `deploy.sh`：預設跑增量 migration；`--full-migrate` 僅全新庫
+- [x] **`handbookDbhGuard`**：PATCH pending / 更新 tree 拒絕儀器·視覺寫入正式 DBH
+- [x] Migration **19**：同名 `projects` 收斂 canonical `project_code`（待部署跑 pending）
+
+### 前端（commit `fcc607b`）
+- [x] 地圖／樹列表／邊界繪製／現場設定：**merge 邊界專案名** + Dropdown sanitize
+- [x] 手冊模式 BLE：`instrument_dbh_cm` 與 `dbh_cm` 分離
+- [x] `field_session_setup` Dialog overflow 修復
+- [x] `pending_measurement_task_page` ListTile 底色
+
+### Git 遠端
+| Repo | 最新 main |
+|------|-----------|
+| 後端 | 見本輪 P0 commit |
+| 前端 | `fcc607b` |
 
 ---
 
-## 3. 已知 BUG 根因（簡表）
+## 2. 待執行（依建議優先序）
+
+### P0 — 本輪程式已寫，待 push + 伺服器跑 pending
+
+| # | 項目 | 動作 | 勾選 |
+|---|------|------|------|
+| P0-1 | Push 後端 P0 commit | `git push origin main` | [ ] |
+| P0-2 | 伺服器增量 migration | `git pull && node scripts/run_pending_migrations.js && pm2 reload tree-backend` | [ ] |
+| P0-3 | 驗證「吳全1區」僅剩一個 active `project_code` | SSH 查 `projects` | [ ] |
+| P0-4 | 實機 Dropdown + BLE 手冊 DBH | `flutter run --dart-define=ENABLE_FIELD_LOGS=true` | [ ] |
+
+### P1 — 協作與語意收斂
+
+| # | 項目 | 說明 | 勾選 |
+|---|------|------|------|
+| P1-1 | 全 API 預設帶 `expected_updated_at` | 樹木編輯、pending 提交 | [ ] |
+| P1-2 | `GET /projects` 含邊界-only 專案 | 後端合併，前端可移除各頁 merge | [ ] |
+| P1-3 | 重疊邊界 UX | 多 polygon 匹配時使用者選擇 | [ ] |
+| P1-4 | 雙機 409 | `VERIFICATION_CHECKLIST` L3–L5 | [ ] |
+
+### P2 — 工程成熟度
+
+| # | 項目 | 勾選 |
+|---|------|------|
+| P2-1 | CI：`test:regression` + `flutter test` | [ ] |
+| P2-2 | Staging + `FIXTURE_PROJECT_CODE` harness 不 SKIP | [ ] |
+| P2-3 | 弱網離線佇列（pending／照片 dedup） | [ ] |
+
+### P3 — 技術債
+
+| # | 項目 | 勾選 |
+|---|------|------|
+| P3-1 | Flutter Kotlin Built-in 遷移（插件升級後） | [ ] |
+| P3-2 | 邊界主鍵全面改 `project_code` | [ ] |
+| P3-3 | `tree_survey` 快取欄位漸進改 VIEW | [ ] |
+
+---
+
+## 3. 已知根因簡表
 
 | 領域 | 根因 | 狀態 |
 |------|------|------|
-| 假 409 | PATCH in_progress 前進 `updated_at`，UI 未刷新 | 已修 |
-| 邊界 by_code 404 | Express 路由順序 | 已修 |
-| 錯專案 code | 繪製頁用 widget 固定 code | 已修 |
-| 跨帳號邊界 | 單例快取未清 | 已修 |
-| 樹木無鎖 | GET 無 `updated_at` | 已修 |
-| 更名不同步 | `project_name` 非 FK | 待 DB 演進 |
+| Dropdown 崩「吳全1區」 | 邊界有、API 專案清單無 | 前端 merge 已修 |
+| 匯入／deploy 衝突 | 全量 `migrate.js` 重 COPY CSV | pending migration 已修 |
+| 同名兩個 project_code | `projects.name` 非 UNIQUE | migration 19 待跑 |
+| 儀器 DIA 當碳匯 DBH | 前後端語意未分離 | 前端+handbookDbhGuard 已修 |
+| 專案／區 UI 混亂 | 三層語意 + CSV seed 邊界 | 見 `PROJECT_DATA_AND_DOMAIN.md` |
 
 ---
 
-## 4. Git 推送約定
+## 4. 部署約定
 
-| Repo | Remote | 路徑 |
-|------|--------|------|
-| 後端 | `github.com/KyleliuNDHU/tree-project-backend` | `project_code/backend` |
-| 前端 | `github.com/KyleliuNDHU/tree-project-frontend` | `project_code/frontend` |
-
-**原則**：功能完成 + 通過相關測試後 push `main`；不提交 `.env`、大型 third_party 子模組變更。
-
----
-
-## 5. 驗證
-
-請依 **`VERIFICATION_CHECKLIST.md`** 勾選；問題用清單末尾模板回報。
-
----
-
-## 6. 相關路徑
-
+```bash
+bash /opt/tree-app/scripts/deploy.sh              # 增量 migration（預設）
+bash /opt/tree-app/scripts/deploy.sh --skip-migrate
+bash /opt/tree-app/scripts/deploy.sh --full-migrate # 全新空庫 only
 ```
-project_code/docs/
-  WORK_STATUS.md          ← 本文件
-  APP_PRODUCT_ROADMAP.md
-  VERIFICATION_CHECKLIST.md
-  LAB_DEPLOYMENT_GUIDE.md
-  DATABASE_NORMALIZATION.md
-```
+
+---
+
+## 5. 相關文件
+
+- `PROJECT_DATA_AND_DOMAIN.md` — CSV、邊界 seed、專案語意
+- `VERIFICATION_CHECKLIST.md`
+- `DATABASE_NORMALIZATION.md`
+- `BOUNDARY_SYSTEM_DESIGN.md`

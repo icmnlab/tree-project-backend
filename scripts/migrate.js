@@ -46,6 +46,7 @@ const migrationFiles = [
   '16_project_boundaries_backfill.pg.sql', // [2NF] 邊界表 project_code 回填
   '17_backfill_tree_survey_measurements.pg.sql', // [歷史] 既有樹木 baseline 歷次
   '18_project_boundaries_fk.pg.sql', // [P1/2NF] 邊界 project_code FK → projects
+  '19_projects_dedupe_by_name.pg.sql', // [P0] 同名專案收斂 canonical code
 ];
 
 // Define the order for view creation
@@ -67,10 +68,27 @@ async function migrate() {
       console.log(`${file} executed successfully.`);
     }
 
-    // Import data from CSV into tree_survey table
-    console.log('Importing data from tree_survey_data.csv...');
+    // Import data from CSV into tree_survey table（僅全新開發庫；上線環境勿用）
+    const skipCsv =
+        process.env.SKIP_CSV_IMPORT === 'true' ||
+        process.env.SKIP_CSV_IMPORT === '1';
+    let skipCsvBecauseData = false;
+    if (!skipCsv) {
+        const { rows: cntRows } = await client.query(
+            'SELECT COUNT(*)::int AS n FROM tree_survey'
+        );
+        skipCsvBecauseData = (cntRows[0]?.n ?? 0) > 0;
+    }
+    if (skipCsv || skipCsvBecauseData) {
+        console.log(
+            skipCsvBecauseData
+                ? 'tree_survey 已有資料，跳過 CSV 匯入（上線／增量部署安全）'
+                : 'SKIP_CSV_IMPORT 已設定，跳過 CSV 匯入'
+        );
+    }
+
     const csvPath = path.join(__dirname, '../database/initial_data', 'tree_survey_data.csv');
-    if (fs.existsSync(csvPath)) {
+    if (!skipCsv && !skipCsvBecauseData && fs.existsSync(csvPath)) {
         // Use COPY for high performance, requires absolute path on server
         // We need to resolve the full path for the COPY command
         const absolutePath = path.resolve(csvPath);
@@ -205,3 +223,5 @@ migrate();
 }
 
 module.exports = migrate;
+module.exports.migrationFiles = migrationFiles;
+module.exports.viewFiles = viewFiles;

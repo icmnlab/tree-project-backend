@@ -3,8 +3,9 @@
 # Tree App — 自動部署腳本 (取代 Render auto-deploy)
 # ============================================================
 # 使用方式:
-#   /opt/tree-app/scripts/deploy.sh              # 正常部署 (pull + migrate + restart)
+#   /opt/tree-app/scripts/deploy.sh              # 正常部署 (pull + 增量 migration + restart)
 #   /opt/tree-app/scripts/deploy.sh --skip-migrate  # 跳過 migration
+#   /opt/tree-app/scripts/deploy.sh --full-migrate  # 全新庫：全量 migrate.js（含 CSV，勿用於上線）
 #   /opt/tree-app/scripts/deploy.sh --dry-run     # 只拉取，不重啟
 #
 # 此腳本會:
@@ -25,11 +26,13 @@ DEPLOY_LOG="$LOG_DIR/deploy.log"
 ROLLBACK_FILE="$BACKEND_DIR/.last_good_commit"
 
 SKIP_MIGRATE=false
+FULL_MIGRATE=false
 DRY_RUN=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --skip-migrate) SKIP_MIGRATE=true; shift ;;
+        --full-migrate) FULL_MIGRATE=true; shift ;;
         --dry-run)      DRY_RUN=true; shift ;;
         -h|--help)
             echo "Usage: $0 [--skip-migrate] [--dry-run]"
@@ -82,10 +85,16 @@ fi
 log "Installing dependencies..."
 npm install --production 2>&1 | tail -3 | tee -a "$DEPLOY_LOG"
 
-# 4. Run migrations
+# 4. Run migrations（上線預設：增量 schema_migrations，不重新 COPY CSV）
 if [ "$SKIP_MIGRATE" = false ]; then
-    log "Running database migration..."
-    if ! node scripts/migrate.js 2>&1 | tee -a "$DEPLOY_LOG"; then
+    if [ "$FULL_MIGRATE" = true ]; then
+        log "Running FULL database migration (migrate.js)..."
+        MIGRATE_CMD="node scripts/migrate.js"
+    else
+        log "Running pending migrations (run_pending_migrations.js)..."
+        MIGRATE_CMD="node scripts/run_pending_migrations.js"
+    fi
+    if ! $MIGRATE_CMD 2>&1 | tee -a "$DEPLOY_LOG"; then
         log "ERROR: Migration failed! Rolling back..."
         git checkout "$PREV_COMMIT" 2>&1 | tee -a "$DEPLOY_LOG"
         npm install --production 2>&1 | tail -3 | tee -a "$DEPLOY_LOG"

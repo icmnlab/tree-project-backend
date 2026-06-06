@@ -20,7 +20,8 @@
     "test:journeys": "node tests/runner.js --section=journeys",
     "test:framework:local": "node tests/runner.js --local",
     "test:framework:list": "node tests/runner.js --list",
-    "seed:field-test": "node scripts/seed_field_test_dataset.js"
+    "seed:field-test": "node scripts/seed_field_test_dataset.js",
+    "migrate:pending": "node scripts/run_pending_migrations.js"
   },
   "keywords": [],
   "author": "",
