@@ -597,7 +597,7 @@ router.patch('/:id', projectAuthFilter, async (req, res) => {
   const allowedFields = [
     'status', 'measured_dbh_cm', 'measurement_confidence',
     'measurement_method', 'measurement_notes', 'completed_at',
-    'assigned_to', 'species_name', 'measurement_type',
+    'dbh_source', 'assigned_to', 'species_name', 'measurement_type',
     'project_area', 'project_code', 'project_name',
     'survey_mode', 'target_tree_id', 'match_status',
     'gps_source', 'tree_position_source', 'station_position_source'
