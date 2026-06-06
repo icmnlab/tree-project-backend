@@ -45,6 +45,7 @@ const migrationFiles = [
   '15_tree_survey_measurements.pg.sql', // [P2] 歷次量測紀錄表
   '16_project_boundaries_backfill.pg.sql', // [2NF] 邊界表 project_code 回填
   '17_backfill_tree_survey_measurements.pg.sql', // [歷史] 既有樹木 baseline 歷次
+  '18_project_boundaries_fk.pg.sql', // [P1/2NF] 邊界 project_code FK → projects
 ];
 
 // Define the order for view creation

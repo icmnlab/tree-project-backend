@@ -58,6 +58,56 @@ async function initializeTable() {
 initializeTable();
 
 /**
+ * [2NF / 多人協作] 邊界寫入前確保 projects 列存在。
+ * project_code 為穩定鍵；手繪邊界（如「吳全1區」）若無對應專案則自動建立 stub。
+ */
+async function ensureProjectForBoundary(client, { projectName, projectCode, projectArea }) {
+    const trimmedName = (projectName || '').trim();
+    if (!trimmedName) return null;
+
+    let resolvedCode =
+        projectCode && String(projectCode).trim() && projectCode !== '無'
+            ? String(projectCode).trim()
+            : null;
+
+    if (resolvedCode) {
+        const byCode = await client.query(
+            'SELECT project_code FROM projects WHERE project_code = $1',
+            [resolvedCode]
+        );
+        if (byCode.rows.length > 0) return resolvedCode;
+    }
+
+    const byName = await client.query(
+        'SELECT project_code FROM projects WHERE name = $1 ORDER BY id LIMIT 1',
+        [trimmedName]
+    );
+    if (byName.rows.length > 0) return byName.rows[0].project_code;
+
+    if (!resolvedCode) {
+        resolvedCode = `FIELD-${Date.now().toString(36).toUpperCase()}`;
+    }
+
+    let areaId = null;
+    if (projectArea) {
+        const ar = await client.query(
+            'SELECT id FROM project_areas WHERE area_name = $1 LIMIT 1',
+            [projectArea]
+        );
+        if (ar.rows.length > 0) areaId = ar.rows[0].id;
+    }
+
+    await client.query(
+        `INSERT INTO projects (project_code, name, area_id, is_active, description)
+         VALUES ($1, $2, $3, TRUE, '由專案邊界自動建立')
+         ON CONFLICT (project_code) DO NOTHING`,
+        [resolvedCode, trimmedName, areaId]
+    );
+
+    return resolvedCode;
+}
+
+/**
  * 取得所有專案邊界 (依使用者權限過濾)
  * GET /api/project_boundaries
  */
@@ -355,6 +405,13 @@ router.post('/', requireRole('專案管理員'), async (req, res) => {
             }
         }
         
+        // [2NF] 寫入邊界前先確保 projects 存在，避免 FK 失敗且讓 /projects API 可列出
+        const resolvedProjectCode = await ensureProjectForBoundary(client, {
+            projectName,
+            projectCode,
+            projectArea: resolvedArea,
+        });
+
         // 使用 UPSERT 語法
         const { rows } = await client.query(`
             INSERT INTO project_boundaries (project_name, project_code, project_area, boundary_coordinates, updated_at)
@@ -366,7 +423,7 @@ router.post('/', requireRole('專案管理員'), async (req, res) => {
                 boundary_coordinates = EXCLUDED.boundary_coordinates,
                 updated_at = CURRENT_TIMESTAMP
             RETURNING *
-        `, [projectName, projectCode, resolvedArea, JSON.stringify(coordinates)]);
+        `, [projectName, resolvedProjectCode ?? projectCode, resolvedArea, JSON.stringify(coordinates)]);
         
         await client.query('COMMIT');
         
