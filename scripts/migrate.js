@@ -50,7 +50,7 @@ const migrationFiles = [
   '20_projects_boundary_stubs_and_dedupe.pg.sql', // [P1-2] 邊界 stub + 再次 dedupe + active name UNIQUE
   '21_backfill_area_id_and_history_unique.pg.sql', // area_id backfill + pending_id UNIQUE on history
   '22_drop_legacy_rag_and_carbon_tables.pg.sql', // DROP deprecated RAG/carbon tables if present
-  '23_fix_wrong_maple_synonyms.pg.sql', // 移除糖槭→九丁榕等錯誤同義詞
+  '23_fix_wrong_synonym_tangqi.pg.sql', // remove 糖槭→九丁榕 bad synonym
 ];
 
 // Define the order for view creation
