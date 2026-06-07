@@ -1,6 +1,6 @@
 # 歷史資料、上線資料流與專案／區位語意
 
-> 更新：2026-06-06  
+> 更新：2026-06-07  
 > 對照：`DATABASE_NORMALIZATION.md`、`BOUNDARY_SYSTEM_DESIGN.md`、`WORK_STATUS.md`
 
 ---
@@ -58,5 +58,15 @@ tree_survey_data.csv → migrate COPY → tree_survey（GPS）
 | CSV 匯入 API | 批次補遺 |
 | `run_pending_migrations.js` | 僅 schema，**無 CSV** |
 | `tree_survey_data.csv` | 開發種子 only |
+
+## 5. 樹種目錄（非「本地資料庫」）
+
+| 來源 | 用途 |
+|------|------|
+| **`tree_species`**（PostgreSQL） | 唯一主檔：`id` / `name` / `scientific_name`；表單下拉、辨識綁定 `species_id` |
+| **`species_synonyms`** | 俗名／別名 → canonical species |
+| ~~`tree_species.json`~~ | **已移除**（早期靜態 fallback；id 格式與 DB 不一致） |
+
+Pl@ntNet 辨識後：`matchLocalSpecies()` 查 PostgreSQL；若無匹配且信心 ≥15% 則 `autoAddSpeciesFromIdentification()` 寫入 `tree_species`。
 
 執行清單見 `WORK_STATUS.md` §2。

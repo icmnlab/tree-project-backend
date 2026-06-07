@@ -245,8 +245,9 @@ npm run dev                         # nodemon on PORT (default 3000)
 
 Health check: `GET /health` → `200 OK` (no auth required).
 
-In `production` mode, `app.js` runs `scripts/migrate.js` automatically on
-startup.
+In `production` mode, `app.js` runs `scripts/run_pending_migrations.js`
+automatically on startup (schema only; no CSV import). For a fresh empty DB,
+run `node scripts/migrate.js` manually once.
 
 ---
 

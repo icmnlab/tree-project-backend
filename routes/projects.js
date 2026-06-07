@@ -226,6 +226,36 @@ router.get('/by_code/:code', projectAuthFilter, async (req, res) => {
     }
 });
 
+/** 新增專案後自動關聯至建立者（非致命） */
+async function autoAssignProjectToUser(req, projectCode) {
+    if (!req.user?.user_id) return;
+    try {
+        const { rows: userRows } = await db.query(
+            'SELECT associated_projects FROM users WHERE user_id = $1',
+            [req.user.user_id]
+        );
+        if (userRows.length > 0) {
+            const existing = userRows[0].associated_projects || '';
+            const projectList = existing ? existing.split(',') : [];
+            if (!projectList.includes(projectCode)) {
+                projectList.push(projectCode);
+                await db.query(
+                    'UPDATE users SET associated_projects = $1 WHERE user_id = $2',
+                    [projectList.join(','), req.user.user_id]
+                );
+            }
+        }
+        await db.query(
+            'INSERT INTO user_projects (user_id, project_code) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+            [req.user.user_id, projectCode]
+        );
+        const { invalidateUserProjectsCache } = require('../middleware/projectAuth');
+        invalidateUserProjectsCache(req.user.user_id);
+    } catch (autoAssignErr) {
+        console.error('自動關聯專案失敗 (非致命):', autoAssignErr);
+    }
+}
+
 // 新增專案
 // [Phase B] 直接寫入 projects 表 (single source of truth)
 // 不再寫入 placeholder tree_survey 紀錄：
@@ -244,19 +274,58 @@ router.post('/add', requireRole('業務管理員'), async (req, res) => {
     try {
         await client.query('BEGIN');
 
+        // 查找 area_id（新增與重複指派皆需）
+        let areaId = null;
+        const { rows: areaRows } = await client.query(
+            'SELECT id FROM project_areas WHERE area_name = $1 LIMIT 1', [area]
+        );
+        if (areaRows.length > 0) {
+            areaId = areaRows[0].id;
+        }
+
         const dupCheck = await client.query(
-            `SELECT project_code FROM projects
+            `SELECT project_code, area_id FROM projects
              WHERE name = $1 AND is_active IS NOT DISTINCT FROM TRUE
              LIMIT 1`,
             [name]
         );
         if (dupCheck.rows.length > 0) {
+            const existingCode = dupCheck.rows[0].project_code;
+            const existingAreaId = dupCheck.rows[0].area_id;
+
+            // 孤兒專案（area_id NULL）→ 指派到目前港區，避免「同名已存在但列表看不到」
+            if (existingAreaId == null && areaId != null) {
+                await client.query(
+                    'UPDATE projects SET area_id = $1 WHERE project_code = $2',
+                    [areaId, existingCode]
+                );
+                await client.query('COMMIT');
+                await autoAssignProjectToUser(req, existingCode);
+                return res.status(200).json({
+                    success: true,
+                    code: 'PROJECT_REASSIGNED',
+                    message: '專案已存在，已指派到此港區',
+                    project: { name, code: existingCode, area },
+                });
+            }
+
+            // 已在同一港區 → 視為選取既有專案，非錯誤
+            if (existingAreaId != null && areaId != null && existingAreaId === areaId) {
+                await client.query('ROLLBACK');
+                return res.status(200).json({
+                    success: true,
+                    code: 'PROJECT_ALREADY_IN_AREA',
+                    message: '專案已存在於此港區',
+                    project: { name, code: existingCode, area },
+                });
+            }
+
             await client.query('ROLLBACK');
             return res.status(409).json({
                 success: false,
                 code: 'DUPLICATE_PROJECT_NAME',
-                message: '同名專案已存在',
-                existing_code: dupCheck.rows[0].project_code,
+                message: '同名專案已存在於其他港區，請改用其他名稱或聯絡管理員',
+                existing_code: existingCode,
             });
         }
 
@@ -273,15 +342,6 @@ router.post('/add', requireRole('業務管理員'), async (req, res) => {
         `);
         const nextCode = (maxCodeRows[0].max_code || 0) + 1;
 
-        // 查找 area_id
-        let areaId = null;
-        const { rows: areaRows } = await client.query(
-            'SELECT id FROM project_areas WHERE area_name = $1 LIMIT 1', [area]
-        );
-        if (areaRows.length > 0) {
-            areaId = areaRows[0].id;
-        }
-
         // 寫入 projects 表 (single source of truth)
         await client.query(
             `INSERT INTO projects (project_code, name, area_id, description)
@@ -292,33 +352,7 @@ router.post('/add', requireRole('業務管理員'), async (req, res) => {
 
         await client.query('COMMIT');
 
-        // 自動將創建者關聯到新專案
-        if (req.user && req.user.user_id) {
-            try {
-                // [舊] 寫入 associated_projects 逗號分隔字串
-                const { rows: userRows } = await db.query('SELECT associated_projects FROM users WHERE user_id = $1', [req.user.user_id]);
-                if (userRows.length > 0) {
-                    const existing = userRows[0].associated_projects || '';
-                    const projectList = existing ? existing.split(',') : [];
-                    if (!projectList.includes(nextCode.toString())) {
-                        projectList.push(nextCode.toString());
-                        await db.query('UPDATE users SET associated_projects = $1 WHERE user_id = $2', [projectList.join(','), req.user.user_id]);
-                    }
-                }
-
-                // [新] 寫入 user_projects
-                await db.query(
-                    'INSERT INTO user_projects (user_id, project_code) VALUES ($1, $2) ON CONFLICT DO NOTHING',
-                    [req.user.user_id, nextCode.toString()]
-                );
-
-                // 清除快取
-                const { invalidateUserProjectsCache } = require('../middleware/projectAuth');
-                invalidateUserProjectsCache(req.user.user_id);
-            } catch (autoAssignErr) {
-                console.error('自動關聯專案失敗 (非致命):', autoAssignErr);
-            }
-        }
+        await autoAssignProjectToUser(req, nextCode.toString());
 
         res.status(201).json({
             success: true,

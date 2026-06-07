@@ -15,7 +15,7 @@ const {
     cleanupOldLoginAttempts
 } = require('./utils/cleanup');
 const { scheduledSynonymMaintenance } = require('./services/speciesSynonymService');
-const migrate = require('./scripts/migrate'); // Import migration script
+const runPendingMigrations = require('./scripts/run_pending_migrations');
 
 // 全域未捕獲錯誤處理
 process.on('unhandledRejection', (reason, promise) => {
@@ -29,15 +29,14 @@ process.on('uncaughtException', (err) => {
 
 const app = express();
 
-// [Standard Deployment] Execute database migration before starting server
-// This ensures the DB schema is always up-to-date with the code.
-// We use an IIFE (Immediately Invoked Function Expression) to handle async/await
+// [Standard Deployment] 生產環境僅跑增量 schema（不匯入 tree_survey_data.csv）
+// 全新空庫請手動：node scripts/migrate.js
 (async () => {
     try {
         if (process.env.NODE_ENV === 'production') {
-            console.log('[Startup] Running database migration...');
-            await migrate();
-            console.log('[Startup] Migration completed.');
+            console.log('[Startup] Running pending migrations...');
+            await runPendingMigrations();
+            console.log('[Startup] Pending migrations completed.');
         }
     } catch (e) {
         console.error('[Startup] Migration failed:', e);
