@@ -662,8 +662,7 @@ router.patch('/:id', projectAuthFilter, async (req, res) => {
       }
     }
 
-    // [T6] 樂觀鎖比對（毫秒時間戳）；UPDATE 使用伺服器端 updated_at 避免 ISO 精度假衝突
-    let lockTimestamp = null;
+    // [T6] 樂觀鎖：毫秒 pre-check 通過後僅用 id 更新（避免 PG 微秒 vs ISO 毫秒 WHERE 假失敗）
     if (expectedUpdatedAt) {
       const serverUpdatedAt = existing.rows[0].updated_at;
       const serverTs = new Date(serverUpdatedAt).getTime();
@@ -676,29 +675,16 @@ router.patch('/:id', projectAuthFilter, async (req, res) => {
           serverVersion: existing.rows[0]
         });
       }
-      lockTimestamp = serverUpdatedAt;
     }
 
     values.push(id);
     const idIdx = paramIndex++;
-    let sql;
-    if (lockTimestamp) {
-      values.push(lockTimestamp);
-      const tsIdx = paramIndex++;
-      sql = `
-        UPDATE pending_tree_measurements
-        SET ${setClauses.join(', ')}
-        WHERE id = $${idIdx} AND updated_at = $${tsIdx}
-        RETURNING *
-      `;
-    } else {
-      sql = `
+    const sql = `
         UPDATE pending_tree_measurements
         SET ${setClauses.join(', ')}
         WHERE id = $${idIdx}
         RETURNING *
       `;
-    }
 
     const result = await pool.query(sql, values);
 
@@ -755,6 +741,16 @@ async function insertTreeSurveyMeasurementHistory(client, {
   finalCarbonStorage,
   surveyMode,
 }) {
+  if (pendingRow.id != null) {
+    const dup = await client.query(
+      'SELECT 1 FROM tree_survey_measurements WHERE pending_id = $1 LIMIT 1',
+      [pendingRow.id],
+    );
+    if (dup.rows.length > 0) {
+      console.log(`[Transfer] skip duplicate history pending_id=${pendingRow.id}`);
+      return;
+    }
+  }
   const measuredAt = pendingRow.completed_at ?? new Date();
   await client.query(`
     INSERT INTO tree_survey_measurements (

@@ -52,8 +52,18 @@ router.get('/by_area/:area', projectAuthFilter, async (req, res) => {
             WHERE pa.area_name = $1 AND p.is_active = true
             ORDER BY p.name
         `, [area]);
+        // area_id 為 NULL 但邊界已標 project_area 的 active 專案（migration stub / dedupe 後遺留）
+        const orphanedRows = await db.query(`
+            SELECT DISTINCT p.name, p.project_code AS code, TRIM(pb.project_area) AS area, NULL::text AS area_city
+            FROM projects p
+            JOIN project_boundaries pb ON TRIM(pb.project_name) = TRIM(p.name)
+            WHERE p.is_active = true
+              AND p.area_id IS NULL
+              AND TRIM(pb.project_area) = TRIM($1)
+        `, [area]);
         const boundaryRows = await fetchBoundaryOnlyProjects({ area });
         let rows = mergeProjectLists(activeRows.rows, boundaryRows);
+        rows = mergeProjectLists(rows, orphanedRows.rows);
         // 還原 area_city（僅 active 專案有；boundary-only 列無此欄）
         const cityByCode = new Map();
         for (const r of activeRows.rows) {

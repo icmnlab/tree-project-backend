@@ -76,8 +76,7 @@ exports.updateTreeV2 = async (req, res) => {
             }
         }
 
-        // [T6][S1] 樂觀鎖：毫秒比對；UPDATE 用伺服器 updated_at 避免 ISO 精度假衝突
-        let lockTimestamp = null;
+        // [T6][S1] 樂觀鎖：毫秒 pre-check；通過後僅用 id 更新（避免微秒 WHERE 假 409）
         if (expected_updated_at) {
             const serverUpdatedAt = existingTree.updated_at;
             const serverTs = new Date(serverUpdatedAt).getTime();
@@ -91,7 +90,6 @@ exports.updateTreeV2 = async (req, res) => {
                     serverVersion: existingTree,
                 });
             }
-            lockTimestamp = serverUpdatedAt;
         }
 
         // 準備專案關聯 (如果提供了 project_code)
@@ -213,16 +211,8 @@ exports.updateTreeV2 = async (req, res) => {
         values.push(id); // 倒數第二個參數是 WHERE 條件的 id
         const idIndex = queryIndex++;
 
-        // [T6][S1] UPDATE 時再用 updated_at 做一次保險（避免 SELECT/UPDATE 之間又有人寫）
         // [T6][S5] 用 RETURNING 取得新 updated_at；若 rowCount=0 視為被刪 → 410
-        let sql;
-        if (lockTimestamp) {
-            values.push(lockTimestamp);
-            const tsIndex = queryIndex++;
-            sql = `UPDATE tree_survey SET ${updates.join(', ')} WHERE id = $${idIndex} AND updated_at = $${tsIndex} RETURNING id, updated_at`;
-        } else {
-            sql = `UPDATE tree_survey SET ${updates.join(', ')} WHERE id = $${idIndex} RETURNING id, updated_at`;
-        }
+        const sql = `UPDATE tree_survey SET ${updates.join(', ')} WHERE id = $${idIndex} RETURNING id, updated_at`;
 
         const updateRes = await client.query(sql, values);
         if (updateRes.rowCount === 0) {

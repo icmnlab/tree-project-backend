@@ -48,6 +48,7 @@ const migrationFiles = [
   '18_project_boundaries_fk.pg.sql', // [P1/2NF] 邊界 project_code FK → projects
   '19_projects_dedupe_by_name.pg.sql', // [P0] 同名專案收斂 canonical code
   '20_projects_boundary_stubs_and_dedupe.pg.sql', // [P1-2] 邊界 stub + 再次 dedupe + active name UNIQUE
+  '21_backfill_area_id_and_history_unique.pg.sql', // area_id backfill + pending_id UNIQUE on history
 ];
 
 // Define the order for view creation
