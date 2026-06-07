@@ -47,6 +47,7 @@ const migrationFiles = [
   '17_backfill_tree_survey_measurements.pg.sql', // [歷史] 既有樹木 baseline 歷次
   '18_project_boundaries_fk.pg.sql', // [P1/2NF] 邊界 project_code FK → projects
   '19_projects_dedupe_by_name.pg.sql', // [P0] 同名專案收斂 canonical code
+  '20_projects_boundary_stubs_and_dedupe.pg.sql', // [P1-2] 邊界 stub + 再次 dedupe + active name UNIQUE
 ];
 
 // Define the order for view creation

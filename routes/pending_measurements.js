@@ -662,9 +662,11 @@ router.patch('/:id', projectAuthFilter, async (req, res) => {
       }
     }
 
-    // [T6] 樂觀鎖比對（精確比對 updated_at）
+    // [T6] 樂觀鎖比對（毫秒時間戳）；UPDATE 使用伺服器端 updated_at 避免 ISO 精度假衝突
+    let lockTimestamp = null;
     if (expectedUpdatedAt) {
-      const serverTs = new Date(existing.rows[0].updated_at).getTime();
+      const serverUpdatedAt = existing.rows[0].updated_at;
+      const serverTs = new Date(serverUpdatedAt).getTime();
       const clientTs = new Date(expectedUpdatedAt).getTime();
       if (Number.isFinite(serverTs) && Number.isFinite(clientTs) && serverTs !== clientTs) {
         return res.status(409).json({
@@ -674,13 +676,14 @@ router.patch('/:id', projectAuthFilter, async (req, res) => {
           serverVersion: existing.rows[0]
         });
       }
+      lockTimestamp = serverUpdatedAt;
     }
 
     values.push(id);
     const idIdx = paramIndex++;
     let sql;
-    if (expectedUpdatedAt) {
-      values.push(expectedUpdatedAt);
+    if (lockTimestamp) {
+      values.push(lockTimestamp);
       const tsIdx = paramIndex++;
       sql = `
         UPDATE pending_tree_measurements
@@ -985,8 +988,7 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
         treeSurveyId = target.id;
         systemTreeId = target.system_tree_id;
 
-        try {
-          await insertTreeSurveyMeasurementHistory(client, {
+        await insertTreeSurveyMeasurementHistory(client, {
             treeId: treeSurveyId,
             pendingRow: p,
             speciesId,
@@ -996,9 +998,6 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
             finalCarbonStorage,
             surveyMode,
           });
-        } catch (histErr) {
-          console.warn(`[Transfer] tree_survey_measurements insert skipped pending_id=${p.id}:`, histErr.message);
-        }
       } else {
         // 生成 system_tree_id
         systemTreeId = `ST-${nextSysId}`;
@@ -1054,20 +1053,16 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
         ]);
         treeSurveyId = insertResult.rows[0].id;
 
-        try {
-          await insertTreeSurveyMeasurementHistory(client, {
-            treeId: treeSurveyId,
-            pendingRow: p,
-            speciesId,
-            finalDbh,
-            finalStatus,
-            surveyNotes,
-            finalCarbonStorage,
-            surveyMode,
-          });
-        } catch (histErr) {
-          console.warn(`[Transfer] tree_survey_measurements insert skipped pending_id=${p.id}:`, histErr.message);
-        }
+        await insertTreeSurveyMeasurementHistory(client, {
+          treeId: treeSurveyId,
+          pendingRow: p,
+          speciesId,
+          finalDbh,
+          finalStatus,
+          surveyNotes,
+          finalCarbonStorage,
+          surveyMode,
+        });
       }
       
       transferredIds.push(treeSurveyId);

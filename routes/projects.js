@@ -5,62 +5,25 @@ const { requireRole } = require('../middleware/roleAuth');
 const { projectAuthFilter } = require('../middleware/projectAuth');
 const { resolveCountyByLngLat } = require('../utils/geo');
 const { resolveAreaCity, normalizeCityCandidates, matchCity } = require('../utils/county');
+const {
+    mergeProjectLists,
+    applyProjectFilter,
+    fetchActiveProjects,
+    fetchBoundaryOnlyProjects,
+} = require('../utils/projectCatalog');
 
 // 取得專案列表 (依使用者權限過濾)
-// [Phase A] 優先從 projects 表查詢，fallback 到 SELECT DISTINCT FROM tree_survey
+// [P1-2] projects ∪ boundary-only；不再 fallback tree_survey DISTINCT
 router.get('/', projectAuthFilter, async (req, res) => {
     try {
-        // 依使用者權限過濾專案
         if (req.projectFilter && req.projectFilter.length === 0) {
             return res.json({ success: true, data: [] });
         }
 
-        // 優先查 projects 表
-        let rows = [];
-        try {
-            let query = `
-                SELECT p.name, p.project_code AS code, COALESCE(pa.area_name, '') AS area
-                FROM projects p
-                LEFT JOIN project_areas pa ON pa.id = p.area_id
-                WHERE p.is_active = true
-            `;
-            const params = [];
-            let paramIdx = 1;
-
-            if (req.projectFilter) {
-                query += ` AND p.project_code = ANY($${paramIdx}::text[])`;
-                params.push(req.projectFilter);
-                paramIdx++;
-            }
-            query += ` ORDER BY p.project_code`;
-            const result = await db.query(query, params);
-            rows = result.rows;
-        } catch (projectsTableErr) {
-            console.warn('[Phase A fallback] projects 表查詢失敗，退回 tree_survey:', projectsTableErr.message);
-        }
-
-        // Fallback: 如果 projects 表查無結果，退回 SELECT DISTINCT
-        if (rows.length === 0) {
-            let fallbackQuery = `
-                SELECT DISTINCT ON (project_code)
-                    project_name AS name,
-                    project_code AS code,
-                    project_location AS area
-                FROM tree_survey
-                WHERE project_name IS NOT NULL AND project_name != ''
-            `;
-            const fallbackParams = [];
-            let paramIdx = 1;
-
-            if (req.projectFilter) {
-                fallbackQuery += ` AND project_code = ANY($${paramIdx}::text[])`;
-                fallbackParams.push(req.projectFilter);
-                paramIdx++;
-            }
-            fallbackQuery += ` ORDER BY project_code, project_name`;
-            const fallbackResult = await db.query(fallbackQuery, fallbackParams);
-            rows = fallbackResult.rows;
-        }
+        const activeRows = await fetchActiveProjects(req.projectFilter);
+        const boundaryRows = await fetchBoundaryOnlyProjects();
+        let rows = mergeProjectLists(activeRows, boundaryRows);
+        rows = applyProjectFilter(rows, req.projectFilter);
 
         res.json({ success: true, data: rows });
     } catch (err) {
@@ -82,18 +45,28 @@ router.get('/by_area/:area', projectAuthFilter, async (req, res) => {
     const { area } = req.params;
     const { city } = req.query;
     try {
-        const result = await db.query(`
+        const activeRows = await db.query(`
             SELECT p.name, p.project_code AS code, pa.area_name AS area, pa.city AS area_city
             FROM projects p
             JOIN project_areas pa ON pa.id = p.area_id
             WHERE pa.area_name = $1 AND p.is_active = true
             ORDER BY p.name
         `, [area]);
-        let rows = result.rows;
+        const boundaryRows = await fetchBoundaryOnlyProjects({ area });
+        let rows = mergeProjectLists(activeRows.rows, boundaryRows);
+        // 還原 area_city（僅 active 專案有；boundary-only 列無此欄）
+        const cityByCode = new Map();
+        for (const r of activeRows.rows) {
+            if (r.code) cityByCode.set(r.code, r.area_city);
+        }
+        rows = rows.map((r) => ({
+            ...r,
+            area_city: r.code ? cityByCode.get(r.code) ?? null : null,
+        }));
 
         // [T7] 依 projectFilter 過濾；null = 無限制
         if (Array.isArray(req.projectFilter)) {
-            rows = rows.filter(r => req.projectFilter.includes(r.code));
+            rows = rows.filter(r => r.code && req.projectFilter.includes(r.code));
         }
 
         // city 過濾
@@ -260,6 +233,22 @@ router.post('/add', requireRole('業務管理員'), async (req, res) => {
     const client = await db.pool.connect();
     try {
         await client.query('BEGIN');
+
+        const dupCheck = await client.query(
+            `SELECT project_code FROM projects
+             WHERE name = $1 AND is_active IS NOT DISTINCT FROM TRUE
+             LIMIT 1`,
+            [name]
+        );
+        if (dupCheck.rows.length > 0) {
+            await client.query('ROLLBACK');
+            return res.status(409).json({
+                success: false,
+                code: 'DUPLICATE_PROJECT_NAME',
+                message: '同名專案已存在',
+                existing_code: dupCheck.rows[0].project_code,
+            });
+        }
 
         // Advisory Lock (Key 2) 確保專案代碼生成的原子性
         await client.query('SELECT pg_advisory_xact_lock(2)');

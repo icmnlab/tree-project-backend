@@ -65,27 +65,58 @@ async function ensureProjectForBoundary(client, { projectName, projectCode, proj
     const trimmedName = (projectName || '').trim();
     if (!trimmedName) return null;
 
+    // 1) 優先沿用既有 active 專案（同名唯一）
+    const byActiveName = await client.query(
+        `SELECT project_code FROM projects
+         WHERE name = $1 AND is_active IS NOT DISTINCT FROM TRUE
+         ORDER BY id ASC LIMIT 1`,
+        [trimmedName]
+    );
+    if (byActiveName.rows.length > 0) {
+        return byActiveName.rows[0].project_code;
+    }
+
     let resolvedCode =
         projectCode && String(projectCode).trim() && projectCode !== '無'
             ? String(projectCode).trim()
             : null;
 
+    // 2) 若指定 code 且已存在 → 直接沿用（邊界 FK 對齊）
     if (resolvedCode) {
         const byCode = await client.query(
-            'SELECT project_code FROM projects WHERE project_code = $1',
+            `SELECT project_code, name FROM projects WHERE project_code = $1 LIMIT 1`,
             [resolvedCode]
         );
-        if (byCode.rows.length > 0) return resolvedCode;
+        if (byCode.rows.length > 0) {
+            const existingName = (byCode.rows[0].name || '').trim();
+            if (existingName && existingName !== trimmedName) {
+                throw new Error(
+                    `project_code ${resolvedCode} 已對應「${existingName}」，與邊界名稱「${trimmedName}」衝突`
+                );
+            }
+            await client.query(
+                `UPDATE projects SET is_active = TRUE, updated_at = NOW()
+                 WHERE project_code = $1`,
+                [resolvedCode]
+            );
+            return resolvedCode;
+        }
     }
 
-    const byName = await client.query(
-        'SELECT project_code FROM projects WHERE name = $1 ORDER BY id LIMIT 1',
+    // 3) 停用列可復活（避免再 INSERT 同名）
+    const byInactiveName = await client.query(
+        `SELECT project_code FROM projects
+         WHERE name = $1 AND is_active IS NOT DISTINCT FROM FALSE
+         ORDER BY id ASC LIMIT 1`,
         [trimmedName]
     );
-    if (byName.rows.length > 0) return byName.rows[0].project_code;
-
-    if (!resolvedCode) {
-        resolvedCode = `FIELD-${Date.now().toString(36).toUpperCase()}`;
+    if (byInactiveName.rows.length > 0) {
+        const code = byInactiveName.rows[0].project_code;
+        await client.query(
+            `UPDATE projects SET is_active = TRUE, updated_at = NOW() WHERE project_code = $1`,
+            [code]
+        );
+        return code;
     }
 
     let areaId = null;
@@ -97,12 +128,32 @@ async function ensureProjectForBoundary(client, { projectName, projectCode, proj
         if (ar.rows.length > 0) areaId = ar.rows[0].id;
     }
 
+    await client.query('SELECT pg_advisory_xact_lock(2)');
+
+    if (!resolvedCode) {
+        const { rows: maxCodeRows } = await client.query(`
+            SELECT GREATEST(
+                COALESCE((SELECT MAX(CAST(project_code AS INTEGER)) FROM tree_survey WHERE project_code ~ '^[0-9]+$'), 0),
+                COALESCE((SELECT MAX(CAST(project_code AS INTEGER)) FROM projects WHERE project_code ~ '^[0-9]+$'), 0)
+            ) AS max_code
+        `);
+        resolvedCode = String((maxCodeRows[0].max_code || 0) + 1);
+    }
+
     await client.query(
         `INSERT INTO projects (project_code, name, area_id, is_active, description)
          VALUES ($1, $2, $3, TRUE, '由專案邊界自動建立')
          ON CONFLICT (project_code) DO NOTHING`,
         [resolvedCode, trimmedName, areaId]
     );
+
+    const verify = await client.query(
+        `SELECT project_code FROM projects WHERE name = $1 AND is_active IS NOT DISTINCT FROM TRUE LIMIT 1`,
+        [trimmedName]
+    );
+    if (verify.rows.length > 0) {
+        return verify.rows[0].project_code;
+    }
 
     return resolvedCode;
 }

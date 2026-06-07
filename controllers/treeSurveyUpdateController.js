@@ -76,11 +76,11 @@ exports.updateTreeV2 = async (req, res) => {
             }
         }
 
-        // [T6][S1] 樂觀鎖：若前端有送 expected_updated_at，比對 server 端
-        // - 不送 → 退化為舊行為（後寫贏）以維持向後相容
-        // - 送了但不符 → 409，附 server 最新版本給前端做三選一對話框
+        // [T6][S1] 樂觀鎖：毫秒比對；UPDATE 用伺服器 updated_at 避免 ISO 精度假衝突
+        let lockTimestamp = null;
         if (expected_updated_at) {
-            const serverTs = new Date(existingTree.updated_at).getTime();
+            const serverUpdatedAt = existingTree.updated_at;
+            const serverTs = new Date(serverUpdatedAt).getTime();
             const clientTs = new Date(expected_updated_at).getTime();
             if (Number.isFinite(serverTs) && Number.isFinite(clientTs) && serverTs !== clientTs) {
                 await client.query('ROLLBACK');
@@ -91,6 +91,7 @@ exports.updateTreeV2 = async (req, res) => {
                     serverVersion: existingTree,
                 });
             }
+            lockTimestamp = serverUpdatedAt;
         }
 
         // 準備專案關聯 (如果提供了 project_code)
@@ -215,8 +216,8 @@ exports.updateTreeV2 = async (req, res) => {
         // [T6][S1] UPDATE 時再用 updated_at 做一次保險（避免 SELECT/UPDATE 之間又有人寫）
         // [T6][S5] 用 RETURNING 取得新 updated_at；若 rowCount=0 視為被刪 → 410
         let sql;
-        if (expected_updated_at) {
-            values.push(expected_updated_at);
+        if (lockTimestamp) {
+            values.push(lockTimestamp);
             const tsIndex = queryIndex++;
             sql = `UPDATE tree_survey SET ${updates.join(', ')} WHERE id = $${idIndex} AND updated_at = $${tsIndex} RETURNING id, updated_at`;
         } else {
