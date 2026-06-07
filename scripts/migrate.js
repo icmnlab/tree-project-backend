@@ -51,6 +51,7 @@ const migrationFiles = [
   '21_backfill_area_id_and_history_unique.pg.sql', // area_id backfill + pending_id UNIQUE on history
   '22_drop_legacy_rag_and_carbon_tables.pg.sql', // DROP deprecated RAG/carbon tables if present
   '23_fix_wrong_synonym_tangqi.pg.sql', // remove 糖槭→九丁榕 bad synonym
+  '24_clean_maple_synonyms_on_ficus.pg.sql', // remove Acer common names on Ficus 0002
 ];
 
 // Define the order for view creation
