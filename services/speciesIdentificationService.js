@@ -289,6 +289,20 @@ async function getSpeciesDetailFromINaturalist(taxonId) {
  * @param {Array<string>} commonNames - 常用名稱列表
  * @returns {Object|null} 匹配的樹種 { id, name, scientificName, source }
  */
+function extractGenus(scientificName) {
+    if (!scientificName || typeof scientificName !== 'string') return null;
+    const g = scientificName.trim().split(/\s+/)[0];
+    return g ? g.toLowerCase() : null;
+}
+
+/** Pl@ntNet 學名與目錄學名至少屬（genus）須一致，避免「糖槭→九丁榕」類跨科誤配 */
+function isGenusCompatible(querySci, catalogSci) {
+    const gq = extractGenus(querySci);
+    const gc = extractGenus(catalogSci);
+    if (!gq || !gc) return true;
+    return gq === gc;
+}
+
 async function matchLocalSpecies(scientificName, commonNames = []) {
     try {
         const db = require('../config/db');
@@ -314,6 +328,7 @@ async function matchLocalSpecies(scientificName, commonNames = []) {
                 [name]
             );
             if (rows.length > 0) {
+                if (!isGenusCompatible(scientificName, rows[0].scientific_name)) continue;
                 return {
                     id: rows[0].id,
                     name: rows[0].name,
@@ -332,6 +347,7 @@ async function matchLocalSpecies(scientificName, commonNames = []) {
                     WHERE ss.variant_name = $1
                 `, [name]);
                 if (rows.length > 0) {
+                    if (!isGenusCompatible(scientificName, rows[0].scientific_name)) continue;
                     return {
                         id: rows[0].id,
                         name: rows[0].name,
@@ -365,8 +381,8 @@ async function autoAddSpeciesFromIdentification(primaryResult) {
     try {
         const { scientificName, commonNames = [], score } = primaryResult;
         
-        // 信心門檻：PlantNet 分數低於 0.15 (15%) 不自動新增，避免垃圾資料
-        if (!score || score < 0.15) {
+        // 信心門檻：PlantNet 分數低於 0.35 不自動新增，避免垃圾資料與跨種誤配
+        if (!score || score < 0.35) {
             console.log(`[Species Auto-Add] 跳過低信心結果: score=${score}, name=${commonNames[0] || scientificName}`);
             return null;
         }
