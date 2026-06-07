@@ -24,45 +24,13 @@ router.post('/run-script', requireRole('系統管理員'), async (req, res) => {
         // Execute script based on name
         switch (scriptName) {
             case 'populate_knowledge_from_survey':
-                console.log('[Admin] Triggering populate_knowledge_from_survey...');
-                // Assuming these scripts export a main function or we can run them effectively
-                // Since we refactored them to export, we can call directly
-                // BUT scripts might be async and logging to console. capturing output is harder this way.
-                // For now, just await their completion.
-                
-                // Note: populate_knowledge_from_survey.js might not export a function in current version, 
-                // let's check if we need to wrap it or use child_process.
-                // Checking file content... it runs processTreeSurveyData() at the end.
-                // We should modify it to export the function instead of auto-running if imported.
-                // For safety, let's use child_process for scripts that might not be perfectly module-ready
-                // OR better, we refactored populateSpeciesRegionScore to export. Let's assume we will refactor others too.
-                // For now, using child_process fork is safest to isolate execution context.
-                
-                await runScriptInChildProcess('populate_knowledge_from_survey.js');
-                resultMessage = 'Knowledge from survey population started/completed.';
-                break;
-
             case 'populateSpeciesRegionScore':
-                console.log('[Admin] Triggering populateSpeciesRegionScore...');
-                await runScriptInChildProcess('populateSpeciesRegionScore.js');
-                resultMessage = 'Species region score population started/completed.';
-                break;
-
             case 'generateEmbeddings':
-                console.log('[Admin] Triggering generateEmbeddings...');
-                await runScriptInChildProcess('generateEmbeddings.js');
-                resultMessage = 'Advanced embedding generation started/completed.';
-                break;
-
             case 'generate_species_knowledge':
-                console.log('[Admin] Triggering generate_species_knowledge...');
-                // Note: This script uses Gemini API and might take a long time.
-                // Running in background to prevent timeout.
-                runScriptInChildProcess('generate_species_knowledge.js')
-                    .then(() => console.log('[Admin] generate_species_knowledge completed.'))
-                    .catch(err => console.error('[Admin] generate_species_knowledge failed:', err));
-                resultMessage = 'Species knowledge generation started in background (this may take a while).';
-                break;
+                return res.status(410).json({
+                    success: false,
+                    message: '此腳本已廢止（RAG／舊碳匯表已移除）。',
+                });
 
             case 'enrich_species_synonyms':
                 console.log('[Admin] Triggering enrich_species_synonyms...');

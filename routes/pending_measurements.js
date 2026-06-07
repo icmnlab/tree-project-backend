@@ -776,18 +776,19 @@ async function insertTreeSurveyMeasurementHistory(client, {
   ]);
 }
 
+function parseTreeStatusFromNotes(notes) {
+  const raw = (notes ?? '').trim();
+  if (!raw) return '正常';
+  const m = /^樹況:\s*([^|]+)/.exec(raw);
+  if (m) return m[1].trim();
+  if (!raw.includes('|') && raw.length <= 24) return raw;
+  return '正常';
+}
+
+/** 調查備註：僅保留使用者輸入；儀器參數已在 tree_measurement_raw / 結構化欄位 */
 function buildSurveyNotes(p) {
-  const parts = ['VLGEO2+Vision測量'];
-  if (p.measurement_method) {
-    parts.push(`方法: ${p.measurement_method}`);
-  }
-  if (p.measurement_confidence != null) {
-    parts.push(`信心度: ${(p.measurement_confidence * 100).toFixed(0)}%`);
-  }
-  if (p.measurement_notes) {
-    parts.push(p.measurement_notes);
-  }
-  return parts.join(' | ');
+  const notes = (p.measurement_notes ?? '').trim();
+  return notes || null;
 }
 
 /**
@@ -910,7 +911,7 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
       
       // 決定最終 DBH（?? 避免 0 被當成 falsy）
       const finalDbh = p.measured_dbh_cm ?? p.dbh_cm ?? 0;
-      const finalStatus = p.measurement_notes ?? '良好';
+      const finalStatus = parseTreeStatusFromNotes(p.measurement_notes);
       const surveyNotes = buildSurveyNotes(p);
 
       // [碳計算] TIPC AR-TMS0001 / 林業署手冊式 6-4 — K_sp · DBH² · H

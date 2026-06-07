@@ -49,6 +49,7 @@ const migrationFiles = [
   '19_projects_dedupe_by_name.pg.sql', // [P0] 同名專案收斂 canonical code
   '20_projects_boundary_stubs_and_dedupe.pg.sql', // [P1-2] 邊界 stub + 再次 dedupe + active name UNIQUE
   '21_backfill_area_id_and_history_unique.pg.sql', // area_id backfill + pending_id UNIQUE on history
+  '22_drop_legacy_rag_and_carbon_tables.pg.sql', // DROP deprecated RAG/carbon tables if present
 ];
 
 // Define the order for view creation
