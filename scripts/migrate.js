@@ -44,7 +44,8 @@ const migrationFiles = [
   'species_synonyms.pg.sql', // [New] 樹種同義詞/名稱變體對照表 - 統一不同量測員的命名差異
   '03_user_projects.pg.sql', // [Phase A] user_projects junction table + 從 associated_projects 遷移 + 填充 projects 表
   '05_ip_blacklist.pg.sql', // [T8.2] IP 黑名單與登入失敗計數
-  // 06_project_boundaries_seed → dev-fixtures only; run: node scripts/seed_dev_boundaries.js
+  '06a_project_boundaries_schema.pg.sql', // [schema-only] 建 project_boundaries 表（無種子）；16/18/20 依賴它，全新庫必備
+  // 06_project_boundaries_seed（種子資料）→ dev-fixtures only; run: node scripts/seed_dev_boundaries.js
   '07_backfill_projects_area_id.pg.sql', // [Heal] Backfill projects.area_id from project_location + heal placeholder names
   '08_text_integrity_check.pg.sql', // [L3] 禁止 U+FFFD 寫入關鍵字串欄位 (見 utils/textValidation.js)
   '09_tree_survey_cache_sync_trigger.sql', // [Stage 2] 擴充 BEFORE trigger 同步 project_name/code/location/species_name cache
