@@ -293,9 +293,15 @@ async function matchLocalSpecies(scientificName, commonNames = []) {
     try {
         const db = require('../config/db');
 
+        // 以「屬 (genus)」層級比對 Pl@ntNet 學名與 DB 樹種學名。
+        // 兩邊都有學名時，屬不同 → 視為不相容（擋掉「糖槭 Acer → 九丁榕 Ficus」這類跨屬錯誤）。
+        // 任一邊缺學名 → 無法否證，放行（避免誤殺人工 seed 的合法俗名）。
+        const genusOf = (s) => (s || '').trim().toLowerCase().split(/\s+/)[0] || '';
         const sciCompatible = (a, b) => {
-            if (!a || !b) return true;
-            return a.trim().toLowerCase() === b.trim().toLowerCase();
+            const ga = genusOf(a);
+            const gb = genusOf(b);
+            if (!ga || !gb) return true;
+            return ga === gb;
         };
 
         if (scientificName) {
@@ -319,6 +325,11 @@ async function matchLocalSpecies(scientificName, commonNames = []) {
                 [name]
             );
             if (rows.length > 0) {
+                // 俗名直配 tree_species.name 也須通過屬級學名檢查，
+                // 避免 Pl@ntNet 多語俗名剛好命中不同屬樹種的中文名。
+                if (!sciCompatible(scientificName, rows[0].scientific_name)) {
+                    continue;
+                }
                 return {
                     id: rows[0].id,
                     name: rows[0].name,
@@ -441,10 +452,28 @@ async function autoAddSpeciesFromIdentification(primaryResult) {
         }
 
         // 將所有中文俗名 / 別名登錄為同義詞，未來搜尋「樟樹」、「香樟」等中文名都能匹配到 Cinnamomum camphora
+        const newGenus = (scientificName || '').trim().toLowerCase().split(/\s+/)[0] || '';
         if (commonNames.length > 0) {
             for (const variant of commonNames) {
                 if (!variant || variant === displayName) continue;
                 try {
+                    // 源頭防污染：若此俗名已掛在「不同屬」的樹種上（如「糖槭」已存在於 Ficus），
+                    // 不再新增，避免製造跨屬歧義同義詞。
+                    if (newGenus) {
+                        const { rows: conflict } = await client.query(`
+                            SELECT ts.scientific_name
+                            FROM species_synonyms ss
+                            JOIN tree_species ts ON ts.id = ss.canonical_species_id
+                            WHERE ss.variant_name = $1
+                              AND ts.scientific_name IS NOT NULL
+                              AND LOWER(split_part(ts.scientific_name, ' ', 1)) <> $2
+                            LIMIT 1
+                        `, [variant, newGenus]);
+                        if (conflict.length > 0) {
+                            console.warn(`[Auto-Add] 跳過跨屬同義詞 "${variant}"：已存在於 ${conflict[0].scientific_name}`);
+                            continue;
+                        }
+                    }
                     await client.query(`
                         INSERT INTO species_synonyms (canonical_species_id, variant_name, scientific_name, source, confidence)
                         VALUES ($1, $2, $3, 'plantnet_auto', 0.95)

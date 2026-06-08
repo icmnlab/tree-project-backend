@@ -1,15 +1,7 @@
 --
--- System Settings Table
--- Used for persistent configuration like Legacy Auth Expiry
+-- 注意：system_settings 表已於 migration 25 移除（無任何程式讀寫；JWT 過渡期設定已不使用）。
+-- 本檔僅保留 audit_logs。檔名維持 system_settings_and_audit 以相容既有 schema_migrations 紀錄。
 --
-CREATE TABLE IF NOT EXISTS system_settings (
-    key VARCHAR(50) PRIMARY KEY,
-    value VARCHAR(255),
-    description TEXT,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-COMMENT ON TABLE system_settings IS '系統全域設定 (e.g. Legacy Auth Expiry)';
 
 --
 -- Audit Logs Table
@@ -33,18 +25,3 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_created_at ON audit_logs(created_at);
 
 COMMENT ON TABLE audit_logs IS '系統審計日誌 (安全性與操作紀錄)';
-
---
--- Initialize Legacy Auth Expiry if not exists
--- Default: 50 days from now (if not set)
--- This logic is slightly complex for pure SQL in migration if we want "50 days from FIRST run", 
--- but "50 days from now" on every migration run is wrong.
--- We use ON CONFLICT DO NOTHING to ensure it's only set once.
---
-INSERT INTO system_settings (key, value, description)
-VALUES (
-    'auth_legacy_until', 
-    (CURRENT_TIMESTAMP + INTERVAL '50 days')::TEXT, 
-    'JWT 強制驗證過渡期截止時間 (ISO 8601)'
-)
-ON CONFLICT (key) DO NOTHING;

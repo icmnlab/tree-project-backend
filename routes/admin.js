@@ -10,65 +10,19 @@ const path = require('path');
 const apiKeys = require('../config/apiKeys');
 const { requireRole } = require('../middleware/roleAuth');
 
-// --- Admin Script Execution Endpoint ---
+// --- Admin Script Execution Endpoint（已淘汰）---
+// 過去用於觸發 RAG / 知識庫 / LLM 同義詞擴充腳本，這些功能與相關資料表已移除。
+// 保留端點僅為相容舊前端呼叫，一律回 410；無前端入口。
 router.post('/run-script', requireRole('系統管理員'), async (req, res) => {
     const { scriptName } = req.body;
-
     if (!scriptName) {
         return res.status(400).json({ success: false, message: 'Script name is required' });
     }
-
-    try {
-        let resultMessage = '';
-        
-        // Execute script based on name
-        switch (scriptName) {
-            case 'populate_knowledge_from_survey':
-            case 'populateSpeciesRegionScore':
-            case 'generateEmbeddings':
-            case 'generate_species_knowledge':
-                return res.status(410).json({
-                    success: false,
-                    message: '此腳本已廢止（RAG／舊碳匯表已移除）。',
-                });
-
-            case 'enrich_species_synonyms':
-                console.log('[Admin] Triggering enrich_species_synonyms...');
-                // Background execution for LLM-heavy task
-                runScriptInChildProcess('enrich_species_synonyms.js')
-                    .then(() => console.log('[Admin] enrich_species_synonyms completed.'))
-                    .catch(err => console.error('[Admin] enrich_species_synonyms failed:', err));
-                resultMessage = 'Species synonym enrichment started in background (this may take a while).';
-                break;
-
-            default:
-                return res.status(400).json({ success: false, message: 'Unknown script name' });
-        }
-
-        res.json({ success: true, message: resultMessage });
-
-    } catch (error) {
-        console.error(`[Admin] Error running script ${scriptName}:`, error);
-        res.status(500).json({ success: false, message: `Error running script: ${error.message}` });
-    }
-});
-
-// Helper to run script
-function runScriptInChildProcess(scriptFileName) {
-    return new Promise((resolve, reject) => {
-        const scriptPath = path.join(__dirname, '..', 'scripts', scriptFileName);
-        const { fork } = require('child_process');
-        
-        const child = fork(scriptPath);
-
-        child.on('exit', (code) => {
-            if (code === 0) resolve();
-            else reject(new Error(`Script exited with code ${code}`));
-        });
-
-        child.on('error', (err) => reject(err));
+    return res.status(410).json({
+        success: false,
+        message: '腳本執行功能已淘汰（RAG／知識庫／LLM 同義詞擴充已移除）。',
     });
-}
+});
 
 
 // AI 路由速率限制

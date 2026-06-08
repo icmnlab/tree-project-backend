@@ -52,6 +52,7 @@ const migrationFiles = [
   '22_drop_legacy_rag_and_carbon_tables.pg.sql', // DROP deprecated RAG/carbon tables if present
   '23_fix_wrong_synonym_tangqi.pg.sql', // remove 糖槭→九丁榕 bad synonym
   '24_clean_maple_synonyms_on_ficus.pg.sql', // remove Acer common names on Ficus 0002
+  '25_drop_system_settings_and_clean_demo_actions.pg.sql', // DROP 無用 system_settings + 清 tree_management_actions demo
 ];
 
 // Define the order for view creation

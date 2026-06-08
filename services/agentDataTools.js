@@ -220,14 +220,7 @@ async function toolCalculateCarbon({ dbh_cm, height_m, species }) {
 
 async function toolSpeciesCarbonInfo({ species_name }, ctx) {
     try {
-        const result = await db.query(
-            `SELECT * FROM tree_carbon_data WHERE common_name_zh ILIKE $1 LIMIT 5`,
-            [`%${species_name}%`]
-        );
-        if (result.rows.length > 0) {
-            return { species: result.rows };
-        }
-
+        // 舊 tree_carbon_data 靜態表已移除；改以實際調查資料 (tree_survey) 統計回答。
         const { extraWhere, params } = await scopeProjectCodesForRole(
             ctx.userId,
             ctx.userRole,
