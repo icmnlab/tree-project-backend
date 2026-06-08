@@ -84,12 +84,13 @@ print('✓ 記憶體清理完成\n')
 # ║  可調參數                                             ║
 # ╚══════════════════════════════════════════════════════╝
 
+# 金鑰一律由環境變數提供，勿寫死於程式（set ROBOFLOW_API_KEY / KAGGLE_USERNAME / KAGGLE_KEY）
 # --- Roboflow ---
-ROBOFLOW_API_KEY = 'uwNljxzf8xgKGZ9Is3py'
+ROBOFLOW_API_KEY = os.environ.get('ROBOFLOW_API_KEY', '')
 
 # --- Kaggle ---
-KAGGLE_USERNAME = 'liuminhhao'
-KAGGLE_KEY = '008487131ccae0319171497f4f54a7c5'
+KAGGLE_USERNAME = os.environ.get('KAGGLE_USERNAME', '')
+KAGGLE_KEY = os.environ.get('KAGGLE_KEY', '')
 
 # --- 要訓練的模型尺寸 ---
 # m 已經有了，只練 n 和 s

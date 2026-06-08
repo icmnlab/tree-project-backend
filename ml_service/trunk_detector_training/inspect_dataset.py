@@ -49,10 +49,11 @@ if hasattr(sys.stdout, "reconfigure"):
 # ║  Config                                                        ║
 # ╚═══════════════════════════════════════════════════════════════╝
 
-# 與 train_n_s_models.py 一致
-ROBOFLOW_API_KEY = "uwNljxzf8xgKGZ9Is3py"
-KAGGLE_USERNAME = "liuminhhao"
-KAGGLE_KEY = "008487131ccae0319171497f4f54a7c5"
+# 與 train_n_s_models.py 一致。金鑰一律由環境變數提供，勿寫死於程式。
+#   set ROBOFLOW_API_KEY / KAGGLE_USERNAME / KAGGLE_KEY（或用 .env）
+ROBOFLOW_API_KEY = os.environ.get("ROBOFLOW_API_KEY", "")
+KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME", "")
+KAGGLE_KEY = os.environ.get("KAGGLE_KEY", "")
 
 ROBOFLOW_DATASETS = [
     ("tree-trunks", "tree-trunk-detection-bi-axe", 1, "Roboflow 主資料集 ~1.3k"),
