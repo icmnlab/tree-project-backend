@@ -536,6 +536,8 @@ router.get('/by_id/:id/measurements', projectAuthFilter, async (req, res) => {
                 x_coord,
                 y_coord,
                 survey_mode,
+                instrument_type,
+                instrument_dbh_cm,
                 created_at
             FROM tree_survey_measurements
             WHERE tree_id = $1
