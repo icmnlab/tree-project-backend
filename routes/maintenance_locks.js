@@ -85,7 +85,7 @@ router.post('/:treeId', projectAuthFilter, async (req, res) => {
   const displayName =
     req.user.display_name || req.user.username || `user-${userId}`;
 
-  const client = await db.connect();
+  const client = await db.pool.connect();
   try {
     await client.query('BEGIN');
     await purgeExpired(client);
