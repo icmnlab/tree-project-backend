@@ -1,16 +1,10 @@
 const { Pool } = require('pg');
 require('dotenv').config();
-
-// SSL 設定：生產環境應設定 DB_SSL_REJECT_UNAUTHORIZED=true
-const sslConfig = process.env.DATABASE_URL
-  ? {
-      rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED === 'true',
-    }
-  : false;
+const { resolvePgSsl } = require('./pgSsl');
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: sslConfig,
+  ssl: resolvePgSsl(),
   max: 10,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,

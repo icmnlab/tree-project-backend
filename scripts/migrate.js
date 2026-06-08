@@ -5,6 +5,7 @@ const { parse } = require('csv-parse/sync');
 const copyFrom = require('pg-copy-streams').from; // Import the helper correctly
 const { Transform } = require('stream'); // Add Transform stream
 require('dotenv').config();
+const { resolvePgSsl } = require('../config/pgSsl');
 
 /** CSV 表頭（program_name/block_name）→ tree_survey DB 欄位；支援舊表頭 */
 const CSV_HEADER_TO_DB = {
@@ -20,9 +21,7 @@ function csvColumnsToDb(csvHeaders) {
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false
-  }
+  ssl: resolvePgSsl(),
 });
 
 // Define the correct order for table creation

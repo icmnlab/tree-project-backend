@@ -9,6 +9,7 @@ const { Pool } = require('pg');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
+const { resolvePgSsl } = require('../config/pgSsl');
 
 const { migrationFiles, viewFiles } = require('./migrate');
 
@@ -16,7 +17,7 @@ const BACKFILL_UNTIL = '18_project_boundaries_fk.pg.sql';
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
+    ssl: resolvePgSsl(),
 });
 
 async function ensureMigrationTable(client) {

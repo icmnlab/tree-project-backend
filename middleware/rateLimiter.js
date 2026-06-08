@@ -1,6 +1,10 @@
 const rateLimit = require('express-rate-limit');
 const { recordOffense } = require('../services/ipBlacklistService');
 
+// 測試 / CI：設 DISABLE_RATE_LIMIT=true 時所有限流器直接放行
+// （正式環境不設此變數，行為與原本完全一致）。
+const rateLimitDisabled = () => process.env.DISABLE_RATE_LIMIT === 'true';
+
 // 通用 API 速率限制: 允許使用者在短時間內進行多次普通操作
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000, // 15 分鐘
@@ -11,6 +15,7 @@ const apiLimiter = rateLimit({
     },
     standardHeaders: true, // 回傳速率限制資訊到 `RateLimit-*` headers
     legacyHeaders: false, // 禁用 'X-RateLimit-*' headers
+    skip: rateLimitDisabled,
 });
 
 // 短時間爆量限制 (T8.2): 同一 IP 在 10 秒內 >= 20 次請求即視為攻擊
@@ -20,6 +25,7 @@ const burstLimiter = rateLimit({
     max: 20,
     standardHeaders: true,
     legacyHeaders: false,
+    skip: rateLimitDisabled,
     message: {
         success: false,
         message: '短時間內請求過於頻繁，已暫時封鎖此 IP。'
@@ -38,6 +44,7 @@ const burstLimiter = rateLimit({
 const loginLimiter = rateLimit({
     windowMs: 60 * 60 * 1000, // 1 小時
     max: 50, // 每小時單一 IP 最多 50 次登入嘗試（避免同 NAT/Wi-Fi 多帳號共用時誤殺）
+    skip: rateLimitDisabled,
     message: {
         success: false,
         message: '此 IP 的登入嘗試次數過多，請稍後再試（1 小時後自動解除）。'
