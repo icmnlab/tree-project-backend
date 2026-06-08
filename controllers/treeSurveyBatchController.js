@@ -160,12 +160,11 @@ exports.batchImportTrees = async (req, res) => {
                 `);
                 
                 if (tableCheck.rows[0].exists) {
-                    // [FIX] 相容前端 BLE 傳來的欄位名稱 (horizontal_distance vs hd)
+                    const remoteDia = meta.remote_diameter_cm ?? meta.instrument_dbh_cm ?? null;
                     const rawValues = [
                         newTreeId,
-                        meta.instrument_type || tree.type || 'VLGEO2', // TYPE (若無則預設 VLGEO2)
-                        meta.snr || meta.device_sn || null,             // SNR
-                        // [FIX] 相容兩種欄位命名 (hd/horizontal_distance, sd/slope_distance, az/azimuth)
+                        meta.instrument_type || tree.type || 'VLGEO2',
+                        meta.snr || meta.device_sn || null,
                         meta.hd ?? meta.horizontal_distance ?? null,
                         meta.sd ?? meta.slope_distance ?? null,
                         meta.pitch !== undefined ? parseFloat(meta.pitch) : null,
@@ -174,15 +173,19 @@ exports.batchImportTrees = async (req, res) => {
                         meta.hdop !== undefined ? parseFloat(meta.hdop) : null,
                         meta.raw_lat !== undefined ? parseFloat(meta.raw_lat) : null,
                         meta.raw_lon !== undefined ? parseFloat(meta.raw_lon) : null,
+                        meta.altitude !== undefined ? parseFloat(meta.altitude) : null,
+                        meta.utm_zone || null,
                         meta.measured_at || tree.survey_time || null,
-                        JSON.stringify(meta) // 完整備份
+                        JSON.stringify(meta),
+                        remoteDia !== null && remoteDia !== undefined ? parseFloat(remoteDia) : null,
                     ];
 
                     const insertRawSql = `
                         INSERT INTO tree_measurement_raw
                         (tree_id, instrument_type, device_sn, horizontal_dist, slope_dist, vertical_angle, 
-                        azimuth, ref_height, gps_hdop, raw_lat, raw_lon, measured_at, raw_data_snapshot)
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                        azimuth, ref_height, gps_hdop, raw_lat, raw_lon, altitude, utm_zone,
+                        measured_at, raw_data_snapshot, instrument_dbh_cm)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
                     `;
                     await client.query(insertRawSql, rawValues);
                 }

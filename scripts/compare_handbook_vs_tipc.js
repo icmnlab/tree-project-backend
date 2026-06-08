@@ -8,7 +8,7 @@ const fs = require('fs');
 const tipc = require('../services/carbonCalculationService');
 const handbook = require('../services/handbookCarbonService');
 
-const CSV_PATH = path.join(__dirname, '..', 'database', 'initial_data', 'tree_survey_data.csv');
+const CSV_PATH = path.join(__dirname, '..', 'dev-fixtures', 'tree_survey_data.csv');
 
 function parseCsvLine(line) {
     const cols = [];

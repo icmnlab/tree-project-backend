@@ -67,6 +67,19 @@ function effectiveTargetTreeId(row) {
   return row.target_tree_id || rawValue(row, 'target_tree_id') || null;
 }
 
+/** 韌體 TYPE 或 LIVE 場次 height_method → tree_measurement_raw.instrument_type */
+function resolveInstrumentType(row) {
+  const direct = (row.measurement_type || '').trim();
+  if (direct && direct !== 'LIVE') return direct;
+  const snap = parseRawDataSnapshot(row.raw_data_snapshot);
+  const hm = snap.height_method || snap.instrument_height_mode;
+  if (hm && ['1P', '3P', 'DME'].includes(String(hm).toUpperCase())) {
+    return String(hm).toUpperCase();
+  }
+  if (direct === 'LIVE') return 'LIVE';
+  return direct || null;
+}
+
 function effectiveRawNumber(row, key, fallback = null) {
   const value = rawValue(row, key);
   const n = Number(value);
@@ -764,8 +777,9 @@ async function insertTreeSurveyMeasurementHistory(client, {
       tree_id, pending_id, survey_time,
       tree_height_m, dbh_cm, species_name, species_id,
       status, survey_notes, carbon_storage,
-      x_coord, y_coord, survey_mode
-    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+      x_coord, y_coord, survey_mode,
+      instrument_type, instrument_dbh_cm
+    ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
   `, [
     treeId,
     pendingRow.id,
@@ -780,6 +794,8 @@ async function insertTreeSurveyMeasurementHistory(client, {
     pendingRow.tree_longitude,
     pendingRow.tree_latitude,
     surveyMode,
+    resolveInstrumentType(pendingRow),
+    pendingRow.instrument_dbh_cm ?? null,
   ]);
 }
 
@@ -1117,11 +1133,11 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
             horizontal_dist, slope_dist, vertical_angle, azimuth,
             raw_lat, raw_lon, altitude,
             gps_hdop, device_sn, ref_height, utm_zone, raw_data_snapshot,
-            measured_at
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            measured_at, instrument_dbh_cm
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         `, [
           treeSurveyId,
-          'VLGEO2+Vision',
+          resolveInstrumentType(p) || 'VLGEO2',
           p.horizontal_distance,
           p.slope_distance,
           p.pitch,
@@ -1134,7 +1150,8 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
           p.ref_height ?? null,
           p.utm_zone ?? null,
           rawSnapshotText,
-          p.completed_at ?? new Date()
+          p.completed_at ?? new Date(),
+          p.instrument_dbh_cm ?? null,
         ]);
       } catch (rawErr) {
         console.warn('[Transfer] tree_measurement_raw insert skipped:', rawErr.message);

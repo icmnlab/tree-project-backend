@@ -16,7 +16,7 @@ const fs = require('fs');
 const path = require('path');
 const calc = require('../services/carbonCalculationService');
 
-const CSV_PATH = path.join(__dirname, '..', 'database', 'initial_data', 'tree_survey_data.csv');
+const CSV_PATH = path.join(__dirname, '..', 'dev-fixtures', 'tree_survey_data.csv');
 
 // --- CSV parser: 正確處理 quoted fields (含 escaped "" 與欄位內逗號) ---
 function splitCsvRow(line) {

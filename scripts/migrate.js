@@ -67,6 +67,7 @@ const migrationFiles = [
   '25_drop_system_settings_and_clean_demo_actions.pg.sql', // DROP 無用 system_settings + 清 tree_management_actions demo
   '26_domain_semantics_comments.pg.sql', // UI 專案／區 欄位 COMMENT（表名不變）
   '27_maintenance_tree_locks.pg.sql', // 維護重測互斥鎖（Phase A 多人協作）
+  '28_instrument_traceability.pg.sql', // 儀器 TYPE / instrument_dbh 追溯
 ];
 
 // Define the order for view creation

@@ -30,7 +30,7 @@ from collections import defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CSV_PATH = ROOT / "database" / "initial_data" / "tree_survey_data.csv"
+CSV_PATH = ROOT / "dev-fixtures" / "tree_survey_data.csv"
 OUT_PATH = ROOT / "data" / "tipc_kp_lookup.json"
 DART_OUT_PATH = (
     ROOT.parent
