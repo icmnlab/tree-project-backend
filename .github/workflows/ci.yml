@@ -33,6 +33,10 @@ jobs:
       JWT_SECRET: ci-test-secret
       PORT: '3001'
       TEST_BASE_URL: http://localhost:3001/api
+      # Dummy keys so AI SDK clients constructed at module-load don't crash boot.
+      # Tests never hit AI routes; these are never used for real calls.
+      OPENAI_API_KEY: ci-dummy-openai
+      GEMINI_API_KEY: ci-dummy-gemini
 
     steps:
       - name: Checkout
