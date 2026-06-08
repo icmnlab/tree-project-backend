@@ -614,11 +614,18 @@ router.patch('/:id', projectAuthFilter, async (req, res) => {
     }
   }
 
-  if (setClauses.length === 0) {
+  if (setClauses.length === 0 && !(updates.raw_data_snapshot_merge && typeof updates.raw_data_snapshot_merge === 'object')) {
     return res.status(400).json({
       success: false,
       message: '沒有可更新的欄位'
     });
+  }
+
+  if (updates.raw_data_snapshot_merge && typeof updates.raw_data_snapshot_merge === 'object') {
+    setClauses.push(
+      `raw_data_snapshot = COALESCE(raw_data_snapshot, '{}'::jsonb) || $${paramIndex++}::jsonb`,
+    );
+    values.push(JSON.stringify(updates.raw_data_snapshot_merge));
   }
 
   try {
@@ -783,6 +790,15 @@ function parseTreeStatusFromNotes(notes) {
   if (m) return m[1].trim();
   if (!raw.includes('|') && raw.length <= 24) return raw;
   return '正常';
+}
+
+function shouldUpdateTreeLocationFromPending(row) {
+  const snapshot = parseRawDataSnapshot(row.raw_data_snapshot);
+  const flag = snapshot.update_tree_location;
+  if (flag === true || flag === 'true' || flag === 1 || flag === '1') {
+    return Boolean(row.tree_longitude && row.tree_latitude);
+  }
+  return false;
 }
 
 /** 調查備註：僅保留使用者輸入；儀器參數已在 tree_measurement_raw / 結構化欄位 */
@@ -959,6 +975,8 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
           });
         }
 
+        const shouldUpdateTreeLocation = shouldUpdateTreeLocationFromPending(p);
+
         await client.query(`
           UPDATE tree_survey
           SET species_name = $1,
@@ -969,18 +987,33 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
               survey_notes = $6,
               survey_time = $7,
               carbon_storage = $8
+              ${shouldUpdateTreeLocation ? ', x_coord = $10, y_coord = $11' : ''}
           WHERE id = $9
-        `, [
-          p.species_name ?? '待辨識',
-          speciesId,
-          p.tree_height,
-          finalDbh,
-          finalStatus,
-          surveyNotes,
-          p.completed_at ?? new Date(),
-          finalCarbonStorage,
-          target.id,
-        ]);
+        `, shouldUpdateTreeLocation
+          ? [
+              p.species_name ?? '待辨識',
+              speciesId,
+              p.tree_height,
+              finalDbh,
+              finalStatus,
+              surveyNotes,
+              p.completed_at ?? new Date(),
+              finalCarbonStorage,
+              target.id,
+              p.tree_longitude,
+              p.tree_latitude,
+            ]
+          : [
+              p.species_name ?? '待辨識',
+              speciesId,
+              p.tree_height,
+              finalDbh,
+              finalStatus,
+              surveyNotes,
+              p.completed_at ?? new Date(),
+              finalCarbonStorage,
+              target.id,
+            ]);
 
         treeSurveyId = target.id;
         systemTreeId = target.system_tree_id;

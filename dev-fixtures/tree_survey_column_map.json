@@ -1,0 +1,57 @@
+{
+
+  "fixture": "tree_survey_data.csv",
+
+  "purpose": "Dev/test only — not imported on production deploy",
+
+  "ui_semantics": {
+
+    "program_name": {
+
+      "ui_label_zh": "專案",
+
+      "db_column": "tree_survey.project_location",
+
+      "authority": "project_areas.area_name",
+
+      "legacy_csv_header": "project_location"
+
+    },
+
+    "block_name": {
+
+      "ui_label_zh": "區",
+
+      "db_column": "tree_survey.project_name",
+
+      "authority": "projects.name",
+
+      "legacy_csv_header": "project_name"
+
+    },
+
+    "project_code": {
+
+      "ui_label_zh": "專案代碼",
+
+      "db_column": "tree_survey.project_code",
+
+      "authority": "projects.project_code"
+
+    }
+
+  },
+
+  "example_row": {
+
+    "program_name": "高雄港",
+
+    "block_name": "高雄港區植栽1區",
+
+    "project_code": "3"
+
+  }
+
+}
+
+

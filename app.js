@@ -75,7 +75,7 @@ app.use(cors({
         }
         callback(null, false);
     },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-API-Key', 'X-Request-Id'],
 }));
 app.use(helmet());
@@ -115,6 +115,7 @@ const mlServiceRoutes = require('./routes/ml_service'); // ML Service 代理路�
 const csvImportRoutes = require('./routes/csvImport'); // [Phase C] CSV 匯入路由
 const agentRoutes = require('./routes/agent'); // AI Agent 路由
 const ipBlacklistRoutes = require('./routes/ipBlacklist'); // [T8.2] IP 黑名單管理
+const maintenanceLocksRoutes = require('./routes/maintenance_locks'); // 維護重測互斥鎖
 const researchDatasetRoutes = require('./routes/research_dataset'); // [Research] DBH 校準資料蒐集
 
 apiRouter.use('/', usersRoutes); // 包含 /login
@@ -130,6 +131,7 @@ apiRouter.use('/location', locationRoutes);
 apiRouter.use('/tree-management', managementRoutes);
 apiRouter.use('/species', speciesIdentificationRoutes); // 掛載樹種辨識路由
 apiRouter.use('/pending-measurements', pendingMeasurementsRoutes); // 掛載待測量樹木路由
+apiRouter.use('/maintenance-locks', maintenanceLocksRoutes); // 維護重測互斥鎖
 apiRouter.use('/project-boundaries', projectBoundariesRoutes); // 掛載專案邊界路由
 apiRouter.use('/ml-training', mlTrainingDataRoutes); // 掛載 ML 訓練數據路由
 apiRouter.use('/tree-images', treeImagesRoutes); // 掛載樹木影像路由

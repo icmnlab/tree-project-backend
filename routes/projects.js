@@ -11,6 +11,7 @@ const {
     fetchActiveProjects,
     fetchBoundaryOnlyProjects,
 } = require('../utils/projectCatalog');
+const { attachDomainAliases, attachDomainAliasesList } = require('../utils/domainAliases');
 
 // 取得專案列表 (依使用者權限過濾)
 // [P1-2] projects ∪ boundary-only；不再 fallback tree_survey DISTINCT
@@ -25,7 +26,7 @@ router.get('/', projectAuthFilter, async (req, res) => {
         let rows = mergeProjectLists(activeRows, boundaryRows);
         rows = applyProjectFilter(rows, req.projectFilter);
 
-        res.json({ success: true, data: rows });
+        res.json({ success: true, data: attachDomainAliasesList(rows) });
     } catch (err) {
         console.error('取得專案列表錯誤:', err);
         res.status(500).json({ success: false, message: '取得專案列表時發生錯誤' });
@@ -118,7 +119,7 @@ router.get('/by_area/:area', projectAuthFilter, async (req, res) => {
         // 移除 internal-only 欄位避免 leak schema
         rows = rows.map(({ area_city, ...rest }) => rest);
 
-        res.json({ success: true, data: rows });
+        res.json({ success: true, data: attachDomainAliasesList(rows) });
     } catch (err) {
         console.error(`取得區位[${area}]的專案列表錯誤:`, err);
         res.status(500).json({ success: false, message: '取得專案列表時發生錯誤' });
@@ -165,7 +166,7 @@ router.get('/by_name/:name', projectAuthFilter, async (req, res) => {
             if (Array.isArray(req.projectFilter) && !req.projectFilter.includes(row.code)) {
                 return res.status(404).json({ success: false, message: '找不到指定的專案' });
             }
-            res.json({ success: true, data: row });
+            res.json({ success: true, data: attachDomainAliases(row) });
         } else {
             res.status(404).json({ success: false, message: '找不到指定的專案' });
         }
@@ -216,7 +217,7 @@ router.get('/by_code/:code', projectAuthFilter, async (req, res) => {
             if (Array.isArray(req.projectFilter) && !req.projectFilter.includes(row.code)) {
                 return res.status(404).json({ success: false, message: '找不到指定的專案' });
             }
-            res.json({ success: true, data: row });
+            res.json({ success: true, data: attachDomainAliases(row) });
         } else {
             res.status(404).json({ success: false, message: '找不到指定的專案' });
         }

@@ -13,6 +13,7 @@ const treeSurveyUpdateController = require('../controllers/treeSurveyUpdateContr
 const AuditLogService = require('../services/auditLogService');
 const { projectAuth, projectAuthFilter, hasProjectPermission } = require('../middleware/projectAuth');
 const { requireRole } = require('../middleware/roleAuth');
+const { attachDomainAliases, attachDomainAliasesList } = require('../utils/domainAliases');
 
 const DEBUG_MAP = process.env.DEBUG_MAP === '1' || process.env.DEBUG_MAP === 'true';
 function mapApiLog(msg, extra) {
@@ -150,7 +151,7 @@ router.get('/', projectAuthFilter, async (req, res) => {
         const { rows } = await db.query(sql, params);
         
         // 回傳資料與分頁資訊
-        const response = { success: true, data: rows };
+        const response = { success: true, data: attachDomainAliasesList(rows) };
         if (limit) {
             let countSql = `SELECT COUNT(*) FROM tree_survey WHERE (is_placeholder IS NULL OR is_placeholder = false)`;
             const countParams = [];
@@ -478,7 +479,7 @@ router.get('/by_id/:id', projectAuthFilter, async (req, res) => {
 
         const { rows } = await db.query(sql, params);
         if (rows.length > 0) {
-            res.json({ success: true, data: rows[0] });
+            res.json({ success: true, data: attachDomainAliases(rows[0]) });
         } else {
             res.status(404).json({ success: false, message: '找不到指定的樹木資料' });
         }

@@ -6,6 +6,18 @@ const copyFrom = require('pg-copy-streams').from; // Import the helper correctly
 const { Transform } = require('stream'); // Add Transform stream
 require('dotenv').config();
 
+/** CSV 表頭（program_name/block_name）→ tree_survey DB 欄位；支援舊表頭 */
+const CSV_HEADER_TO_DB = {
+  program_name: 'project_location',
+  block_name: 'project_name',
+  project_location: 'project_location',
+  project_name: 'project_name',
+};
+
+function csvColumnsToDb(csvHeaders) {
+  return csvHeaders.map((h) => CSV_HEADER_TO_DB[h] || h);
+}
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: {
@@ -33,7 +45,7 @@ const migrationFiles = [
   'species_synonyms.pg.sql', // [New] 樹種同義詞/名稱變體對照表 - 統一不同量測員的命名差異
   '03_user_projects.pg.sql', // [Phase A] user_projects junction table + 從 associated_projects 遷移 + 填充 projects 表
   '05_ip_blacklist.pg.sql', // [T8.2] IP 黑名單與登入失敗計數
-  '06_project_boundaries_seed.pg.sql', // [Data] 35 個港務專案邊界 (convex hull from tree GPS, +10m buffer)
+  // 06_project_boundaries_seed → dev-fixtures only; run: node scripts/seed_dev_boundaries.js
   '07_backfill_projects_area_id.pg.sql', // [Heal] Backfill projects.area_id from project_location + heal placeholder names
   '08_text_integrity_check.pg.sql', // [L3] 禁止 U+FFFD 寫入關鍵字串欄位 (見 utils/textValidation.js)
   '09_tree_survey_cache_sync_trigger.sql', // [Stage 2] 擴充 BEFORE trigger 同步 project_name/code/location/species_name cache
@@ -53,6 +65,8 @@ const migrationFiles = [
   '23_fix_wrong_synonym_tangqi.pg.sql', // remove 糖槭→九丁榕 bad synonym
   '24_clean_maple_synonyms_on_ficus.pg.sql', // remove Acer common names on Ficus 0002
   '25_drop_system_settings_and_clean_demo_actions.pg.sql', // DROP 無用 system_settings + 清 tree_management_actions demo
+  '26_domain_semantics_comments.pg.sql', // UI 專案／區 欄位 COMMENT（表名不變）
+  '27_maintenance_tree_locks.pg.sql', // 維護重測互斥鎖（Phase A 多人協作）
 ];
 
 // Define the order for view creation
@@ -99,8 +113,18 @@ async function migrate() {
         );
     }
 
-    const csvPath = path.join(__dirname, '../database/initial_data', 'tree_survey_data.csv');
-    if (!skipCsv && !skipCsvBecauseData && fs.existsSync(csvPath)) {
+    const csvCandidates = [
+        path.join(__dirname, '../dev-fixtures/tree_survey_data.csv'),
+        path.join(__dirname, '../database/initial_data/tree_survey_data.csv'),
+    ];
+    const csvPath = csvCandidates.find((p) => fs.existsSync(p));
+    const mapPath = path.join(__dirname, '../dev-fixtures/tree_survey_column_map.json');
+    if (fs.existsSync(mapPath)) {
+        console.log(
+            'CSV 欄位語意見 dev-fixtures/tree_survey_column_map.json（program_name→project_location, block_name→project_name）',
+        );
+    }
+    if (!skipCsv && !skipCsvBecauseData && csvPath) {
         // Use COPY for high performance, requires absolute path on server
         // We need to resolve the full path for the COPY command
         const absolutePath = path.resolve(csvPath);
@@ -113,7 +137,9 @@ async function migrate() {
         // We read the header to map columns correctly
         const csvData = fs.readFileSync(csvPath, 'utf8');
         const records = parse(csvData, { columns: true, skip_empty_lines: true });
-        const header = Object.keys(records[0]).map(h => `"${h}"`).join(', ');
+        const csvHeaders = Object.keys(records[0]);
+        const dbColumns = csvColumnsToDb(csvHeaders);
+        const header = dbColumns.map((h) => `"${h}"`).join(', ');
 
         const copyCommand = `COPY tree_survey(${header}) FROM STDIN WITH (FORMAT CSV, HEADER, FORCE_NULL(survey_time, tree_height_m, dbh_cm, x_coord, y_coord, carbon_storage, carbon_sequestration_per_year))`;
         

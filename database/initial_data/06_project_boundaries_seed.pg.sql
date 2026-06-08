@@ -1,3 +1,6 @@
+-- DEPRECATED: 不在 production migration 中執行。
+-- 正式邊界請手動繪製或匯入座標檔。測試用副本：backend/dev-fixtures/06_project_boundaries_seed.pg.sql
+-- 執行：node scripts/seed_dev_boundaries.js
 -- 06_project_boundaries_seed.pg.sql
 -- Auto-generated from tree_survey_data.csv (convex hull + 10m buffer per project)
 -- Idempotent: CREATE IF NOT EXISTS + INSERT ON CONFLICT DO NOTHING
