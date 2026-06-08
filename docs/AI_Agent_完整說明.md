@@ -292,7 +292,7 @@ HTML → 純文字最多約 12000 字；PDF 僅回連結不解析全文。
 
 ### App API Base
 
-`https://richardhualienserver.tail124a1b.ts.net/api`（Tailscale；自簽憑證需 `SelfHostedHttpOverrides`）
+`https://<TAILSCALE_HOST>/api`（Tailscale；自簽憑證需 `SelfHostedHttpOverrides`）
 
 ---
 
@@ -302,8 +302,8 @@ HTML → 純文字最多約 12000 字；PDF 僅回連結不解析全文。
 OPENAI_API_KEY=sk-...
 AGENT_DEFAULT_MODEL=gpt-5.4-mini
 LLM_OPENAI_FALLBACK_MODEL=gpt-5.4-mini
-TEST_BASE_URL=https://richardhualienserver.tail124a1b.ts.net/api
-BASE_URL=https://richardhualienserver.tail124a1b.ts.net
+TEST_BASE_URL=https://<TAILSCALE_HOST>/api
+BASE_URL=https://<TAILSCALE_HOST>
 
 # 可選
 GOOGLE_CSE_API_KEY=

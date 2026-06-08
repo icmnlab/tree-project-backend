@@ -33,7 +33,7 @@
 │  Ubuntu Server (i3-8130U, 11GB RAM)                         │
 │  Node.js + Express + PostgreSQL 16                          │
 │  PM2 Cluster (2 instances) + Tailscale Funnel               │
-│  公網 URL: https://richardhualienserver.tail124a1b.ts.net   │
+│  公網 URL: https://<TAILSCALE_HOST>   │
 │  23 路由模組, 130+ API 端點                                  │
 │  AI Agent: SiliconFlow API (DeepSeek-V3 / Qwen3-235B)      │
 └─────────────────────┬───────────────────────────────────────┘
@@ -159,7 +159,7 @@ $$D_{tree} = \frac{d_p \cdot \delta_m}{\gamma_p} - \frac{d_p}{4}$$
 | 倉庫 | 連結 |
 |------|------|
 | Backend | https://github.com/Aaronliu0208/tree-app-backend |
-| Frontend | https://github.com/KyleliuNDHU/tree-project-frontend |
+| Frontend | https://github.com/<GITHUB_OWNER>/tree-project-frontend |
 
 ---
 

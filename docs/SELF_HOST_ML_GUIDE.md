@@ -90,7 +90,7 @@ python3.11 -m venv venv
 source venv/bin/activate
 
 # 複製 ML 服務程式碼（從 Git repo）
-git clone https://github.com/KyleliuNDHU/tree-project-backend.git
+git clone https://github.com/<GITHUB_OWNER>/tree-project-backend.git
 cd tree-project-backend/ml_service
 
 # 安裝依賴（CPU 版本 PyTorch，不需要 GPU）

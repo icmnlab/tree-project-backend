@@ -724,8 +724,8 @@ ADD COLUMN confidence_score DECIMAL(3,2);
 ### B. 聯絡資訊
 
 - **開發者**: 411135055@gms.ndhu.edu.tw
-- 前端程式碼：`KyleliuNDHU/tree-project-frontend`
-- 後端程式碼：`KyleliuNDHU/tree-project-backend`
+- 前端程式碼：`<GITHUB_OWNER>/tree-project-frontend`
+- 後端程式碼：`<GITHUB_OWNER>/tree-project-backend`
 
 ### C. VLGEO2 整合技術摘要
 

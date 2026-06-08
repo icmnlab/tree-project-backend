@@ -172,13 +172,13 @@ docs/
 ## 🚀 部署狀態
 
 ### Backend
-- **Repository**: `KyleliuNDHU/tree-project-backend`
+- **Repository**: `<GITHUB_OWNER>/tree-project-backend`
 - **Commit**: `5037b1d` - "feat: 完成所有核心功能 - Phase 3.3 & 4.4"
 - **Render**: 自動部署中 (GitHub push 觸發)
 - **URL**: https://tree-app-backend-prod.onrender.com
 
 ### Frontend
-- **Repository**: `KyleliuNDHU/tree-project-frontend`
+- **Repository**: `<GITHUB_OWNER>/tree-project-frontend`
 - **Commit**: `0ba2818` - "feat: V3 功能路由整合 + 清理重複 import"
 - **狀態**: 已推送，準備燒錄 APK
 

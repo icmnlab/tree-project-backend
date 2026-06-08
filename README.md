@@ -338,7 +338,7 @@ The tests under `tests/` are plain Node scripts, not a framework.
 
 | File | Purpose |
 |------|---------|
-| `migrate.js` | Reads schema files in `database/initial_data/` in a fixed order, executes them in one transaction-friendly sequence, COPYs `tree_survey_data.csv` (with on-the-fly date sanitization), creates views, resets the `tree_survey` PK sequence, and populates `species_region_score`. Idempotent — every migration uses `IF NOT EXISTS` / `CREATE OR REPLACE` / safe upserts |
+| `migrate.js` | Reads schema files in `database/initial_data/` in a fixed order, executes them in one transaction-friendly sequence, COPYs `tree_survey_data.csv` (with on-the-fly date sanitization), creates views, and resets the `tree_survey` PK sequence. Idempotent — every migration uses `IF NOT EXISTS` / `CREATE OR REPLACE` / safe upserts |
 | `deploy.sh` | Production auto-deploy: saves rollback point, `git pull`, `npm install --production`, runs migrations (unless `--skip-migrate`), PM2 graceful reload, health-check; auto-rollback on failure |
 | `rollback.sh` | Manual rollback to `.last_good_commit` |
 | `backup_db.sh` | `pg_dump` wrapper for the nightly cron |
@@ -545,7 +545,7 @@ an additional minimum role where indicated.
 - `GET  /tree_survey/common_species/:projectCode`.
 
 ### Tree species (`routes/treeSpecies.js`)
-- CRUD plus `/search`, `/enhanced` (joins `tree_carbon_data`),
+- CRUD plus `/search`, `/enhanced` (每個樹種帶出其同義詞清單),
   `/synonyms/report`, `/synonyms/merge` (≥系統管理員), `/next_number`.
 
 ### Two-stage measurement (`routes/pending_measurements.js`)
@@ -595,7 +595,7 @@ an additional minimum role where indicated.
   - `query_tree_data(query, project_area?)` → reuses `sqlQueryService` to
     run safe Text-to-SQL.
   - `calculate_carbon(dbh_cm, height_m?, species?)` → Chave 2014 allometry.
-  - `species_carbon_info(species_name)` → `tree_carbon_data` lookup.
+  - `species_carbon_info(species_name)` → 以 `tree_survey` 實際調查資料統計（舊 `tree_carbon_data` 靜態表已移除）。
   - `project_summary(project_area?)`.
   - `carbon_report(...)`.
   Memory: 5 prior turns of the same `(user_id, session_id, chat_mode='agent')`.
@@ -605,15 +605,11 @@ an additional minimum role where indicated.
   and `tokensUsed` are stored in `chat_logs.metadata`.
 - `GET /agent/status` (≥調查管理員), `GET /agent/models` (≥調查管理員).
 
-### Carbon (`routes/carbon.js`, `routes/carbon_data.js`)
-- `POST /carbon/footprint/offset`, `/calculator`.
-- `GET  /carbon/sink/tree-species`, `/species`,
-  `POST /sink/calculate`, `GET /sink/recommend-by-region`,
-  `/filter-by-efficiency`, `/filter-by-environment`, `POST /sink/mixed-forest`.
-- `GET  /carbon/trading/credit_calculator`, `/credit_estimation`.
-- `GET  /carbon/optimization/species_recommendation`.
-- `GET  /carbon/education/:topic`, `POST /carbon/footprint/advice`.
-- `GET  /tree-carbon-data/species-list`, `POST /species-comparison/details`.
+### Carbon
+- 舊的 `routes/carbon.js` / `routes/carbon_data.js`（carbon-sink、credit、education、
+  species-comparison 等）與 `tree_carbon_data` 靜態表已整批移除。
+- 現行碳計算改由 `services/carbonCalculationService.js` /
+  `handbookCarbonService.js` 以程式內公式 + `tree_survey` 欄位計算。
 
 ### Tree management (`routes/management.js`)
 - `POST /tree-management/actions/generate` (≥專案管理員)
@@ -629,9 +625,9 @@ an additional minimum role where indicated.
   `@turf/turf` `booleanPointInPolygon` with a bbox prefilter. The legacy
   `data/twCounty2010.fixed.geo.json` is no longer read.
 
-### Knowledge base (`routes/knowledge.js`)
-- CRUD on `tree_knowledge_embeddings_v2` plus pgvector cosine search. Used by
-  the legacy RAG path; current `/chat` route does not call this.
+### Knowledge base（已移除）
+- 舊 RAG 知識庫（`routes/knowledge.js` + `tree_knowledge_embeddings_v2` + pgvector）
+  已整批移除；現行 `/chat`、Agent 皆不使用。
 
 ### Species ID (`routes/speciesIdentification.js`)
 - `POST /species/identify` — multipart image; PlantNet → fallback heuristics.
@@ -701,25 +697,21 @@ this fixed order by `scripts/migrate.js`:
 ```
 00_init_functions.pg.sql            update_updated_at_column() shared trigger
 users.pg.sql                        users + ENUM user_role + 5 seed accounts
-system_settings_and_audit.pg.sql    system_settings, audit_logs
+system_settings_and_audit.pg.sql    audit_logs (system_settings 已於 migration 25 移除)
 project_areas.pg.sql                9 seeded port areas (基隆/安平/布袋/澎湖/
                                     臺中/臺北/花蓮/蘇澳/高雄)
 tree_species.pg.sql                 master species list
-species_region_score.pg.sql        per-region suitability scores
-tree_carbon_data.pg.sql             74 species × carbon-absorption ranges
 tree_survey.pg.sql                  main survey table (~7 k rows)
 00_normalization_schema.pg.sql      normalization helpers (must run after
                                     tree_survey exists)
-tree_management_actions.pg.sql
+tree_management_actions.pg.sql      AI 管理建議表（功能保留、前端暫無入口；冪等建表、不灌 demo）
 chat_logs.pg.sql
 02_chat_logs_add_session.pg.sql     adds session_id
 04_chat_logs_agent_mode.pg.sql      adds chat_mode + metadata JSONB
-tree_knowledge_embeddings_v2.pg.sql RAG embeddings (legacy, still kept)
 01_sync_project_id_trigger.sql      auto-creates a projects row when a
                                     tree_survey row arrives with a new
                                     project_code; superseded by 07_…
 ml_training_data.pg.sql
-emission_factors.pg.sql
 z_pending_tree_measurements.pg.sql  V3 two-stage measurement workflow
 tree_images.pg.sql                  Cloudinary references, FK to tree_survey
 species_synonyms.pg.sql             synonyms + species_merge_log

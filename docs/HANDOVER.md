@@ -12,8 +12,8 @@
 **智慧樹木管理系統 (Sustainable TreeAI)** - Flutter 行動應用程式
 
 ### GitHub Repository
-- **Frontend**: `KyleliuNDHU/tree-project-frontend`
-- **Backend**: `KyleliuNDHU/tree-project-backend`
+- **Frontend**: `<GITHUB_OWNER>/tree-project-frontend`
+- **Backend**: `<GITHUB_OWNER>/tree-project-backend`
 
 ### 技術棧
 - **框架**: Flutter 3.x, Dart

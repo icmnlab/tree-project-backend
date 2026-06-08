@@ -74,7 +74,13 @@ async function migrate() {
       console.log(`${file} executed successfully.`);
     }
 
-    // Import data from CSV into tree_survey table（僅全新開發庫；上線環境勿用）
+    // === CSV 匯入政策（tree_survey_data.csv：約 7000 筆港務測試樹）===
+    // 此 CSV 僅供「全新空的開發庫」做本地測試與回歸，正式環境永遠不應匯入。
+    // 三重保護確保正式庫乾淨：
+    //   1) 正式部署只跑 run_pending_migrations.js（完全不走本檔的 CSV 段）。
+    //   2) SKIP_CSV_IMPORT=1/true 明確跳過（reset_fresh_db.sh 預設帶 1）。
+    //   3) tree_survey 已有資料時自動跳過（避免覆蓋既有調查資料）。
+    // 若要徹底移出 repo，可改放 dev-fixtures/ 並同步調整本路徑與讀取此檔的腳本。
     const skipCsv =
         process.env.SKIP_CSV_IMPORT === 'true' ||
         process.env.SKIP_CSV_IMPORT === '1';
