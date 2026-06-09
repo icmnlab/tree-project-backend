@@ -4,6 +4,13 @@
 
 ---
 
+## (2026-06-10) — 歷次量測快照補洞：create_v2 首筆入歷史
+
+- `controllers/treeSurveyCreateController.js`：手動新增（智慧/快速模式）原本**只寫 tree_survey 主表**、不寫 `tree_survey_measurements`；年碳吸存推估靠歷次快照差分，首筆缺漏會讓這些樹永遠少一期。現在 create_v2 同一交易內補寫 survey_mode='new' 快照（pending_id=NULL）。
+- BLE/維護 transfer 路徑行為不變（原本就寫快照）；`update_v2` 維持不寫快照（網頁編輯視為「更正」而非新量測，業界慣例）。
+
+---
+
 ## (2026-06-10) — 多人安全 P0：pending 任務擁有權 + 查詢上限
 
 ### pending 任務擁有權（稽核 #1/#3）

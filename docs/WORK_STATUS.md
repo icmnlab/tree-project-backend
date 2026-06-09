@@ -141,7 +141,8 @@
 - [x] **#22 tree_list catch 未檢 mounted**（已修 2026-06-10）。
 
 **地圖效能升級（2026-06-10）**
-- [x] **原生 marker clustering**：改用 google_maps_flutter `ClusterManager`（v2.10 原生支援）——低縮放顯示「N 棵」聚合圓點、點擊自動 zoom 展開；取代視窗剔除 + 1500 上限（保險絲改 10000）。全部樹木皆可達，無「看不到部分樹」問題。待實機驗證效能。
+- [x] ~~原生 marker clustering（plugin ClusterManager）~~ → **實機踩雷退役**：7000+ 標記觸發 Android `RejectedExecutionException`（plugin 每 addItem 觸發一次原生 re-cluster AsyncTask，塞爆 128 佇列）。
+- [x] **Dart 端網格聚合（最終方案）**：`lib/utils/tree_marker_cluster.dart` + 單元測試。zoom<16 聚合圓點（畫布繪數字、點擊漸進放大）；zoom≥16 一律個別標記（保證放大看得到點）+ spiderfy 疊點展開 + 視窗剔除 2000 保險絲。`onCameraIdle` 門檻/0.5 zoom 變化才重建。（2026-06-10）
 
 ---
 

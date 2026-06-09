@@ -175,7 +175,31 @@ exports.createTreeV2 = async (req, res) => {
 
         const result = await client.query(insertSql, values);
         const newTreeId = result.rows[0].id;
-        
+
+        // [一致性] 手動新增（智慧/快速模式）也寫入歷次量測快照，
+        // 與 BLE/維護 transfer 行為一致——年碳吸存推估靠歷次快照差分，
+        // 首筆量測必須入歷史（survey_mode='new'，無 pending 來源）。
+        await client.query(`
+            INSERT INTO tree_survey_measurements (
+                tree_id, pending_id, survey_time,
+                tree_height_m, dbh_cm, species_name, species_id,
+                status, survey_notes, carbon_storage,
+                x_coord, y_coord, survey_mode
+            ) VALUES ($1, NULL, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, 'new')
+        `, [
+            newTreeId,
+            survey_time || new Date().toISOString(),
+            finalHeight,
+            finalDbh,
+            species_name || '無',
+            finalSpeciesId || '無',
+            status || '良好',
+            finalSurveyNote,
+            finalCarbon,
+            finalX,
+            finalY,
+        ]);
+
         await client.query('COMMIT');
 
         // Audit Log
