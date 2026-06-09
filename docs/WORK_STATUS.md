@@ -53,11 +53,11 @@
   - 業界做法建議：以**資料本身**定義待維護池（例如 `tree_survey.last_measured_at` 早於門檻 N 個月，或 `status='pending_remeasure'`），而非記憶體 session set。
   - **需決定**：「待維護」的判定基準（最近量測時間門檻？或明確旗標？）。確認後再實作（牽動後端欄位/查詢與前端清單來源）。
 
-**P1 — UI/版面（log 明確報出，建議排修）**
-- [ ] `admin_page.dart:1487` `NavigationRail` 直向 overflow 95px（窄高螢幕）。
-- [ ] `pending_measurement_task_page.dart:1592` `Column` 直向 overflow 134px。
-- [ ] 多處 `RenderFlex overflowed ... on the right`（14/43/54px）— 量測表單/清單列。
-- [ ] `ListTile background color or ink splashes may be invisible`：`ListTile` 外包了有底色的 `DecoratedBox` → 應改包 `Material` 或移除中間底色（樹木清單列）。
+**P1 — UI/版面（2026-06-09 已修 3 項，commit `0058c7f`）**
+- [x] `admin_page.dart` `NavigationRail` 直向 overflow 95px → 包 `LayoutBuilder`+`SingleChildScrollView`+`IntrinsicHeight`，矮螢幕可捲動。
+- [x] `pending_measurement_task_page.dart` 雷達導引 `Column` overflow 134px → 同上，有空間置中、不足則捲動。
+- [x] `ListTile background color or ink splashes may be invisible` → `tree_measurement_history_panel.dart` 的 `ExpansionTile` 改包透明 `Material`。
+- [ ] 多處 `RenderFlex overflowed ... on the right`（14/43/54px）：log 未指明 widget，需實機 DevTools 定位（量測表單/清單列）。
 
 **P1 — 生命週期 / 穩定性**
 - [ ] 地圖開啟瞬間偶發 `TextEditingController was used after being disposed` + `_dependents.isEmpty is not true` + `Tried to build dirty widget in the wrong build scope`：頁面切換時 controller/dependency 釋放順序問題，需在 `dispose`/`build` 範圍收斂（重現於進入地圖頁）。
