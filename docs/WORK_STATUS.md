@@ -36,6 +36,42 @@
 
 ---
 
+## 0c. 程式碼健檢 + 實機 log 分析（2026-06-09）
+
+> 來源：一次完整 `flutter run` 實機 log（量測/維護/地圖全流程）＋ SSH 後端檢查。
+> 修復範圍策略＝**track_only**（記錄為主），但下列 **F-A／F-B** 為使用者直接回報、已動手處理。
+
+**SSH 後端檢查（2026-06-09）**
+- `richardhualienserver` 後端 `git log -1` = `f11d60d`（與本機 main 一致）；PM2 `tree-backend` cluster ×2 online；`/health`=OK；`backend-error-*.log` **無錯誤**。後端側健康。
+
+**本輪已處理**
+- [x] **F-B 地圖「專案選單不配合縣市」（前端，已修）**：根因＝`MapPage._refreshProjectsForCity` 呼叫 `projects/by_area/<縣市>`，但該路由 `:area` 是「**區位名稱**」非「縣市」，把縣市當區位送進去永遠 0 筆 → 專案下拉塌成只剩「全部」。修法：移除該誤用 API，改在 `_loadMapData` 載入後，依「**已按縣市過濾的快取樹木**」在地端推導專案清單（`_deriveFilteredProjectsForCity`），免後端配合、免重部署。`flutter test` 387 pass、analyze 無新錯。
+- [x] **批次匯入 GPS 一律樹木位置**（前端 `ble_import_page.dart`）：對齊 2026-05-28 會議決議，移除三選一對話框。已 `flutter test` 通過、commit/push。
+
+**待確認設計決策（需使用者拍板，非單純 bug）**
+- [ ] **F-A 維護量測新增樹也變「待維護」**：現行「待維護」＝該專案/區位全部樹 − 本場已完成(`_completedThisSession`) − 本場新增(`_addedThisSession`)，而 `_addedThisSession` 是**記憶體內、單場**。重進維護或換到地圖檢視即失效 → 當天新增的樹下次又被列為待維護。
+  - 業界做法建議：以**資料本身**定義待維護池（例如 `tree_survey.last_measured_at` 早於門檻 N 個月，或 `status='pending_remeasure'`），而非記憶體 session set。
+  - **需決定**：「待維護」的判定基準（最近量測時間門檻？或明確旗標？）。確認後再實作（牽動後端欄位/查詢與前端清單來源）。
+
+**P1 — UI/版面（log 明確報出，建議排修）**
+- [ ] `admin_page.dart:1487` `NavigationRail` 直向 overflow 95px（窄高螢幕）。
+- [ ] `pending_measurement_task_page.dart:1592` `Column` 直向 overflow 134px。
+- [ ] 多處 `RenderFlex overflowed ... on the right`（14/43/54px）— 量測表單/清單列。
+- [ ] `ListTile background color or ink splashes may be invisible`：`ListTile` 外包了有底色的 `DecoratedBox` → 應改包 `Material` 或移除中間底色（樹木清單列）。
+
+**P1 — 生命週期 / 穩定性**
+- [ ] 地圖開啟瞬間偶發 `TextEditingController was used after being disposed` + `_dependents.isEmpty is not true` + `Tried to build dirty widget in the wrong build scope`：頁面切換時 controller/dependency 釋放順序問題，需在 `dispose`/`build` 範圍收斂（重現於進入地圖頁）。
+
+**P2 — 效能**
+- [ ] 地圖「全部」一次載入 **7067** 個 marker（log：`load done markers=7067 elapsed≈3.7s`、多次大型 GC、Skipped frames）。已有 >5000 提示但未限流；建議 viewport/分頁或聚合載入（先前已移除 clustering，需折衷）。
+
+**P3 — 平台/建置警告（非功能性，未來清理）**
+- [ ] Impeller opt-out deprecated（`AndroidManifest` 顯式關閉 Impeller，未來 Flutter 版本將移除此選項）。
+- [ ] Kotlin Gradle Plugin 警告：`device_info_plus`/`file_picker`/`mobile_scanner` 等套件，未來需遷移 Built-in Kotlin。
+- [ ] Mi A1（Android 9）`androidx.window SidecarInterface$SidecarCallback` `ClassNotFoundException`：舊機相容性雜訊，**非本 App bug**，可忽略。
+
+---
+
 ## 交接去個人化 worklist（**fresh 策略**，2026-06-09 定）
 
 > 決策：**完全去個人化** — 程式碼零硬編碼個人值，下一棒自行申請所有帳號/金鑰。  
