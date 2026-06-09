@@ -1,0 +1,214 @@
+# 交接總覽 HANDOFF（單一入口）
+
+> 新人接手請從這份開始。這裡只放「跑起來、測試、部署、找路」需要知道的事，
+> 細節指向各專門文件（見 §10 文件地圖）。最後更新：2026-06-09。
+
+---
+
+## 1. 這是什麼系統
+
+**永續碳匯樹木管理系統（Sustainable TreeAI）**：港務造林地的樹木調查與碳匯管理。
+
+- **前端**：Flutter App（Android 為主），現場調查、地圖、BLE 連 VLGEO2 測樹儀、AI 助理。
+- **後端**：Node.js + Express + PostgreSQL，提供 API、整批/現場量測資料寫入、專案/邊界/碳匯計算。
+- **ML 服務（選用）**：樹幹偵測 / 深度估計代理（獨立服務，後端透過 `ML_SERVICE_URL` 代理）。
+
+兩個 repo（各自獨立）：
+- `KyleliuNDHU/tree-project-backend`
+- `KyleliuNDHU/tree-project-frontend`
+
+> ⚠️ 工作區根目錄 `project_code/` 不是 git repo；`backend/` 與 `frontend/` 各是一個 repo，
+> `docs/`、`ml_service/` 為輔助目錄。
+
+---
+
+## 2. 目錄結構
+
+```
+project_code/
+├── backend/        # Node/Express API（一個 git repo）
+│   ├── app.js                      # 入口；prod 開機自動跑 pending migration
+│   ├── routes/ services/ middleware/ config/
+│   ├── database/initial_data/*.pg.sql   # schema/migration SQL（依序）
+│   ├── scripts/                    # migrate.js / run_pending_migrations.js / deploy.sh ...
+│   ├── dev-fixtures/               # 開發/CI 用種子（tree_survey_data.csv 等）
+│   ├── tests/                      # 整合測試框架（runner.js + invariants/journeys/contracts）
+│   └── .github/workflows/ci.yml    # 後端 CI
+├── frontend/       # Flutter App（一個 git repo）
+│   ├── lib/ (screens/ services/ widgets/ models/ config/)
+│   ├── test/                       # 單元/Widget 測試（flutter test）
+│   └── .github/workflows/ci.yml    # 前端 CI
+└── docs/           # 文件（含本檔）
+```
+
+---
+
+## 3. 環境需求
+
+| 項目 | 版本 |
+|------|------|
+| Node.js | 18+（CI 用 18；prod 建議 20 LTS） |
+| PostgreSQL | 15+ |
+| Flutter | stable（Dart SDK `>=3.0.0 <4.0.0`） |
+| Python / CUDA | 僅 ML 服務需要（選用） |
+
+---
+
+## 4. 本機跑起來
+
+### 4.1 後端
+```bash
+cd backend
+cp .env.example .env          # 填 DATABASE_URL（或 DB_*）、JWT_SECRET、CORS
+npm ci
+node scripts/migrate.js       # 全新空庫：建 schema + seed admin（admin/12345）
+npm start                     # http://localhost:3000  （/health 可測活）
+```
+- 本機若連「無 SSL」的 Postgres，`.env` 設 `DB_SSL=false`。
+- `migrate.js` 是「全新空庫」用（會匯入 `dev-fixtures/tree_survey_data.csv`，約 7000 筆港務測試樹）；
+  不想匯入測試樹設 `SKIP_CSV_IMPORT=1`。**正式環境永遠不要跑 `migrate.js`**（見 §6）。
+
+### 4.2 前端
+```bash
+cd frontend
+flutter pub get
+flutter run --dart-define=API_BASE_URL=http://<後端IP>:3000/api
+```
+API 位址由建置期 `--dart-define=API_BASE_URL` 注入（見 `lib/config/app_config.dart`），不要寫死。
+
+---
+
+## 5. 測試與 CI
+
+### 5.1 後端整合測試（`tests/runner.js`）
+針對「跑起來的 server + DB」做契約/旅程/不變式測試，每個 case 自建資料並清理。
+```bash
+# 需要：一個已 migrate 的 DB + 一個正在跑的 server
+$env:TEST_BASE_URL="http://localhost:3001/api"   # PowerShell
+node tests/runner.js                 # 全部
+node tests/runner.js --section=contracts
+node tests/runner.js --list          # 只列出 case
+```
+- 預設登入 `admin/12345`（migrate 已 seed）；其他角色由測試自建。
+- 需直連 DB 的 invariants 用 `TEST_DB_URL`（或 `DATABASE_URL`）；沒設則自動 skip。
+- 寫測試規範見 `backend/tests/FRAMEWORK.md`。
+
+### 5.2 前端測試
+```bash
+cd frontend
+flutter test                 # 全套（目前 377 pass）
+```
+
+### 5.3 CI（GitHub Actions，push / PR 觸發）
+| Repo | Workflow | 內容 |
+|------|----------|------|
+| backend | `.github/workflows/ci.yml` | 起 `postgres:15` → `migrate.js`（schema+seed）→ 啟 server → `tests/runner.js`（37 pass / 1 skip） |
+| frontend | `.github/workflows/ci.yml` | `flutter pub get` → `analyze`（advisory）→ `flutter test`（377 pass） |
+
+CI 專用環境變數（在 workflow 內設，正式環境**不要**設）：
+- `DB_SSL=false`：連 CI 的無 SSL Postgres。
+- `DISABLE_RATE_LIMIT=true`：localhost 大量請求不被限流／IP 黑名單擋。
+- `OPENAI_API_KEY` / `GEMINI_API_KEY`=dummy：避免模組載入即建 AI client 而崩潰（見 §9 故障排除）。
+
+---
+
+## 6. 部署（正式環境）
+
+正式機在 `/opt/tree-app/backend`，以 **PM2** 跑 process `tree-backend`（port 3000）。
+
+### 6.1 自動部署（GitHub webhook）
+push 到 `main` → GitHub webhook 打 `POST /webhook/deploy`（HMAC 用 `DEPLOY_WEBHOOK_SECRET` 驗簽）→ 執行 `scripts/deploy.sh`：
+1. 記錄當前 commit 當 rollback 點
+2. `git pull origin main`
+3. `npm install --production`
+4. **增量** migration：`node scripts/run_pending_migrations.js`（不重新 COPY CSV）
+5. `pm2 reload tree-backend`（zero-downtime）
+6. `/health` 驗證，失敗自動 rollback
+
+部署日誌：`/opt/tree-app/logs/deploy.log`（`GET /webhook/status` 可看尾段，需 `ADMIN_API_TOKEN`）。
+
+### 6.2 手動部署 / 排錯
+```bash
+ssh <lab-host>
+cd /opt/tree-app/backend
+./scripts/deploy.sh              # 正常（pull + 增量 migration + reload）
+./scripts/deploy.sh --dry-run    # 只拉取不重啟
+pm2 logs tree-backend            # 看後端 log
+pm2 reload tree-backend          # 手動重載
+```
+
+> **migrate.js vs run_pending_migrations.js**
+> - `migrate.js`：全新空庫一次建好（含 CSV）。**只用於開發/CI/全新庫**。
+> - `run_pending_migrations.js`：用 `schema_migrations` 表只跑新增量。**正式部署一律走這支**。
+> - 兩支共用 `migrationFiles` 清單；新增 migration 請加進 `scripts/migrate.js` 的清單並照編號排序。
+
+---
+
+## 7. 環境變數速查（後端）
+
+完整範本見 `backend/.env.example`。重點：
+
+| 變數 | 必要性 | 說明 |
+|------|--------|------|
+| `DATABASE_URL`（或 `DB_HOST/PORT/NAME/USER/PASSWORD`） | 必要 | DB 連線 |
+| `JWT_SECRET` | 必要（prod 開機檢查） | 登入簽 JWT；`openssl rand -hex 64` |
+| `PORT` | 選用 | 預設 3000 |
+| `NODE_ENV` | 選用 | `production` 才會開機自動 migration + 嚴格 env 檢查 |
+| `CORS_ALLOWED_ORIGINS` | 建議 | 逗號分隔來源白名單 |
+| `DB_SSL` / `DB_SSL_REJECT_UNAUTHORIZED` / `PGSSLMODE` | 選用 | SSL 控制（見 `config/pgSsl.js`） |
+| `DEPLOY_WEBHOOK_SECRET` / `ADMIN_API_TOKEN` | 部署用 | webhook 驗簽 / 部署狀態查詢 |
+| `ML_SERVICE_URL` / `ML_SERVICE_PUBLIC_URL` / `ML_API_KEY` | ML 用 | ML 代理 |
+| `CLOUDINARY_*`（三項） | 照片用 | 樹木影像儲存 |
+| `OPENAI_API_KEY` / `GEMINI_API_KEY` / `Claude_API_KEY` / `PLANTNET_API_KEY` / `GOOGLE_CSE_*` | 選用 | AI / 樹種辨識 / 搜尋；未設則對應功能停用 |
+| `SKIP_CSV_IMPORT` | 選用 | `migrate.js` 是否跳過匯入測試樹（正式庫建議 1） |
+
+前端：`--dart-define=API_BASE_URL=...`、`--dart-define=ML_SERVICE_URL=...`（見 `lib/config/app_config.dart`）。
+
+---
+
+## 8. 資料模型與領域重點（指路）
+
+- **CSV / 專案語意**（program_name→project_location、block_name→project_name 等）：`PROJECT_DATA_AND_DOMAIN.md`
+- **資料庫正規化 / schema**：`DATABASE_NORMALIZATION.md`
+- **專案邊界系統**（convex-hull 建議邊界、outlier 排除）：`BOUNDARY_SYSTEM_DESIGN.md`
+- **碳匯計算**：`CARBON_CALCULATION.md`
+- **VLGEO2 BLE 整合**（NUS/Haglof、CSV TYPE 1P/3P/DME/3D/SET、現場 PHGF）：`VLGEO2_STD_APPLICATION_GUIDE.md`、`frontend` 內 `ble_data_processor.dart` / `data_filter_service.dart`
+- **AI Agent / 文字轉 SQL**：`AI_Agent_完整說明.md`
+- **ML 自架**：`SELF_HOST_ML_GUIDE.md`
+
+---
+
+## 9. 故障排除（踩過的雷）
+
+| 症狀 | 原因 / 解法 |
+|------|------------|
+| 後端開機即 `OpenAIError: OPENAI_API_KEY ... missing` 後崩潰重啟 | `routes/ai.js`、`geminiService.js` 在模組載入就建 AI client。prod 要設真金鑰；CI 設 dummy。 |
+| 全新空庫 `migrate.js` 在 migration 16 報 `relation "project_boundaries" does not exist` | 已修：`06a_project_boundaries_schema.pg.sql`（schema-only）建表。若再遇到缺表，檢查 `migrationFiles` 順序。 |
+| 連本機/CI Postgres 報 SSL 錯 | 設 `DB_SSL=false`（或 `PGSSLMODE=disable`）。 |
+| 測試大量 429 / IP 被封 | CI/本機跑 runner 設 `DISABLE_RATE_LIMIT=true`。 |
+| 部署後 `/health` 失敗 | `deploy.sh` 會自動 rollback；看 `/opt/tree-app/logs/deploy.log` 與 `pm2 logs tree-backend`。 |
+| 維護鎖相關崩潰 | 取 client 用 `db.pool.connect()` 而非 `db.connect()`（曾因此 unhandledRejection 打掛 process）。 |
+
+---
+
+## 10. 文件地圖
+
+| 文件 | 用途 |
+|------|------|
+| **`HANDOFF.md`（本檔）** | 單一入口：跑起來 / 測試 / 部署 / 找路 |
+| `WORK_STATUS.md` | 最新工作狀態、已完成、待辦（含 §0a CI） |
+| `VERIFICATION_CHECKLIST.md` | 部署後實機驗證清單（§0、§8–§10） |
+| `LAB_DEPLOYMENT_GUIDE.md` | 脫離個人帳號、實驗室獨立部署 |
+| `BUILD_GUIDE.md` | App 建置細節 |
+| `PROJECT_DATA_AND_DOMAIN.md` | CSV / 專案語意（domain 真相） |
+| `DATABASE_NORMALIZATION.md` / `BOUNDARY_SYSTEM_DESIGN.md` / `CARBON_CALCULATION.md` | 各子系統設計 |
+| `backend/tests/FRAMEWORK.md` | 後端測試框架寫法 |
+| `history/` | 舊版交接與分析（僅參考，可能過時） |
+
+---
+
+## 11. 待辦與下一步
+
+見 `WORK_STATUS.md`「待辦」與 `VERIFICATION_CHECKLIST.md`。目前重點：
+- 把仍標「實機」的 P0 項目盡量轉成自動化測試/腳本（GPS 三選一、新增樹不進待辦、儀器欄位 transfer→history…）。
+- 真正非實機不可的項目（雙機、藍牙硬體）才保留人工驗證。
