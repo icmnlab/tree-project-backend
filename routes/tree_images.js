@@ -15,12 +15,28 @@ async function assertOwnerProjectAccess(req, ownerType, ownerId) {
     }
 
     const table = ownerType === 'survey' ? 'tree_survey' : 'pending_tree_measurements';
+    const ownerColumns = ownerType === 'pending'
+        ? 'project_code, created_by_user_id'
+        : 'project_code';
     const { rows } = await db.query(
-        `SELECT project_code FROM ${table} WHERE id = $1`,
+        `SELECT ${ownerColumns} FROM ${table} WHERE id = $1`,
         [ownerId]
     );
-    const projectCode = rows[0]?.project_code;
-    if (!projectCode) return { ok: true };
+    // [稽核#14] 找不到 owner 列 → 404（原本放行，任何人都可掛圖到不存在的 id）
+    if (rows.length === 0) {
+        return { ok: false, status: 404, message: '找不到對應的樹木/待測記錄' };
+    }
+    const projectCode = rows[0].project_code;
+    if (!projectCode) {
+        // [稽核#14] pending 無 project_code 時改驗建立者（legacy NULL 建立者沿用舊行為放行）
+        if (ownerType === 'pending') {
+            const creator = rows[0].created_by_user_id;
+            if (creator != null && creator !== req.user.user_id) {
+                return { ok: false, status: 403, message: '權限不足：僅建立者可操作此記錄的影像' };
+            }
+        }
+        return { ok: true };
+    }
 
     const allowed = await hasProjectPermission(req.user.user_id, projectCode, req.user.role);
     if (!allowed) {

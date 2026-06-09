@@ -127,15 +127,21 @@
 - [x] **#9 by_project/by_area 無 LIMIT**：預設/最大 cap 2000 + `truncated` 旗標（可 `?limit=` 縮小）。（2026-06-10）
 - [x] **#10 批次更新無樂觀鎖**：稽核期間已先修（commit `73015cc`，逐棵帶鎖+回報）。
 - [x] **#11 DBH 無範圍驗證**：表單擋 ≤0 與 >600cm。（2026-06-10）
-- [ ] **#12 AI 匯出下載缺角色限制**：`/download/:filename` 加 requireRole 或 signed token。
+- [x] **#12 AI 匯出下載缺角色限制**：`/download/:filename` 加 `requireRole('調查管理員')`（與其他 AI 路由一致；前端 DownloadService 本就帶 JWT）。（2026-06-10）
 **P2 — 效能／資安／UX**
-- [ ] **#13 邊界 by_code 缺專案授權**、**#14 無 project_code 影像上傳放行**、**#16 map/meta 全表掃描**、**#17 project_areas city 全表掃描**（預聚合/快取）。
+- [x] **#13 邊界 by_code 缺專案授權**：GET/DELETE by_code 加 projectAuthFilter（無權限回 404 不洩漏存在性）。（2026-06-10）
+- [x] **#14 無 project_code 影像上傳放行**：owner 不存在 → 404；pending 無 project_code 改驗建立者（legacy NULL 沿用舊行為）。（2026-06-10）
+- [ ] **#16 map/meta 全表掃描**、**#17 project_areas city 全表掃描**（預聚合/快取）。
 - [x] **#15 pending GET /trees 無上限**：預設 cap 2000（可 ?limit= 覆寫）。（2026-06-10）
 - [x] **#18 ble_import await 後未檢 mounted**：已補。（2026-06-10）
 - [x] **#19 BLE 轉移失敗僅寫 log**：失敗/例外改 6 秒橙色 SnackBar 明確告警（資料保留在 pending、可重試）。（2026-06-10）
 - [x] **#20 GET /tree_survey 無預設上限**：預設/最大 cap 2000（前端全帶 limit，行為不變）。（2026-06-10）
 **P3**
-- [ ] **#21 維護鎖 dispose 未 await**、**#22 tree_list catch 未檢 mounted**（#22 已修 2026-06-10）。
+- [x] **#21 維護鎖 dispose 未 await**：結論＝設計可接受——dispose 無法 await，釋鎖為 best-effort，後端 45 分 TTL + purgeExpired 為安全網（已加註解）。（2026-06-10）
+- [x] **#22 tree_list catch 未檢 mounted**（已修 2026-06-10）。
+
+**地圖效能升級（2026-06-10）**
+- [x] **原生 marker clustering**：改用 google_maps_flutter `ClusterManager`（v2.10 原生支援）——低縮放顯示「N 棵」聚合圓點、點擊自動 zoom 展開；取代視窗剔除 + 1500 上限（保險絲改 10000）。全部樹木皆可達，無「看不到部分樹」問題。待實機驗證效能。
 
 ---
 

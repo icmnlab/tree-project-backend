@@ -714,7 +714,8 @@ router.get('/reports/ai-sustainability/pdf', requireRole('調查管理員'), aiL
 // 檔案會在 1 小時後自動清理。
 // ============================================
 
-router.get('/download/:filename', (req, res) => {
+// [稽核#12] 與其他 AI 路由一致限 調查管理員；前端 DownloadService 會帶 JWT header
+router.get('/download/:filename', requireRole('調查管理員'), (req, res) => {
     let filename = req.params.filename || '';
     try {
         filename = decodeURIComponent(filename);

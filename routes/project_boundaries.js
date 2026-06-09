@@ -501,9 +501,17 @@ router.post('/', requireRole('專案管理員'), async (req, res) => {
  * 取得特定專案的邊界（依 project_code）
  * GET /api/project_boundaries/by_code/:projectCode
  */
-router.get('/by_code/:projectCode', async (req, res) => {
+router.get('/by_code/:projectCode', projectAuthFilter, async (req, res) => {
     const { projectCode } = req.params;
     try {
+        // [稽核#13] 與 by-name 端點一致：無此專案權限時回 404（不洩漏存在性）
+        if (req.projectFilter != null && !req.projectFilter.includes(projectCode)) {
+            return res.status(404).json({
+                success: false,
+                message: '找不到該專案代碼的邊界',
+                hasBoundary: false,
+            });
+        }
         const { rows } = await db.query(
             'SELECT * FROM project_boundaries WHERE project_code = $1',
             [projectCode]
@@ -536,9 +544,13 @@ router.get('/by_code/:projectCode', async (req, res) => {
  * 刪除專案邊界（依 project_code） — 專案管理員以上
  * DELETE /api/project_boundaries/by_code/:projectCode
  */
-router.delete('/by_code/:projectCode', requireRole('專案管理員'), async (req, res) => {
+router.delete('/by_code/:projectCode', requireRole('專案管理員'), projectAuthFilter, async (req, res) => {
     const { projectCode } = req.params;
     try {
+        // [稽核#13] 專案管理員僅能刪除自己被授權專案的邊界
+        if (req.projectFilter != null && !req.projectFilter.includes(projectCode)) {
+            return res.status(404).json({ success: false, message: '找不到要刪除的專案邊界' });
+        }
         const { rowCount } = await db.query(
             'DELETE FROM project_boundaries WHERE project_code = $1',
             [projectCode]
