@@ -1,8 +1,8 @@
 /**
  * 線上 API 手冊碳儲量 E2E（需網路）
- *   node scripts/test_prod_handbook_e2e.js
+ *   TEST_BASE_URL=https://<your-host>/api node scripts/test_prod_handbook_e2e.js
  */
-const BASE = process.env.TEST_BASE_URL || 'https://richardhualienserver.tail124a1b.ts.net/api';
+const BASE = process.env.TEST_BASE_URL || 'http://localhost:3000/api';
 
 async function main() {
     const loginRes = await fetch(`${BASE}/login`, {

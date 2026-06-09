@@ -159,11 +159,14 @@
 > ⚠️ **執行時機：在「真人/硬體驗證」完成之後**（去個人化會抽掉驗證所需的後端 IP/憑證/SSH 資訊）。
 
 ### 1. 程式碼層（硬編碼個人值 → 可設定 / 占位）
-- [ ] `frontend/lib/config/app_config.dart` → `defaultBaseUrl` 由 `https://richardhualienserver.tail124a1b.ts.net/api` 改為**空字串**（強制 `--dart-define=API_BASE_URL`）；`AppConfig` 在空值時 fail-fast 給明確錯誤訊息。
-- [ ] `frontend/lib/main.dart` → `SelfHostedHttpOverrides` 移除硬編碼 `100.118.203.75`／`100.81.214.9`；改為 `--dart-define` 傳入信任清單（預設空＝只走正規 TLS，不白名單自簽）。
-- [ ] `backend/database/initial_data/users.pg.sql` → 移除真實姓名 + bcrypt 種子；改 `create_lab_admin.js` 於部署時建立（帳密由部署者輸入）。
+- [x] `frontend/lib/config/app_config.dart` → `defaultBaseUrl` 改為**空字串**（強制 `--dart-define=API_BASE_URL`）；空值時於 `_setEnvironment` 印明確警告。（2026-06-10）
+- [x] `frontend/lib/main.dart` → `SelfHostedHttpOverrides` 移除硬編碼 `100.118.203.75`／`100.81.214.9`；改 `--dart-define=SELF_SIGNED_TRUSTED_HOSTS`（逗號分隔，支援 `.suffix` 後綴；預設空＝只走正規 TLS）。（2026-06-10）
+- [x] `backend/database/initial_data/users.pg.sql` → 移除真實姓名種子帳號（`林柔安`／`劉旻豪`+`Kyleliu`）；保留 bootstrap `admin`（CI/首次登入）+ `test`/`tt2` 通用角色帳號（display 改通用、清 admin 港務專案關聯）。**剩餘**：完整改 `create_lab_admin.js` 部署時建立（帳密部署者輸入）— 待後續。（2026-06-10）
+- [x] `backend/scripts/test_prod_handbook_e2e.js` → host fallback 由個人 Tailscale 網址改 `http://localhost:3000/api`（仍可 `TEST_BASE_URL` 覆寫）。（2026-06-10）
+- [x] 港務測試種子 `06_project_boundaries_seed.pg.sql` 經查**已隔離**：`migrate.js` L47–48 排除於正式 migration、僅 dev-fixtures（`seed_dev_boundaries.js`）載入 → 正式庫不含港務資料，無需處理。
 - [ ] `backend/.env` 個人值（`ML_SERVICE_PUBLIC_URL` 等 Tailscale/ngrok）不入庫；`.env.example` 補齊所有鍵與註解。
-- [ ] 全庫掃描殘留：`richardhualienserver|tail124a1b|KyleliuNDHU|kyleliu|100.118.203.75|100.81.214.9|ngrok|真實姓名`（程式/腳本/CI）。
+- [ ] `backend/LICENSE` 著作權人 `KyleliuNDHU`（屬法律/歸屬決定，**留待使用者拍板**，未擅改）。
+- [ ] 殘留掃描：程式/腳本層已清；**文件層**（`docs/**`、根目錄部署筆記）仍含個人值，見第 2 節（時機：硬體驗證後）。
 
 ### 2. 文件層（個人值 → 占位符，與既有 checklist 風格一致）
 - [ ] `UBUNTU_SSH_ACCESS.md`、`HANDOFF.md`、本 `WORK_STATUS.md`、`SELF_HOST_ML_GUIDE.md`、`DBH_MEASUREMENT_RESEARCH_V2.md`、`ml_service/README.md`、`backend/CHANGELOG.md`：`kyleliu@100.118.203.75`→`<SERVER_USER>@<SERVER_IP>`、`richardhualienserver`→`<HOST>`、`*.tail124a1b.ts.net`→`<TAILSCALE_HOST>`。
