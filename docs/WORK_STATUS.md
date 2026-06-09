@@ -110,6 +110,35 @@
 
 ---
 
+## 0e. 深度稽核（2026-06-10，22 項；多人安全／效能／資安）
+
+> 來源：全庫深讀稽核（routes/services/screens 逐檔）。已知議題不重列。**本日已修 8 項**，其餘按優先序待辦。
+
+**P0 — 上線前應處理**
+- [ ] **#1 同專案調查員可互改 pending**：`pending_measurements.js` PATCH 僅驗 project_code，無 created_by/assigned_to 擁有權 → 需 batch 寫入 `created_by_user_id` + mutating 端點驗擁有者（**含 schema migration，下一輪做**）。
+- [ ] **#2 離開待測頁把他人 in_progress 打回 pending**：`pending_measurement_task_page` `dispose()` 無條件還原狀態 → 僅本機成功設 in_progress 才還原；他人任務唯讀。
+- [ ] **#3 session 操作無建立者檢查**：transfer/刪除/改專案僅驗專案權限 → 同 #1 一併做 created_by。
+- [ ] **#4 session ID 碰撞**：`MS-YYYYMMDD-${ms%100000}` 空間小且 DB 無 UNIQUE → 改 UUID + UNIQUE 約束（與 #1 同 migration）。
+- [x] **#5 地圖 API 無上限**：後端 `/map` 預設 cap 20000 + truncated（前端 viewport 剔除已先修）。（2026-06-10）
+**P1 — 資料正確性／多人協作**
+- [ ] **#6 維護轉移覆寫 tree_survey 無樂觀鎖**：transfer 已有 `FOR UPDATE`（轉移互斥）+ maintenance_locks（雙調查員互斥）+ 歷次量測表保留紀錄；剩餘風險是「web 編輯與現場轉移並行」——現場儀器值較新，**設計上現場優先**，列觀察非急修。
+- [x] **#7 pending PATCH SELECT→UPDATE 競態**：UPDATE WHERE 加毫秒級版本原子守門（date_trunc 對齊 PG 微秒），並發雙過 pre-check 時僅一個命中、另一個 409。（2026-06-10）
+- [ ] **#8 維護清單靜默截斷 500 筆**：>500 棵的專案需分頁/警告。
+- [ ] **#9 by_project/by_area 無 LIMIT**：加分頁（比照 tree_list 200 筆模式）。
+- [x] **#10 批次更新無樂觀鎖**：稽核期間已先修（commit `73015cc`，逐棵帶鎖+回報）。
+- [x] **#11 DBH 無範圍驗證**：表單擋 ≤0 與 >600cm。（2026-06-10）
+- [ ] **#12 AI 匯出下載缺角色限制**：`/download/:filename` 加 requireRole 或 signed token。
+**P2 — 效能／資安／UX**
+- [ ] **#13 邊界 by_code 缺專案授權**、**#14 無 project_code 影像上傳放行**、**#16 map/meta 全表掃描**、**#17 project_areas city 全表掃描**（預聚合/快取）。
+- [x] **#15 pending GET /trees 無上限**：預設 cap 2000（可 ?limit= 覆寫）。（2026-06-10）
+- [x] **#18 ble_import await 後未檢 mounted**：已補。（2026-06-10）
+- [x] **#19 BLE 轉移失敗僅寫 log**：失敗/例外改 6 秒橙色 SnackBar 明確告警（資料保留在 pending、可重試）。（2026-06-10）
+- [x] **#20 GET /tree_survey 無預設上限**：預設/最大 cap 2000（前端全帶 limit，行為不變）。（2026-06-10）
+**P3**
+- [ ] **#21 維護鎖 dispose 未 await**、**#22 tree_list catch 未檢 mounted**（#22 已修 2026-06-10）。
+
+---
+
 ## 0d. 功能盤點 + 專案/區結構 + 資料查閱 UX（2026-06-09）
 
 > 來源：全 `lib` 頁面盤點（約 40+ 畫面）＋專案/區資料結構檢視。**皆分析建議、未動程式**，待使用者勾選要動的項目。

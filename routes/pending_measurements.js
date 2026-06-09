@@ -499,7 +499,16 @@ router.get('/trees', projectAuthFilter, async (req, res) => {
     paramIndex = f.nextIdx;
     
     query += ' ORDER BY priority ASC, created_at ASC';
-    
+
+    // [審計#15] 伺服器端上限：防大批次匯入拖垮 API（可用 ?limit= 覆寫、上限 2000）。
+    const MAX_PENDING_LIMIT = 2000;
+    const reqLimit = req.query.limit ? parseInt(req.query.limit, 10) : null;
+    const effLimit = (Number.isFinite(reqLimit) && reqLimit > 0)
+      ? Math.min(reqLimit, MAX_PENDING_LIMIT)
+      : MAX_PENDING_LIMIT;
+    query += ` LIMIT $${paramIndex++}`;
+    params.push(effLimit);
+
     const result = await pool.query(query, params);
     
     res.json(result.rows);
@@ -682,27 +691,39 @@ router.patch('/:id', projectAuthFilter, async (req, res) => {
       }
     }
 
-    // [T6] 樂觀鎖：毫秒 pre-check 通過後僅用 id 更新（避免 PG 微秒 vs ISO 毫秒 WHERE 假失敗）
+    // [T6] 樂觀鎖：毫秒 pre-check（快速回 409 + serverVersion）
+    // [P1-7 競態修補] pre-check 通過後，UPDATE WHERE 再帶毫秒級版本比對做原子守門：
+    // 兩個並發請求同時通過 pre-check 時，只有一個 UPDATE 會命中，另一個落入下方 0-rows 重查 → 409。
+    // 毫秒比對用 date_trunc 對齊（PG 為微秒精度、客戶端 ISO 為毫秒精度，直接等號會假失敗）。
+    let lockGuardActive = false;
     if (expectedUpdatedAt) {
       const serverUpdatedAt = existing.rows[0].updated_at;
       const serverTs = new Date(serverUpdatedAt).getTime();
       const clientTs = new Date(expectedUpdatedAt).getTime();
-      if (Number.isFinite(serverTs) && Number.isFinite(clientTs) && serverTs !== clientTs) {
-        return res.status(409).json({
-          success: false,
-          code: 'CONFLICT',
-          message: '資料已被其他人修改，請重新整理',
-          serverVersion: existing.rows[0]
-        });
+      if (Number.isFinite(serverTs) && Number.isFinite(clientTs)) {
+        if (serverTs !== clientTs) {
+          return res.status(409).json({
+            success: false,
+            code: 'CONFLICT',
+            message: '資料已被其他人修改，請重新整理',
+            serverVersion: existing.rows[0]
+          });
+        }
+        lockGuardActive = true;
       }
     }
 
     values.push(id);
     const idIdx = paramIndex++;
+    let versionGuardSql = '';
+    if (lockGuardActive) {
+      values.push(new Date(expectedUpdatedAt).toISOString());
+      versionGuardSql = ` AND date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', $${paramIndex++}::timestamptz)`;
+    }
     const sql = `
         UPDATE pending_tree_measurements
         SET ${setClauses.join(', ')}
-        WHERE id = $${idIdx}
+        WHERE id = $${idIdx}${versionGuardSql}
         RETURNING *
       `;
 

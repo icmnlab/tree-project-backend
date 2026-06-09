@@ -57,7 +57,13 @@ const upload = multer({
 router.get('/', projectAuthFilter, async (req, res) => {
     try {
         // 支援分頁參數
-        const limit = req.query.limit ? parseInt(req.query.limit) : null;
+        // [審計#20] 伺服器端預設/最大上限：未帶 limit 或要求過大時 cap，
+        // 防止誤用/濫用一次拉全表（前端所有呼叫本就帶 limit，行為不變）。
+        const MAX_LIMIT = 2000;
+        const requested = req.query.limit ? parseInt(req.query.limit) : null;
+        const limit = (Number.isFinite(requested) && requested > 0)
+            ? Math.min(requested, MAX_LIMIT)
+            : MAX_LIMIT;
         const offset = req.query.offset ? parseInt(req.query.offset) : 0;
         const projectCode = req.query.project_code
             ? String(req.query.project_code).trim()
@@ -317,12 +323,14 @@ router.get('/map', projectAuthFilter, async (req, res) => {
         const swLng = parseFloat(req.query.sw_lng);
         const neLat = parseFloat(req.query.ne_lat);
         const neLng = parseFloat(req.query.ne_lng);
-        // 未傳 limit 時回傳符合篩選的全量標記（由前端 clustering 處理密度）
-        let limit = null;
+        // [審計#5] 未傳 limit 時預設 cap 20000（防資料成長後一次全量拖垮 API；
+        // 現有資料 ~7k 不受影響，超出時回 truncated=true 供前端提示）。
+        const MAP_MAX_LIMIT = 20000;
+        let limit = MAP_MAX_LIMIT;
         if (req.query.limit !== undefined && req.query.limit !== '') {
             const parsed = parseInt(req.query.limit, 10);
             if (Number.isFinite(parsed) && parsed > 0) {
-                limit = parsed;
+                limit = Math.min(parsed, MAP_MAX_LIMIT);
             }
         }
 
