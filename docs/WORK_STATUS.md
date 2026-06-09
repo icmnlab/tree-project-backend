@@ -66,6 +66,26 @@
     4. 門檻建議「全域預設 + 每專案可覆寫」（`projects` 加 `maintenance_interval_months`）；是否再對齊到「區」層級，待會議拍板（會議結構為 專案/區）。
     5. 「待維護」為樹的客觀狀態（與帳號無關），所有帳號一致；誰能編輯仍由既有 maintenance_locks 控制。
   - **尚待使用者/會議拍板**：門檻 N 值、是否對齊到「區」層級。確認後才實作後端查詢 + 前端清單來源切換 + per-project 設定 UI。
+- [x] **F-C（資料正確性，批次匯入座標語意）— 依現場 SOP 確認：不需改程式**
+  - **使用者裁決（2026-06-09）**：正式工作流為「取 GPS 時**人會走到樹木位置**定位（拿儀器或手機皆可）」→ 存入的座標**本來就是樹位**。故現行「一律標 `tree`、不做 HD/AZ 偏移」**正確**，LIVE 與批次語意在此 SOP 下一致；HD/AZ 退化為**純紀錄 metadata**，不參與定位，無需投影／磁偏角補正。
+  - **唯一前提（SOP 紀律）**：取點務必站在**樹旁**、勿在站位取點。建議寫入操作手冊／`VERIFICATION_CHECKLIST` 現場 Runbook，並可選擇性在 HD 很大時提示操作員確認 GPS 是否站在樹旁。
+  - **小型清理（選配）**：tree-source 的 `station_latitude/longitude` 目前用已棄用 `calculateStationPosition` 反推為合成點，建議改存 null 或標示，避免日後誤用。
+  - 以下為當初的分析留存（佐證為何 SOP 必須「站樹旁取點」）：
+- [x] ~~F-C 原始疑慮~~（已由上述 SOP 解除）整檔 DATA.CSV 的 GPS 來源分析：
+  - **手冊權威依據**（`Manual_Hagloef-Vertex-Laser-Geo2_..._en_30042024.pdf`）：
+    - §4.4.12.1／§4.6：儀器把「**內建 GPS 座標**＋5 碼 ID」與每筆量測一起存檔；該座標＝**操作員/儀器當下位置**（測站），儀器**不**計算也不存樹木絕對座標。
+    - §9.2 NMEA `$PHGF`：HD（水平距離）、AZ（方位角）、INC、SD、H 全是「**測站→目標**」的向量。
+    - §7：DATA.CSV 內容＝高度＋3D 向量＋GPS；§10.1：Azimuth 0..360、X=北。
+    - 物理上量樹高必須退到測站才能瞄樹冠，按 SEND 存檔當下儀器（其 GPS）在**測站**，故 DATA.CSV 的座標必為站位、與樹相距 HD（實機 log HD 介於 2～37m）。
+  - **現況程式（不一致）**：`ble_import_page._resolveGpsSourceForBatch` 把整檔每筆有 GPS 的記錄**強制** `gps_source='tree'`；`_estimateTreePosition` 見 `tree` 即原樣回傳、**不做 HD/AZ 偏移** → 整檔匯入會把**站位當樹位**入庫，地圖上系統性偏移 HD（數公尺～數十公尺）。
+  - **與 2026-05-28 會議「座標一律樹位」的關係**：該決議對**現場逐棵 LIVE** 成立（座標來自**手機**、操作員「於樹旁」定位，見 `ble_live_session_page.dart:959`）；但對**整檔 DATA.CSV** 不成立（座標來自**儀器**＝站位）。兩條路徑同樣標 `tree`，語意卻不同 → 批次那條是錯的。
+  - **LIVE 端的座標疑慮（使用者點出）**：LIVE 既以手機在樹旁取點，HD/AZ 變成「站位→樹」的**純記錄用 metadata**，不參與定位（現行正確，未誤用）；我們本就不另外定位測站，故 LIVE 無需偏移。`station_latitude/longitude` 對 tree-source 而言是用已棄用 `calculateStationPosition` 反推的**合成點**，建議改存 null 或明確標示，避免誤導。
+  - **修正選項（待拍板，皆牽動正式資料正確性）**：
+    1. **(建議) 批次視為站位 + 投影**：DATA.CSV 匯入改標 `gps_source='surveyor'`，以 `calculateTreePositionFromStation(站位, HD, AZ)` 推回樹位（程式已有此函式，現只在非 tree 時呼叫）。
+    2. 維持現狀，但需老師確認批次工作流會「人到樹旁、用手機（非儀器）定位」——以儀器內建 GPS 在量高時無法做到。
+    3. 整檔匯入恢復「站位／樹位」選擇（LIVE 仍固定樹位），把判斷交給匯入者。
+  - **選項 1 的精度前提（重要）**：投影需**真北**方位角。手冊 §4.4.10 預設磁偏角 0.0、AZ 為**磁北**；花蓮磁偏約 −4°～−5°，需在儀器設定磁偏角或於軟體補正，否則投影方向會偏（HD=30m、4° ≈ 偏 2m，仍遠優於不偏移的數十公尺）。GPS CEP 2.5m、AZ 1.5° RMSE 為殘餘誤差。
+  - **尚待使用者/會議拍板**：採哪個選項；若選 1，磁偏角在儀器端設定或軟體補正。確認後才動 `ble_import_page` + 資料模型文件。
 
 **P1 — UI/版面（2026-06-09 已修 3 項，commit `0058c7f`）**
 - [x] `admin_page.dart` `NavigationRail` 直向 overflow 95px → 包 `LayoutBuilder`+`SingleChildScrollView`+`IntrinsicHeight`，矮螢幕可捲動。
@@ -83,6 +103,51 @@
 - [ ] Impeller opt-out deprecated（`AndroidManifest` 顯式關閉 Impeller，未來 Flutter 版本將移除此選項）。
 - [ ] Kotlin Gradle Plugin 警告：`device_info_plus`/`file_picker`/`mobile_scanner` 等套件，未來需遷移 Built-in Kotlin。
 - [ ] Mi A1（Android 9）`androidx.window SidecarInterface$SidecarCallback` `ClassNotFoundException`：舊機相容性雜訊，**非本 App bug**，可忽略。
+
+---
+
+## 0d. 功能盤點 + 專案/區結構 + 資料查閱 UX（2026-06-09）
+
+> 來源：全 `lib` 頁面盤點（約 40+ 畫面）＋專案/區資料結構檢視。**皆分析建議、未動程式**，待使用者勾選要動的項目。
+
+### A. 樹木調查（`tree_survey_page.dart`）是否保留？
+- **現況**：仍是現役入口——佔**底部導覽第 2 頁「調查」**，定位＝「樹木清單瀏覽 + 手動新增入口（FAB→快速/智慧模式）」，**不是** BLE/拍照量測頁（那是 `ble_live_session_page`/`integrated_tree_form_page`）。也被專案瀏覽鏈（`ProjectTreesPage`/`ProjectAreasPage`）帶 `projectName/areaName` push。
+- **問題**：與 `tree_list_page.dart`（底部第 3 頁「列表」）**職責重疊**——兩個都是樹木清單，列表頁能力更強（分頁、搜尋、排序、批次、Excel 匯入匯出）；調查頁無篩選時只載前 200 筆。使用者最易困惑「調查 vs 列表」差在哪。
+- **建議（擇一，待拍板）**：
+  1. **(推薦) 合併成單一「樹木」頁**，用上方切換「專案視角／全域視角」；手動新增 FAB 保留。底部導覽從 3 頁變 2 頁（首頁、樹木），更清爽。
+  2. 保留兩頁但**明確分工**＋改名：調查＝「依專案/區瀏覽」、列表＝「全部樹木（營運）」，並移除儀表板重複的「樹木調查」卡（同頁三入口）。
+  3. 維持現狀（不建議，混淆會延續）。
+- **結論**：**不建議直接刪除**（仍是現役樞紐），但**強烈建議合併/釐清**。
+
+### B. 專案/區（代碼）結構
+- **資料模型**：`projects`（name/code/area）、`project_areas`（area_name/area_code）、`project_boundaries`（project_name 唯一/project_code/project_area/邊界）。
+- **關聯是「字串名稱」鬆耦合、非外鍵**：project 以 `area`(=area_name 字串) 關到區；boundary 以 `project_name` 字串關到專案。→ 改名/同名/空白差異易斷裂（**F-B 地圖 bug 的同源風險**：曾把「縣市」當「區位名」送進 `by_area`）。
+- **種子資料含舊港務測試資料**：`06_project_boundaries_seed.pg.sql` 寫死高雄港/蘇澳港/花蓮港…等港區邊界（港務公司舊案）。依「正式上線不匯入 csv、系統不特判舊資料」原則，**正式部署應改為空種子或環院實際區位**。
+- **建議**：
+  1. 文件化「專案↔區↔邊界」以 `*_code` 為主鍵串接的契約；查詢一律走 code，不要再用顯示名稱當 key。
+  2. 交接時把港務種子資料移出正式 seed（列入去個人化/去測試資料 worklist）。
+  3. （選配）長期加 FK 或一致性檢查，避免孤兒邊界/區。
+
+### C. 資料查閱 UX（業界做法）
+- **現況頁面**：清單（調查/列表/專案樹木）、詳情（`tree_survey_detail_page`）、地圖（`map_page`）、統計（`statistics_page`）、量測歷史面板。
+- **痛點**：
+  1. 瀏覽鏈太深：縣市→區位→專案 hub→清單→詳情（5 跳）；`ProjectTreesPage` 只預覽 5 棵且**不能點進詳情**。
+  2. **地圖標記點了沒有詳情頁**（看到樹卻無法下鑽）。
+  3. 兩個清單頁、儀表板重複卡，入口分散。
+  4. 統計與清單/地圖各自獨立，無法「篩選一次、三種視圖（清單/地圖/統計）連動」。
+- **業界做法建議（GIS/資產盤點類 App 常見）**：
+  1. **單一資料中心 + 三視圖切換**：同一組篩選（縣市/區/專案/樹種/待維護）上方切「清單 / 地圖 / 統計」，狀態連動（如 Notion/ArcGIS Field Maps 模式）。
+  2. **地圖標記可點 → bottom sheet 摘要 → 進詳情**（下鑽閉環）。
+  3. **全域搜尋列**（樹編號/專案/樹種）直達詳情。
+  4. **儲存常用篩選**（我的專案、本月待維護）。
+  5. 大資料用 **viewport/分頁/聚合載入**（呼應 P2：地圖一次載 7067 marker 的效能問題）。
+  6. 詳情頁時間軸化量測歷史（已有面板，可強化為碳匯成長曲線）。
+- **落地優先序建議**：① 地圖標記可下鑽（高效益低成本）→ ② 合併清單頁 + 全域搜尋 → ③ 三視圖連動（較大工程）。
+
+### D. 本輪已實作（2026-06-09）
+- [x] **地圖標記可下鑽**（`map_page.dart`）：點標記 → bottom sheet 摘要（樹種/專案/區位/系統編號/專案編號）→「查看完整詳情」進 `TreeSurveyDetailPage`；InfoWindow 點擊也直達詳情。`flutter analyze` 零新問題、`flutter test` 396 全過。
+- [x] **死碼清理**：刪 `screens/manual_input_page.dart`（V1，已 `@Deprecated`、零引用）；移除 `main.dart` `/ai-assistant` 舊路由（無人導向，`/ai-chat` 仍在）；清 `home_page.dart` 三處 `ble_live` 死分支（保留 line 257 清理舊偏好殘留）。analyze 無 error、test 396 全過。
+- [ ] 待拍板才動：清單頁合併（A 方案，底部導覽 3→2 頁）＋全域搜尋；三視圖連動。
 
 ---
 

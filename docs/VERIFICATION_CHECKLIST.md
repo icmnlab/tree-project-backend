@@ -57,6 +57,9 @@ F1–F3（相機/即時樹幹框）、L3/L4（409 衝突對話框 UI）。
 > 目標：`flutter run` 啟動後**直接看終端 log** 判讀 bug；自動項看 `[VERIFY]`，現場流程看 `[BleLive]/[FieldGPS]/[Maintain]/[Pending]`。
 > ⚠️ 後端位址為**目前開發機**，交接去個人化時會改成占位符（見 `WORK_STATUS.md`「交接去個人化 worklist」）。
 
+> 🧭 **座標 SOP（資料正確性關鍵，見 WORK_STATUS F-C）**：取 GPS 時務必**人站在樹旁**取點（拿儀器或手機皆可），系統一律把座標視為**樹位**、不再以 HD/AZ 偏移。
+> 切勿在**站位**（退後瞄樹冠處）取 GPS——站位與樹相距一個 HD（實機可達數十公尺），會讓地圖上的樹整批偏移。HD/AZ 僅作量測幾何紀錄、不參與定位。
+
 **1. 確認後端在線**（Windows）
 ```powershell
 tailscale status                              # 應看到 richardhualienserver (linux) 在線
