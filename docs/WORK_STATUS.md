@@ -101,6 +101,7 @@
 **P2 — 效能**
 - [x] 地圖「全部」一次載入 7066 marker 卡頓 → **已修（2026-06-10，實機驗證）**：`map_page` 加**視窗範圍剔除 + 硬上限**（候選 >1500 才啟用；`onCameraIdle` 取 `getVisibleRegion` 只渲染可見範圍；單次上限 1500）+ 提示橫幅。**實機前後對比**（Mi A1）：渲染 marker `7066 → 1500`、消除所有 `Davey!`（先前 880–1586ms/幀）、GC 壓力大降（heap 不再衝 88MB）；篩選後（1–39 筆）行為不變。`flutter test` 396 pass。
   - 後續可選：低縮放改 marker 聚合（clustering）以同時看全貌（目前以上限+橫幅折衷）。
+- [x] **「有些區顯示不全」＝同座標疊點 → 已修（2026-06-10）**：DB 查證 7066 棵**零缺座標**、零出界，但有**多棵樹座標完全相同**（港區植栽5區同點最多 8 棵、全庫 20 棵被疊住）→ marker 完全重疊只見最上層。修法：`utils/marker_spread.dart` 簡化 spiderfy——同座標第 2 棵起以 1.5m 小圓環確定性展開（每環 8 點），全部可見可點；位移 <5m 不影響縣市歸屬。單元測試 9 例（`marker_spread_test.dart`），全套 405 pass。
 
 **P3 — 平台/建置警告（非功能性，未來清理）**
 - [ ] Impeller opt-out deprecated（`AndroidManifest` 顯式關閉 Impeller，未來 Flutter 版本將移除此選項）。
