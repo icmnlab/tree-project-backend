@@ -18,11 +18,14 @@ const apiLimiter = rateLimit({
     skip: rateLimitDisabled,
 });
 
-// 短時間爆量限制 (T8.2): 同一 IP 在 10 秒內 >= 20 次請求即視為攻擊
+// 短時間爆量限制 (T8.2): 同一 IP 在 10 秒內超過上限即視為攻擊
 // 命中時：回 429 + 寫入 ip_blacklist (5 分鐘起跳，offense_count 累進升級)
+// [2026-06-10] 上限 20 → 60：實測 App 正常啟動（meta+樹木+邊界並行載入）即達 20+，
+// 手機曾被誤鎖；多人共用校園 NAT 時更易誤殺。60/10s 仍足以擋住真攻擊（數百/秒）。
+// 可用 BURST_LIMIT_MAX 環境變數覆寫。
 const burstLimiter = rateLimit({
     windowMs: 10 * 1000, // 10 秒
-    max: 20,
+    max: parseInt(process.env.BURST_LIMIT_MAX, 10) || 60,
     standardHeaders: true,
     legacyHeaders: false,
     skip: rateLimitDisabled,
