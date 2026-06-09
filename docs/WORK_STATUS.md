@@ -95,6 +95,7 @@
 
 **P1 — 生命週期 / 穩定性**
 - [ ] 地圖開啟瞬間偶發 `TextEditingController was used after being disposed` + `_dependents.isEmpty is not true` + `Tried to build dirty widget in the wrong build scope`：頁面切換時 controller/dependency 釋放順序問題，需在 `dispose`/`build` 範圍收斂（重現於進入地圖頁）。
+  - **2026-06-10 稽核（縮小範圍）**：`map_page.dart` 已排除為來源——無 `TextEditingController`、所有非同步 `setState` 皆走 `_safeSetState`（`!_disposed && mounted` 守門）、3 處裸 `setState` 均在使用者點擊回呼內（必掛載）。全 app 掃描：**沒有「宣告 controller 卻漏 `dispose` override」的檔案**。⇒ 推斷為**子元件 / 路由轉場**期間的 build-scope/dependency 釋放時序，非單純漏 dispose。**下一步**：於 `flutter run` 進地圖頁重現，看 DevTools 堆疊指向的實際 widget 再定點修。
 
 **P2 — 效能**
 - [ ] 地圖「全部」一次載入 **7067** 個 marker（log：`load done markers=7067 elapsed≈3.7s`、多次大型 GC、Skipped frames）。已有 >5000 提示但未限流；建議 viewport/分頁或聚合載入（先前已移除 clustering，需折衷）。
