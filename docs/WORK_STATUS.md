@@ -164,7 +164,8 @@
 - [x] `backend/database/initial_data/users.pg.sql` → 移除真實姓名種子帳號（`林柔安`／`劉旻豪`+`Kyleliu`）；保留 bootstrap `admin`（CI/首次登入）+ `test`/`tt2` 通用角色帳號（display 改通用、清 admin 港務專案關聯）。**剩餘**：完整改 `create_lab_admin.js` 部署時建立（帳密部署者輸入）— 待後續。（2026-06-10）
 - [x] `backend/scripts/test_prod_handbook_e2e.js` → host fallback 由個人 Tailscale 網址改 `http://localhost:3000/api`（仍可 `TEST_BASE_URL` 覆寫）。（2026-06-10）
 - [x] 港務測試種子 `06_project_boundaries_seed.pg.sql` 經查**已隔離**：`migrate.js` L47–48 排除於正式 migration、僅 dev-fixtures（`seed_dev_boundaries.js`）載入 → 正式庫不含港務資料，無需處理。
-- [ ] `backend/.env` 個人值（`ML_SERVICE_PUBLIC_URL` 等 Tailscale/ngrok）不入庫；`.env.example` 補齊所有鍵與註解。
+- [x] `.env.example` 補齊：新增 14 個漏列的選用鍵（`AGENT_FETCH_*`／`LLM_*`／`CARBON_CALC_LEGACY_TIPC`／`DEBUG_MAP`／`CORS_ORIGIN`／`TEST_*`）；所有計費/機密金鑰本就已占位。**查證**：全庫追蹤檔無硬編碼金鑰、`.env` 已 gitignore。（2026-06-10）
+- [ ] `backend/.env`（實機真實值，Tailscale/ngrok）不入庫——本就 gitignore，交接時舊金鑰全部作廢重申請（見 §3）。
 - [ ] `backend/LICENSE` 著作權人 `KyleliuNDHU`（屬法律/歸屬決定，**留待使用者拍板**，未擅改）。
 - [ ] 殘留掃描：程式/腳本層已清；**文件層**（`docs/**`、根目錄部署筆記）仍含個人值，見第 2 節（時機：硬體驗證後）。
 

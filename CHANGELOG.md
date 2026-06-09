@@ -4,6 +4,19 @@
 
 ---
 
+## (2026-06-10) — 交接去個人化（程式碼層）
+
+### 移除提交程式碼中的個人值（避免交接後計費／資安風險）
+- `database/initial_data/users.pg.sql`：移除真人種子帳號（真實姓名）；保留 bootstrap `admin`（CI／首次登入）+ `test`/`tt2` 通用角色帳號，display 改通用、清除 admin 的舊專案關聯。完整改為部署腳本建管理員待後續。
+- `scripts/test_prod_handbook_e2e.js`：移除個人 Tailscale 後備網址，改 `http://localhost:3000/api`（仍可 `TEST_BASE_URL` 覆寫）。
+- `.env.example`：補齊 14 個程式有用到但漏列的選用鍵（`AGENT_FETCH_*`、`LLM_*`、`CARBON_CALC_LEGACY_TIPC`、`DEBUG_MAP`、`CORS_ORIGIN`、`TEST_*` 等）。
+- 查證：全庫追蹤檔**無硬編碼金鑰**（PlantNet/Cloudinary/AI/JWT/Webhook 皆只在 `.env.example` 占位）；`.env` 已 gitignore。
+- 查證：港務測試種子 `06_project_boundaries_seed.pg.sql` 早已排除於正式 migration（僅 dev-fixtures）。
+
+> 對應前端 repo 同步：`app_config.defaultBaseUrl` 與自簽憑證信任清單改 `--dart-define` 驅動（移除硬編碼 Tailscale IP/網址）。
+
+---
+
 ## v18.5.1 (2026-04-28) — County detection + V3 species + docs cleanup
 
 ### 縣市自動判斷統一化
