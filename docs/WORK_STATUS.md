@@ -1,6 +1,29 @@
-# 工作狀態總覽（2026-06-08）
+# 工作狀態總覽（2026-06-09）
 
 > 執行清單請依序勾選。細節見 `PROJECT_DATA_AND_DOMAIN.md`（CSV／專案語意）、`VERIFICATION_CHECKLIST.md`（實機驗證）。
+> 單一交接入口：`HANDOFF.md`（跑起來／測試／部署／文件地圖）。
+
+---
+
+## 下一步（交接接續清單）（2026-06-09）
+
+> 目標：維持「業界水準、交接就緒」。接手者（或新對話）由此開始即可。
+
+**目前狀態（commit／分支）**
+- 後端 `tree-project-backend`：`main` 最新 `409b06a`（已把 `HANDOFF.md` + 本 `WORK_STATUS.md` 納入版控）。CI 綠。
+- 前端 `tree-project-frontend`：admin 完善在 PR [#3](https://github.com/KyleliuNDHU/tree-project-frontend/pull/3)（分支 `feat/admin-panel-completeness`，HEAD `154b9c0`，CI 綠），**待 review／merge**。`main` 尚未含此批。
+
+**待辦（依優先序）**
+1. [ ] **Merge PR #3**（admin 後台完善）。合併後前端 `main` 才含 CRUD/系統維運/權限對齊。
+2. [ ] **docs 樹去重整併**：`backend/docs/` 與 `project_code/docs/` 是 **diverged 副本**（同名 .md 已各自漂移）。需逐檔比對取新，收斂成單一真實來源。**論文產物（`*.pdf`／`*.docx`／`docs/figures/*`）不應入庫**，請加 `.gitignore`。（本次僅安全地把 `HANDOFF.md`＋`WORK_STATUS.md` 納入 backend 版控，未動其餘。）
+3. [ ] **真人／硬體驗證**：藍牙實機、雙機同場 UI、相機、T4 等無法自動化的項目，見 `VERIFICATION_CHECKLIST.md` §仍須真人硬體。
+
+**已刻意 defer（非業界硬需求，等需求再做）**
+- 執行期改 CORS（反模式，維持 `.env`／Nginx）。
+- 維護模式開關、獨立瀏覽器版 admin Web portal（App 內後台已涵蓋管理需求；要做建議用 React-Admin/Refine 接現有 REST+JWT，非手刻）。
+
+**已知小債**
+- 後端測試 1 個 `four_bugs` TODO 案 skip（非阻擋）。
 
 ---
 
