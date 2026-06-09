@@ -96,9 +96,11 @@
 **P1 — 生命週期 / 穩定性**
 - [ ] 地圖開啟瞬間偶發 `TextEditingController was used after being disposed` + `_dependents.isEmpty is not true` + `Tried to build dirty widget in the wrong build scope`：頁面切換時 controller/dependency 釋放順序問題，需在 `dispose`/`build` 範圍收斂（重現於進入地圖頁）。
   - **2026-06-10 稽核（縮小範圍）**：`map_page.dart` 已排除為來源——無 `TextEditingController`、所有非同步 `setState` 皆走 `_safeSetState`（`!_disposed && mounted` 守門）、3 處裸 `setState` 均在使用者點擊回呼內（必掛載）。全 app 掃描：**沒有「宣告 controller 卻漏 `dispose` override」的檔案**。⇒ 推斷為**子元件 / 路由轉場**期間的 build-scope/dependency 釋放時序，非單純漏 dispose。**下一步**：於 `flutter run` 進地圖頁重現，看 DevTools 堆疊指向的實際 widget 再定點修。
+  - **2026-06-10 實機（Mi A1）**：來回進出地圖頁多次、切換縣市/專案，**未能重現** disposed 錯誤（推測為極偶發 race，暫降級觀察）。同場順帶確認 **Issue B（地圖專案選單配合縣市）已修**：花蓮縣/吳全→3、花蓮縣/吳全1區→1、高雄市/港區植栽2區→39、臺北市→0，選單與縣市正確連動。
 
 **P2 — 效能**
-- [ ] 地圖「全部」一次載入 **7067** 個 marker（log：`load done markers=7067 elapsed≈3.7s`、多次大型 GC、Skipped frames）。已有 >5000 提示但未限流；建議 viewport/分頁或聚合載入（先前已移除 clustering，需折衷）。
+- [x] 地圖「全部」一次載入 7066 marker 卡頓 → **已修（2026-06-10，實機驗證）**：`map_page` 加**視窗範圍剔除 + 硬上限**（候選 >1500 才啟用；`onCameraIdle` 取 `getVisibleRegion` 只渲染可見範圍；單次上限 1500）+ 提示橫幅。**實機前後對比**（Mi A1）：渲染 marker `7066 → 1500`、消除所有 `Davey!`（先前 880–1586ms/幀）、GC 壓力大降（heap 不再衝 88MB）；篩選後（1–39 筆）行為不變。`flutter test` 396 pass。
+  - 後續可選：低縮放改 marker 聚合（clustering）以同時看全貌（目前以上限+橫幅折衷）。
 
 **P3 — 平台/建置警告（非功能性，未來清理）**
 - [ ] Impeller opt-out deprecated（`AndroidManifest` 顯式關閉 Impeller，未來 Flutter 版本將移除此選項）。
