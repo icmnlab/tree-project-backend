@@ -147,7 +147,8 @@
 ### D. 本輪已實作（2026-06-09）
 - [x] **地圖標記可下鑽**（`map_page.dart`）：點標記 → bottom sheet 摘要（樹種/專案/區位/系統編號/專案編號）→「查看完整詳情」進 `TreeSurveyDetailPage`；InfoWindow 點擊也直達詳情。`flutter analyze` 零新問題、`flutter test` 396 全過。
 - [x] **死碼清理**：刪 `screens/manual_input_page.dart`（V1，已 `@Deprecated`、零引用）；移除 `main.dart` `/ai-assistant` 舊路由（無人導向，`/ai-chat` 仍在）；清 `home_page.dart` 三處 `ble_live` 死分支（保留 line 257 清理舊偏好殘留）。analyze 無 error、test 396 全過。
-- [ ] 待拍板才動：清單頁合併（A 方案，底部導覽 3→2 頁）＋全域搜尋；三視圖連動。
+- [x] **全域搜尋**（`widgets/tree_search_delegate.dart` + 儀表板標題列搜尋框）：點搜尋框開 `SearchDelegate`，可用系統/專案編號、樹種、專案名稱查詢（重用 `GET /tree_survey?q=`，≥2 字元觸發），點結果直達 `TreeSurveyDetailPage`。新增 l10n `search_tree_hint`（中/英）。analyze 無 error、test 396 全過。未動既有頁面/導覽結構。
+- [ ] 待拍板才動：清單頁合併（A 方案，底部導覽 3→2 頁）；三視圖連動。
 
 ---
 
