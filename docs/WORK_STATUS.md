@@ -15,7 +15,16 @@
 
 **待辦（依優先序）**
 1. [ ] **Merge PR #3**（admin 後台完善）。合併後前端 `main` 才含 CRUD/系統維運/權限對齊。
-2. [ ] **docs 樹去重整併**：`backend/docs/` 與 `project_code/docs/` 是 **diverged 副本**（同名 .md 已各自漂移）。需逐檔比對取新，收斂成單一真實來源。**論文產物（`*.pdf`／`*.docx`／`docs/figures/*`）不應入庫**，請加 `.gitignore`。（本次僅安全地把 `HANDOFF.md`＋`WORK_STATUS.md` 納入 backend 版控，未動其餘。）
+2. [ ] **docs 樹去重整併**：`backend/docs/` 與 `project_code/docs/` 是 **diverged 副本**，須逐檔取新、收斂成單一真實來源。
+   - [x] 論文二進位排除：backend `.gitignore` 已加 `docs/**/*.pdf|docx|doc`、`docs/figures/`（不入庫）。
+   - [x] `HANDOFF.md`、`WORK_STATUS.md` 已同步且納入 backend 版控（兩邊一致）。
+   - [ ] **兩邊皆有但內容不同**（需決定取哪版）：
+     - `VERIFICATION_CHECKLIST.md`（project_code 較新，含 §0.0 自動化覆蓋 +97/−5 → 取 project_code）
+     - `PROJECT_DATA_AND_DOMAIN.md`（+81/−37 明顯分歧，需逐段比對）
+     - `DATABASE_NORMALIZATION.md`（+1/−1 幾乎相同，取一即可）
+   - [ ] **只在 project_code 有**（缺者補進 backend）：`CARBON_CALCULATION.md`、`history/BACKEND_HANDOVER_v14.md`、`history/BUGS_ANALYSIS.md`
+   - [ ] **只在 backend 有**（決定保留位置）：`2025-12-04-fixes-and-security.md`、`DBH_MEASUREMENT_RESEARCH_V2.md`；另 `BLE_IMPORT_INTEGRATION_PLAN.md`／`BLE_IMPORT_UX_IMPROVEMENTS.md`／`HANDOVER.md`／`TEXT_TO_SQL_OPTIMIZATION.md` 在 backend 為頂層、在 project_code 已歸 `history/` → 統一歸檔位置
+   - 重跑差異清單：`git diff --no-index --numstat backend/docs project_code/docs`
 3. [ ] **真人／硬體驗證**：藍牙實機、雙機同場 UI、相機、T4 等無法自動化的項目，見 `VERIFICATION_CHECKLIST.md` §仍須真人硬體。
 
 **已刻意 defer（非業界硬需求，等需求再做）**
