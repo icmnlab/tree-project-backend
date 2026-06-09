@@ -52,6 +52,18 @@
 - [ ] **F-A 維護量測新增樹也變「待維護」**：現行「待維護」＝該專案/區位全部樹 − 本場已完成(`_completedThisSession`) − 本場新增(`_addedThisSession`)，而 `_addedThisSession` 是**記憶體內、單場**。重進維護或換到地圖檢視即失效 → 當天新增的樹下次又被列為待維護。
   - 業界做法建議：以**資料本身**定義待維護池（例如 `tree_survey.last_measured_at` 早於門檻 N 個月，或 `status='pending_remeasure'`），而非記憶體 session set。
   - **需決定**：「待維護」的判定基準（最近量測時間門檻？或明確旗標？）。確認後再實作（牽動後端欄位/查詢與前端清單來源）。
+  - **方向（2026-06-09 已分析、未動程式）**：採「最近量測時間」門檻（選項 1）。資料面已具備、不需改 schema —— `tree_survey_measurements` 每棵樹每次量測追加一筆，有 `survey_time`、`survey_mode`，且建有索引 `(tree_id, survey_time DESC)`；待維護＝`MAX(survey_time)` 早於門檻 N。
+  - **正式機唯讀 SQL 抽樣（2026-06-09，純 SELECT）**：
+    - 覆蓋率：總樹 7065 / 有量測 7075 / 無量測 **0**（每棵都有 `survey_time`）。
+    - `survey_mode`：`snapshot`=7063（csv 港務測試資料回填，2022-11-21～2026-06-07）、`new`=13、`maintenance`=11（皆 6/7～6/9）。
+    - 依最後量測分桶：6 個月內 23、6–12 個月 2864、>12 個月 4188（**此分佈幾乎全為 csv 測試資料時間，不可拿來定 N**）。
+  - **抽樣結論**：
+    1. 「從未量測的樹」風險在正式環境不存在（正式樹皆由初測 `new` 進來，必有 `survey_time`）。
+    2. csv（港務舊資料）僅測試用、正式上線不匯入；選項 1 只看通用欄位 `survey_time`，**不特判 csv**，符合「系統不對該 csv 特別處理」原則。
+    3. 門檻 N 不可由現有測試數據反推，需與老師依實際盤點週期決定（碳匯年度盤點通常 12 個月）。
+    4. 門檻建議「全域預設 + 每專案可覆寫」（`projects` 加 `maintenance_interval_months`）；是否再對齊到「區」層級，待會議拍板（會議結構為 專案/區）。
+    5. 「待維護」為樹的客觀狀態（與帳號無關），所有帳號一致；誰能編輯仍由既有 maintenance_locks 控制。
+  - **尚待使用者/會議拍板**：門檻 N 值、是否對齊到「區」層級。確認後才實作後端查詢 + 前端清單來源切換 + per-project 設定 UI。
 
 **P1 — UI/版面（2026-06-09 已修 3 項，commit `0058c7f`）**
 - [x] `admin_page.dart` `NavigationRail` 直向 overflow 95px → 包 `LayoutBuilder`+`SingleChildScrollView`+`IntrinsicHeight`，矮螢幕可捲動。
