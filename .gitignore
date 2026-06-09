@@ -100,8 +100,9 @@ ml_service/trunk_detector_training/run/*/best_openvino_model/
 ml_service/trunk_detector_training/tree_trunk_seg_best_openvino_model_leaky_*/
 ml_service/trunk_detector_training/tree_trunk_seg_best_openvino_model/
 
-# --- Docs: 論文產物只在本機/雲端硬碟保存，不入庫（保留 .md 文件，排除二進位與圖檔） ---
+# --- Docs: 論文產物只在本機/雲端硬碟保存，不入庫（保留 .md 文件，排除二進位、圖檔與論文腳本） ---
 docs/**/*.pdf
 docs/**/*.docx
 docs/**/*.doc
 docs/figures/
+docs/**/*.py

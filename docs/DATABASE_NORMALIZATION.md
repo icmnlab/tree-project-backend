@@ -50,7 +50,7 @@
 
 1. **邊界表主鍵改為 `project_code`**（FK → `projects`），`project_name` 改為可更新快照或 VIEW
 2. **`tree_survey`** 寫入以 `project_code` 為準；顯示名稱一律 JOIN
-3. 遷移腳本：依 `projects.name` 回填 `project_boundaries.project_code`
+3. 遷移腳本：依 `projects.name` 回填 `project_boundaries.project_code`（**已實作** `16_project_boundaries_backfill.pg.sql`；服務啟動時亦會冪等執行）
 4. 應用層（App + 管理 Web）**禁止**只靠名稱字串匹配
 
 ---

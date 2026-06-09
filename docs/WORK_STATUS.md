@@ -10,22 +10,22 @@
 > 目標：維持「業界水準、交接就緒」。接手者（或新對話）由此開始即可。
 
 **目前狀態（commit／分支）**
-- 後端 `tree-project-backend`：`main` 最新 `409b06a`（已把 `HANDOFF.md` + 本 `WORK_STATUS.md` 納入版控）。CI 綠。
-- 前端 `tree-project-frontend`：admin 完善在 PR [#3](https://github.com/KyleliuNDHU/tree-project-frontend/pull/3)（分支 `feat/admin-panel-completeness`，HEAD `154b9c0`，CI 綠），**待 review／merge**。`main` 尚未含此批。
+- 後端 `tree-project-backend`：`main` 最新 `d8d71df`（已把 `HANDOFF.md` + 本 `WORK_STATUS.md` + docs 樹整併 worklist 納入版控）。CI 綠。docs 樹整併變更已於本機完成、**待 commit**。
+- 前端 `tree-project-frontend`：admin 完善 PR [#3](https://github.com/KyleliuNDHU/tree-project-frontend/pull/3)（分支 `feat/admin-panel-completeness`）**已合併進 `main`**（合併 commit `16f9caa`）。`main` 已含 CRUD/系統維運/權限對齊。
 
 **待辦（依優先序）**
-1. [ ] **Merge PR #3**（admin 後台完善）。合併後前端 `main` 才含 CRUD/系統維運/權限對齊。
-2. [ ] **docs 樹去重整併**：`backend/docs/` 與 `project_code/docs/` 是 **diverged 副本**，須逐檔取新、收斂成單一真實來源。
+1. [x] **Merge PR #3**（admin 後台完善）。已合併（`16f9caa`），前端 `main` 已含 CRUD/系統維運/權限對齊。
+2. [x] **docs 樹去重整併**：`backend/docs/` 與 `project_code/docs/` 已收斂成單一真實來源（canonical＝`project_code/docs/`；`backend/docs/` 為版控鏡像，論文二進位以 `.gitignore` 排除）。
    - [x] 論文二進位排除：backend `.gitignore` 已加 `docs/**/*.pdf|docx|doc`、`docs/figures/`（不入庫）。
    - [x] `HANDOFF.md`、`WORK_STATUS.md` 已同步且納入 backend 版控（兩邊一致）。
-   - [ ] **兩邊皆有但內容不同**（需決定取哪版）：
-     - `VERIFICATION_CHECKLIST.md`（project_code 較新，含 §0.0 自動化覆蓋 +97/−5 → 取 project_code）
-     - `PROJECT_DATA_AND_DOMAIN.md`（+81/−37 明顯分歧，需逐段比對）
-     - `DATABASE_NORMALIZATION.md`（+1/−1 幾乎相同，取一即可）
-   - [ ] **只在 project_code 有**（缺者補進 backend）：`CARBON_CALCULATION.md`、`history/BACKEND_HANDOVER_v14.md`、`history/BUGS_ANALYSIS.md`
-   - [ ] **只在 backend 有**（決定保留位置）：`2025-12-04-fixes-and-security.md`、`DBH_MEASUREMENT_RESEARCH_V2.md`；另 `BLE_IMPORT_INTEGRATION_PLAN.md`／`BLE_IMPORT_UX_IMPROVEMENTS.md`／`HANDOVER.md`／`TEXT_TO_SQL_OPTIMIZATION.md` 在 backend 為頂層、在 project_code 已歸 `history/` → 統一歸檔位置
-   - 重跑差異清單：`git diff --no-index --numstat backend/docs project_code/docs`
-3. [ ] **真人／硬體驗證**：藍牙實機、雙機同場 UI、相機、T4 等無法自動化的項目，見 `VERIFICATION_CHECKLIST.md` §仍須真人硬體。
+   - [x] **兩邊皆有但內容不同**（已收斂）：
+     - `VERIFICATION_CHECKLIST.md` → 取 project_code（2026-06-09，含 §0.0 自動化覆蓋），已覆蓋 backend。
+     - `PROJECT_DATA_AND_DOMAIN.md` → **逐段合併**：以 project_code（2026-06-08）為基底，**補回** backend 獨有的「樹種目錄」段（`tree_species`／`species_synonyms`／Pl@ntNet），兩邊一致。
+     - `DATABASE_NORMALIZATION.md` → 取 project_code（含 `16_..._backfill` 實作備註），已覆蓋 backend。
+   - [x] **只在 project_code 有**（已補進 backend）：`CARBON_CALCULATION.md`、`history/BACKEND_HANDOVER_v14.md`、`history/BUGS_ANALYSIS.md`。
+   - [x] **只在 backend 有**（已定位並雙邊同步）：`2025-12-04-fixes-and-security.md` → 歸 `history/`（dated 修復/安全紀錄）；`DBH_MEASUREMENT_RESEARCH_V2.md` → 留頂層（純視覺 DBH 研究 V2，與 `DBH_PURE_VISION_RESEARCH.md` 並列）；`BLE_IMPORT_INTEGRATION_PLAN.md`／`BLE_IMPORT_UX_IMPROVEMENTS.md`／`HANDOVER.md`／`TEXT_TO_SQL_OPTIMIZATION.md` 在 backend 頂層的副本與 `history/` 版**完全相同** → 刪除頂層副本，統一只留 `history/`（與 project_code 一致）。
+   - [x] 重跑差異清單 `git diff --no-index --numstat backend/docs docs` → 僅剩**論文產物**（`*.pdf|docx|doc`、`figures/`、`*.py` 論文腳本，刻意只存在 project_code 且 backend `.gitignore` 排除）。
+3. [ ] **真人／硬體驗證**：藍牙實機、雙機同場 UI、相機、T4 等無法自動化的項目，見 `VERIFICATION_CHECKLIST.md` §仍須真人硬體（已自動化覆蓋者見 §0.0，實機可降為抽查）。
 
 **已刻意 defer（非業界硬需求，等需求再做）**
 - 執行期改 CORS（反模式，維持 `.env`／Nginx）。
@@ -33,6 +33,40 @@
 
 **已知小債**
 - 後端測試 1 個 `four_bugs` TODO 案 skip（非阻擋）。
+
+---
+
+## 交接去個人化 worklist（**fresh 策略**，2026-06-09 定）
+
+> 決策：**完全去個人化** — 程式碼零硬編碼個人值，下一棒自行申請所有帳號/金鑰。  
+> 既有清單：`frontend/docs/HANDOFF_SECRETS_CHECKLIST.md`（金鑰/網址/帳號）、`docs/LAB_DEPLOYMENT_GUIDE.md`（部署）、`frontend/docs/UBUNTU_SSH_ACCESS.md`（SSH）。  
+> ⚠️ **執行時機：在「真人/硬體驗證」完成之後**（去個人化會抽掉驗證所需的後端 IP/憑證/SSH 資訊）。
+
+### 1. 程式碼層（硬編碼個人值 → 可設定 / 占位）
+- [ ] `frontend/lib/config/app_config.dart` → `defaultBaseUrl` 由 `https://richardhualienserver.tail124a1b.ts.net/api` 改為**空字串**（強制 `--dart-define=API_BASE_URL`）；`AppConfig` 在空值時 fail-fast 給明確錯誤訊息。
+- [ ] `frontend/lib/main.dart` → `SelfHostedHttpOverrides` 移除硬編碼 `100.118.203.75`／`100.81.214.9`；改為 `--dart-define` 傳入信任清單（預設空＝只走正規 TLS，不白名單自簽）。
+- [ ] `backend/database/initial_data/users.pg.sql` → 移除真實姓名 + bcrypt 種子；改 `create_lab_admin.js` 於部署時建立（帳密由部署者輸入）。
+- [ ] `backend/.env` 個人值（`ML_SERVICE_PUBLIC_URL` 等 Tailscale/ngrok）不入庫；`.env.example` 補齊所有鍵與註解。
+- [ ] 全庫掃描殘留：`richardhualienserver|tail124a1b|KyleliuNDHU|kyleliu|100.118.203.75|100.81.214.9|ngrok|真實姓名`（程式/腳本/CI）。
+
+### 2. 文件層（個人值 → 占位符，與既有 checklist 風格一致）
+- [ ] `UBUNTU_SSH_ACCESS.md`、`HANDOFF.md`、本 `WORK_STATUS.md`、`SELF_HOST_ML_GUIDE.md`、`DBH_MEASUREMENT_RESEARCH_V2.md`、`ml_service/README.md`、`backend/CHANGELOG.md`：`kyleliu@100.118.203.75`→`<SERVER_USER>@<SERVER_IP>`、`richardhualienserver`→`<HOST>`、`*.tail124a1b.ts.net`→`<TAILSCALE_HOST>`。
+- [ ] 根目錄 `完整部署方案：Render → 自架 Ubuntu 筆電伺服器.txt`：移出版控/刪除或占位化（含個人部署筆記）。
+
+### 3. 帳號 / 服務（fresh：交接時下一棒自建）
+- [ ] GitHub `KyleliuNDHU/tree-project-*`：下一棒 fork/新建 repo，更新 remote 與 webhook secret。
+- [ ] Tailscale tailnet（`KyleliuNDHU@`）、Ubuntu `kyleliu` 帳號：下一棒自建 tailnet / Linux 帳號 + 公鑰。
+- [ ] 所有金鑰（DB/JWT/Cloudinary/PlantNet/AI/ML/Admin/Webhook/Maps）依 `HANDOFF_SECRETS_CHECKLIST.md` §A **全部作廢重申請**。
+
+### 4. 業界標準收尾
+- [ ] 祕密零硬編碼：全走 `.env` / CI secrets；`git` 歷史掃描有無誤入金鑰（如有→輪替）。
+- [ ] `.env.example` 完整、README/Onboarding 一頁可從零跑起（已有 `HANDOFF.md`，補「全新帳號從零」路徑）。
+- [ ] GitHub：protected `main` + CI required check（兩 repo 已有 CI，補分支保護規則）。
+- [ ] 憑證走正規 TLS（Let's Encrypt / 反代）取代自簽白名單；或文件化內網 CA 流程。
+
+### 驗收
+- [ ] 重跑全庫個人值掃描 = 0 命中（占位符除外）。
+- [ ] 用「全新空機 + 全新帳號」依文件能跑起前後端 + 一次 `VERIFICATION_CHECKLIST` 全綠。
 
 ---
 
