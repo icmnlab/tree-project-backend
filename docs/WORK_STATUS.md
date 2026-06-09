@@ -49,7 +49,9 @@
 - [x] **批次匯入 GPS 一律樹木位置**（前端 `ble_import_page.dart`）：對齊 2026-05-28 會議決議，移除三選一對話框。已 `flutter test` 通過、commit/push。
 
 **待確認設計決策（需使用者拍板，非單純 bug）**
-- [ ] **F-A 維護量測新增樹也變「待維護」**：現行「待維護」＝該專案/區位全部樹 − 本場已完成(`_completedThisSession`) − 本場新增(`_addedThisSession`)，而 `_addedThisSession` 是**記憶體內、單場**。重進維護或換到地圖檢視即失效 → 當天新增的樹下次又被列為待維護。
+- [x] **F-A1（bug，2026-06-09 已修）同場新增樹仍出現在維護清單**：根因＝新增樹提交時，`IntegratedTreeFormPage(autoTransferToTreeSurvey)` 在表單內就已轉移並取得正式 `tree_survey_id`（log `重新映射 55→7074`），但只回傳 `bool`；回到 `ble_live_session_page` 後又呼叫一次 `transferToTreeSurvey`，因已轉移走後端冪等路徑回 `id_mapping:[]`（`pending_measurements.js` 880–887）→ `_treeSurveyIdFromTransfer` 回 null → 新樹 id 從未進 `_addedThisSession` → reload 後又出現。
+  - 修法：抽純函式 `lib/utils/transfer_result.dart`（`treeSurveyIdFromTransfer` / `treeSurveyIdFromIdMapping`，附 `test/transfer_result_test.dart` 9 項）；`IntegratedTreeFormPage` 新增 `onTreeSurveyTransferred` callback 把表單轉移當下的正式 id 回拋；`ble_live_session_page` 新增樹改優先用該 id（第二次冪等 transfer 僅後備）。後端不動。全套 396 測試通過。
+- [ ] **F-A2（設計，跨場/跨天）「待維護」定義**：現行「待維護」＝該專案/區位全部樹 − 本場已完成(`_completedThisSession`) − 本場新增(`_addedThisSession`)，而集合是**記憶體內、單場**。F-A1 修好「同場」後，跨場/跨天仍需資料驅動定義（見下方選項 1 分析），待會議拍板門檻 N 與層級後實作。
   - 業界做法建議：以**資料本身**定義待維護池（例如 `tree_survey.last_measured_at` 早於門檻 N 個月，或 `status='pending_remeasure'`），而非記憶體 session set。
   - **需決定**：「待維護」的判定基準（最近量測時間門檻？或明確旗標？）。確認後再實作（牽動後端欄位/查詢與前端清單來源）。
   - **方向（2026-06-09 已分析、未動程式）**：採「最近量測時間」門檻（選項 1）。資料面已具備、不需改 schema —— `tree_survey_measurements` 每棵樹每次量測追加一筆，有 `survey_time`、`survey_mode`，且建有索引 `(tree_id, survey_time DESC)`；待維護＝`MAX(survey_time)` 早於門檻 N。
