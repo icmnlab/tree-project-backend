@@ -38,6 +38,26 @@ function applyProjectFilter(req, baseParamIdx) {
     };
 }
 
+// [稽核#1/#3] pending 擁有權檢查：
+// - 系統管理員/業務管理員 可管理全部（與 projectAuthFilter 的全域可見一致）。
+// - 其他角色只能改/轉移/刪除「自己建立」的列。
+// - created_by_user_id 為 NULL 的 legacy 列沿用既有專案權限行為（回溯相容）。
+const PENDING_OWNER_BYPASS_ROLES = new Set(['系統管理員', '業務管理員']);
+
+function canManagePendingOwners(req, ownerIds) {
+  if (req.user && PENDING_OWNER_BYPASS_ROLES.has(req.user.role)) return true;
+  const uid = req.user ? req.user.user_id : null;
+  return ownerIds.every((o) => o == null || o === uid);
+}
+
+function ownershipDeniedResponse(res) {
+  return res.status(403).json({
+    success: false,
+    code: 'NOT_OWNER',
+    message: '權限不足：只能操作自己建立的測量批次（或由管理員代為操作）',
+  });
+}
+
 function parseRawDataSnapshot(value) {
   if (!value) return {};
   if (typeof value === 'object') return value;
@@ -196,6 +216,19 @@ async function initTable() {
     console.warn('[pending-measurements] survey mode migration skipped:', e.message);
   }
 
+  // [稽核#1/#3] 擁有權欄位（與 29_pending_created_by.pg.sql 一致；既有 DB 由此補欄）
+  try {
+    await pool.query(`
+      ALTER TABLE pending_tree_measurements
+        ADD COLUMN IF NOT EXISTS created_by_user_id INTEGER REFERENCES users(user_id) ON DELETE SET NULL;
+      CREATE INDEX IF NOT EXISTS idx_pending_created_by
+        ON pending_tree_measurements(created_by_user_id);
+    `);
+    console.log('[pending-measurements] created_by_user_id column ready');
+  } catch (e) {
+    console.warn('[pending-measurements] created_by migration skipped:', e.message);
+  }
+
   try {
     await pool.query(`
       DO $$
@@ -352,8 +385,9 @@ router.post('/batch', projectAuthFilter, async (req, res) => {
           instrument_dbh_cm, dbh_source,
           gps_hdop, device_sn, ref_height, utm_zone, raw_data_snapshot,
           survey_mode, target_tree_id, match_status,
-          gps_source, tree_position_source, station_position_source
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)
+          gps_source, tree_position_source, station_position_source,
+          created_by_user_id
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34)
         RETURNING id
       `, [
         m.session_id,
@@ -388,7 +422,8 @@ router.post('/batch', projectAuthFilter, async (req, res) => {
         m.match_status || snapshot.match_status || null,
         m.gps_source || snapshot.gps_source || null,
         m.tree_position_source || snapshot.tree_position_source || null,
-        m.station_position_source || snapshot.station_position_source || null
+        m.station_position_source || snapshot.station_position_source || null,
+        (req.user && req.user.user_id) || null // [稽核#1] 擁有權
       ]);
       
       insertedIds.push(result.rows[0].id);
@@ -691,6 +726,11 @@ router.patch('/:id', projectAuthFilter, async (req, res) => {
       }
     }
 
+    // [稽核#1] 擁有權：非本人建立（且非管理員）不得修改
+    if (!canManagePendingOwners(req, [existing.rows[0].created_by_user_id])) {
+      return ownershipDeniedResponse(res);
+    }
+
     // [T6] 樂觀鎖：毫秒 pre-check（快速回 409 + serverVersion）
     // [P1-7 競態修補] pre-check 通過後，UPDATE WHERE 再帶毫秒級版本比對做原子守門：
     // 兩個並發請求同時通過 pre-check 時，只有一個 UPDATE 會命中，另一個落入下方 0-rows 重查 → 409。
@@ -907,6 +947,12 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
         transferred_tree_ids: [],
         id_mapping: [],
       });
+    }
+
+    // [稽核#3] 擁有權：session 內有他人建立的列（且非管理員）→ 拒絕轉移
+    if (!canManagePendingOwners(req, pendingResult.rows.map(p => p.created_by_user_id))) {
+      await client.query('ROLLBACK');
+      return ownershipDeniedResponse(res);
     }
 
     const blockedRows = pendingResult.rows.filter(p => {
@@ -1252,6 +1298,15 @@ router.patch('/session/:sessionId/project', projectAuthFilter, async (req, res) 
       }
     }
 
+    // [稽核#3] 擁有權：session 內有他人建立的列（且非管理員）→ 拒絕改專案
+    const ownersRes = await pool.query(
+      'SELECT DISTINCT created_by_user_id FROM pending_tree_measurements WHERE session_id = $1',
+      [sessionId]
+    );
+    if (!canManagePendingOwners(req, ownersRes.rows.map(r => r.created_by_user_id))) {
+      return ownershipDeniedResponse(res);
+    }
+
     const result = await pool.query(
       `UPDATE pending_tree_measurements
        SET project_area = $1, project_code = $2, project_name = $3
@@ -1291,7 +1346,17 @@ router.delete('/session/:sessionId', projectAuthFilter, async (req, res) => {
         return res.status(403).json({ success: false, message: '權限不足' });
       }
     }
-    
+
+    // [稽核#3] 擁有權：session 內有他人建立的列（且非管理員）→ 拒絕刪除
+    const ownersRes = await pool.query(
+      'SELECT DISTINCT created_by_user_id FROM pending_tree_measurements WHERE session_id = $1',
+      [sessionId]
+    );
+    if (ownersRes.rows.length > 0
+        && !canManagePendingOwners(req, ownersRes.rows.map(r => r.created_by_user_id))) {
+      return ownershipDeniedResponse(res);
+    }
+
     const result = await pool.query(
       'DELETE FROM pending_tree_measurements WHERE session_id = $1 RETURNING id',
       [sessionId]

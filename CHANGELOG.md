@@ -4,6 +4,20 @@
 
 ---
 
+## (2026-06-10) — 多人安全 P0：pending 任務擁有權 + 查詢上限
+
+### pending 任務擁有權（稽核 #1/#3）
+- migration `29_pending_created_by.pg.sql`：`pending_tree_measurements` 加 `created_by_user_id`（FK→users，ON DELETE SET NULL）+ 索引；route 啟動自我補欄與正式 migration 並存。
+- `POST /batch` 寫入建立者；`PATCH /:id`、`POST /transfer`、`DELETE /session/:id`、`PATCH /session/:id/project` 加擁有權檢查：非本人（且非 系統/業務管理員）→ 403 `NOT_OWNER`；`created_by_user_id IS NULL` 的 legacy 列沿用舊行為。
+- 契約測試 `tests/contracts/pending_ownership.test.js`：A 建批次 → B（同專案調查管理員）改/刪/轉專案 403 → A 可改 → 系統管理員可代刪。
+
+### 查詢上限（稽核 #9）
+- `GET /tree_survey/by_project/:x`、`GET /tree_survey/by_area/:x`：預設/最大 cap 2000 + `truncated` 旗標（`?limit=` 可調小）。
+
+> 前端同步：session ID 改防碰撞亂數（稽核 #4）、待測頁只還原本機 claim 的任務（稽核 #2）、維護清單截斷警告（稽核 #8）、admin 專案管理列 overflow 修正。
+
+---
+
 ## (2026-06-10) — 交接去個人化（程式碼層）
 
 ### 移除提交程式碼中的個人值（避免交接後計費／資安風險）

@@ -621,9 +621,21 @@ router.get('/by_project/:projectNameOrCode', projectAuthFilter, async (req, res)
             params.push(req.projectFilter);
         }
 
-        sql += ` ORDER BY project_tree_id ASC`;
+        // [稽核#9] 伺服器端上限，避免單一專案巨量列拖垮回應
+        const limit = Math.min(
+            Math.max(parseInt(req.query.limit, 10) || 2000, 1),
+            2000
+        );
+        sql += ` ORDER BY project_tree_id ASC LIMIT $${params.length + 1}`;
+        params.push(limit + 1);
+
         const { rows } = await db.query(sql, params);
-        res.json({ success: true, data: rows });
+        const truncated = rows.length > limit;
+        res.json({
+            success: true,
+            data: truncated ? rows.slice(0, limit) : rows,
+            truncated,
+        });
     } catch (err) {
         console.error(`獲取專案 [${projectNameOrCode}] 的樹木資料錯誤:`, err);
         res.status(500).json({ success: false, message: '查詢資料庫時發生錯誤' });
@@ -670,10 +682,22 @@ router.get('/by_area/:areaName', projectAuthFilter, async (req, res) => {
             params.push(req.projectFilter);
         }
 
-        sql += ` ORDER BY system_tree_id ASC`;
+        // [稽核#9] 伺服器端上限，避免單一區位巨量列拖垮回應
+        const limit = Math.min(
+            Math.max(parseInt(req.query.limit, 10) || 2000, 1),
+            2000
+        );
+        sql += ` ORDER BY system_tree_id ASC LIMIT $${params.length + 1}`;
+        params.push(limit + 1);
+
         const { rows } = await db.query(sql, params);
+        const truncated = rows.length > limit;
         // 將回應包裹在標準格式中
-        res.json({ success: true, data: rows });
+        res.json({
+            success: true,
+            data: truncated ? rows.slice(0, limit) : rows,
+            truncated,
+        });
     } catch (err) {
         console.error(`獲取區位 [${areaName}] 的樹木資料錯誤:`, err);
         res.status(500).json({ success: false, message: '查詢資料庫時發生錯誤' });

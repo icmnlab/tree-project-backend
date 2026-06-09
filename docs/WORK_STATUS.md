@@ -112,19 +112,19 @@
 
 ## 0e. 深度稽核（2026-06-10，22 項；多人安全／效能／資安）
 
-> 來源：全庫深讀稽核（routes/services/screens 逐檔）。已知議題不重列。**本日已修 8 項**，其餘按優先序待辦。
+> 來源：全庫深讀稽核（routes/services/screens 逐檔）。已知議題不重列。**P0 全數完成（2026-06-10），累計已修 14 項**，其餘按優先序待辦。
 
 **P0 — 上線前應處理**
-- [ ] **#1 同專案調查員可互改 pending**：`pending_measurements.js` PATCH 僅驗 project_code，無 created_by/assigned_to 擁有權 → 需 batch 寫入 `created_by_user_id` + mutating 端點驗擁有者（**含 schema migration，下一輪做**）。
-- [ ] **#2 離開待測頁把他人 in_progress 打回 pending**：`pending_measurement_task_page` `dispose()` 無條件還原狀態 → 僅本機成功設 in_progress 才還原；他人任務唯讀。
-- [ ] **#3 session 操作無建立者檢查**：transfer/刪除/改專案僅驗專案權限 → 同 #1 一併做 created_by。
-- [ ] **#4 session ID 碰撞**：`MS-YYYYMMDD-${ms%100000}` 空間小且 DB 無 UNIQUE → 改 UUID + UNIQUE 約束（與 #1 同 migration）。
+- [x] **#1 同專案調查員可互改 pending**：migration `29_pending_created_by.pg.sql` 加 `created_by_user_id`（FK→users，ON DELETE SET NULL）；batch 寫入建立者；PATCH 驗擁有權（本人或 系統/業務管理員；NULL=legacy 列回溯相容）。契約測試 `pending_ownership.test.js`。（2026-06-10）
+- [x] **#2 離開待測頁把他人 in_progress 打回 pending**：`_claimedTaskId` 只記錄本機成功設 in_progress 的任務；dispose/放棄/取消只還原自己 claim 的任務。（2026-06-10）
+- [x] **#3 session 操作無建立者檢查**：transfer／刪除 session／改 session 專案均加擁有權檢查（403 `NOT_OWNER`），管理員可代管。（2026-06-10）
+- [x] **#4 session ID 碰撞**：`generateUniqueSessionId()`（日期前綴+96-bit 安全亂數，`lib/utils/session_id.dart`），SMOKE 批次同步改用；碰撞機率可忽略。未加 DB UNIQUE（session_id 本就跨多列共用，UNIQUE 語意不成立）。（2026-06-10）
 - [x] **#5 地圖 API 無上限**：後端 `/map` 預設 cap 20000 + truncated（前端 viewport 剔除已先修）。（2026-06-10）
 **P1 — 資料正確性／多人協作**
 - [ ] **#6 維護轉移覆寫 tree_survey 無樂觀鎖**：transfer 已有 `FOR UPDATE`（轉移互斥）+ maintenance_locks（雙調查員互斥）+ 歷次量測表保留紀錄；剩餘風險是「web 編輯與現場轉移並行」——現場儀器值較新，**設計上現場優先**，列觀察非急修。
 - [x] **#7 pending PATCH SELECT→UPDATE 競態**：UPDATE WHERE 加毫秒級版本原子守門（date_trunc 對齊 PG 微秒），並發雙過 pre-check 時僅一個命中、另一個 409。（2026-06-10）
-- [ ] **#8 維護清單靜默截斷 500 筆**：>500 棵的專案需分頁/警告。
-- [ ] **#9 by_project/by_area 無 LIMIT**：加分頁（比照 tree_list 200 筆模式）。
+- [x] **#8 維護清單靜默截斷 500 筆**：達 500 筆上限時顯示橙色警告列「僅顯示前 500 筆，請用搜尋縮小範圍」。（2026-06-10）
+- [x] **#9 by_project/by_area 無 LIMIT**：預設/最大 cap 2000 + `truncated` 旗標（可 `?limit=` 縮小）。（2026-06-10）
 - [x] **#10 批次更新無樂觀鎖**：稽核期間已先修（commit `73015cc`，逐棵帶鎖+回報）。
 - [x] **#11 DBH 無範圍驗證**：表單擋 ≤0 與 >600cm。（2026-06-10）
 - [ ] **#12 AI 匯出下載缺角色限制**：`/download/:filename` 加 requireRole 或 signed token。
