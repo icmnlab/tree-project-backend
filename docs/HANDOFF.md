@@ -212,3 +212,22 @@ pm2 reload tree-backend          # 手動重載
 見 `WORK_STATUS.md`「待辦」與 `VERIFICATION_CHECKLIST.md`。目前重點：
 - 把仍標「實機」的 P0 項目盡量轉成自動化測試/腳本（GPS 三選一、新增樹不進待辦、儀器欄位 transfer→history…）。
 - 真正非實機不可的項目（雙機、藍牙硬體）才保留人工驗證。
+
+---
+
+## 12. 保留但未掛載／實驗性功能（給後續開發者）
+
+交接原則：**掛在 UI 上的功能保證穩定；實驗性功能保留程式碼但不主打**。以下為刻意保留、供後續接手者繼續開發的部分：
+
+| 功能 | 程式碼位置 | 狀態 |
+|------|-----------|------|
+| AI 對話（樹木問答） | 前端 `screens/ai_chat_page.dart`、後端 `routes/ai.js` | **掛載中**（首頁卡片/樹木頁入口），依賴 `LLM_*` 環境變數，未設定時降級 |
+| AI 永續報告 | `/ai-sustainability-report` 路由、`routes/ai.js` | 掛載中，同上依賴 LLM 設定 |
+| 視覺 DBH（純視覺量測） | 前端 `screens/scanner_page.dart`、`services/pure_vision_dbh_service.dart`、後端 `routes/ml_service.js`、`ml_service/`（Python） | **掛載中**（V3 整合表單/編輯頁/首頁「測試掃描」卡），精度仍在研究階段，見 `DBH_PURE_VISION_RESEARCH.md` |
+| AR 量測 | `services/ar_measurement_service.dart` 等 | 程式碼保留，未主打 |
+| ML 訓練資料收集 | 後端 `routes/ml_training_data.js` | 保留 |
+| 樹木調查頁（unscoped 模式） | `tree_survey_page.dart` | 底部分頁已移除（與列表重疊）；**保留**供專案/區位下鑽與首頁「樹木調查」卡片使用 |
+| 自動多邊形邊界建議 | 後端 boundarySuggest | 通用功能、需使用者確認後才寫入 |
+| 年碳吸存推估 | `tree_survey_measurements` 歷次快照已就緒（含 create_v2 首筆） | 演算法（存量差分）待累積多期資料後實作，見 `CARBON_CALCULATION.md` |
+
+已刪除（被新版完全取代的死碼，不建議復活）：V1 手動輸入頁（被 V3 整合表單取代）、`/ai-assistant` 重複路由、`ble_live` 死分支。

@@ -150,7 +150,8 @@
 
 > 來源：全 `lib` 頁面盤點（約 40+ 畫面）＋專案/區資料結構檢視。**皆分析建議、未動程式**，待使用者勾選要動的項目。
 
-### A. 樹木調查（`tree_survey_page.dart`）是否保留？
+### A. 樹木調查（`tree_survey_page.dart`）是否保留？ ✅ 已執行（2026-06-10）
+> **已實作方案 1 變體**：底部導覽 3→2 頁（首頁/列表），移除「調查」分頁；`tree_survey_page.dart` **保留**供專案/區位下鑽（`ProjectTreesPage`/`ProjectAreasPage`）與首頁「樹木調查」卡片（手動新增入口）使用。原盤點分析如下：
 - **現況**：仍是現役入口——佔**底部導覽第 2 頁「調查」**，定位＝「樹木清單瀏覽 + 手動新增入口（FAB→快速/智慧模式）」，**不是** BLE/拍照量測頁（那是 `ble_live_session_page`/`integrated_tree_form_page`）。也被專案瀏覽鏈（`ProjectTreesPage`/`ProjectAreasPage`）帶 `projectName/areaName` push。
 - **問題**：與 `tree_list_page.dart`（底部第 3 頁「列表」）**職責重疊**——兩個都是樹木清單，列表頁能力更強（分頁、搜尋、排序、批次、Excel 匯入匯出）；調查頁無篩選時只載前 200 筆。使用者最易困惑「調查 vs 列表」差在哪。
 - **建議（擇一，待拍板）**：
