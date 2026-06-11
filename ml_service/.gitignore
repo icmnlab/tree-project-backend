@@ -14,3 +14,23 @@ onnx_models/
 checkpoints/
 *.pt
 *.pth
+
+# Research/benchmark outputs (kept locally, not part of the deliverable repo)
+benchmark_*/
+benchmark_*.csv
+benchmark_*.json
+benchmark_*.log
+phone_flow_*/
+trunk_detector_training/run/
+*.err
+*.err.log
+*.log
+diag_output.txt
+
+# Local model sources / weights (set up via setup_models.py, see README)
+models/
+openvino_models/
+depth_pro_src/
+sam2_src/
+third_party/
+self_host/

@@ -62,21 +62,21 @@ F1–F3（相機/即時樹幹框）、L3/L4（409 衝突對話框 UI）。
 
 **1. 確認後端在線**（Windows）
 ```powershell
-tailscale status                              # 應看到 richardhualienserver (linux) 在線
-curl.exe -s -m 12 http://100.118.203.75:3000/health   # 回 OK 才繼續
+tailscale status                              # 應看到 <HOST> (linux) 在線
+curl.exe -s -m 12 http://<SERVER_IP>:3000/health   # 回 OK 才繼續
 ```
-- App 內建 HTTPS 預設 `https://richardhualienserver.tail124a1b.ts.net/api` **目前不通**（Tailscale serve/Nginx 443 未起）→ 驗證一律用下方直連 IP 覆寫。
-- 需登 Ubuntu 查狀態：`ssh -i $env:USERPROFILE\.ssh\id_ed25519 kyleliu@100.118.203.75` → `pm2 logs tree-backend`。
+- App 內建 HTTPS 預設 `https://<TAILSCALE_HOST>/api` **目前不通**（Tailscale serve/Nginx 443 未起）→ 驗證一律用下方直連 IP 覆寫。
+- 需登 Ubuntu 查狀態：`ssh -i $env:USERPROFILE\.ssh\id_ed25519 <SERVER_USER>@<SERVER_IP>` → `pm2 logs tree-backend`。
 
 **2. 啟動 App（Debug，最省事；harness + field log 預設開）**
 ```powershell
 cd frontend
-flutter run --dart-define=API_BASE_URL=http://100.118.203.75:3000/api
+flutter run --dart-define=API_BASE_URL=http://<SERVER_IP>:3000/api
 ```
 Release 實機（要加旗標才吐 log）：
 ```powershell
 flutter run --release ^
-  --dart-define=API_BASE_URL=http://100.118.203.75:3000/api ^
+  --dart-define=API_BASE_URL=http://<SERVER_IP>:3000/api ^
   --dart-define=RUN_VERIFICATION_HARNESS=true ^
   --dart-define=ENABLE_FIELD_LOGS=true ^
   --dart-define=FIXTURE_PROJECT_CODE=<要驗的區代碼>

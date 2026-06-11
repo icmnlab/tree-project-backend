@@ -113,6 +113,17 @@ Models are not committed (`models/`, `openvino_models/` are gitignored). Run
 `setup_models.py` once to download Depth Pro + SAM 2.1 Tiny, then
 `run_export.ps1` if you want the OpenVINO IR.
 
+Third-party sources are **not** committed either (gitignored, no submodules).
+If you need them, clone into the listed folders:
+
+```bash
+git clone https://github.com/apple/ml-depth-pro depth_pro_src
+git clone https://github.com/facebookresearch/sam2 sam2_src
+# optional research baselines:
+git clone https://github.com/lpiccinelli-eth/UniDepth third_party/UniDepth
+git clone https://github.com/ByteDance-Seed/depth-anything-3 third_party/depth-anything-3
+```
+
 ---
 
 ## Repository layout

@@ -11,7 +11,7 @@
 
 **目前狀態（commit／分支）**
 - 後端 `tree-project-backend`：`main` 最新 `d8d71df`（已把 `HANDOFF.md` + 本 `WORK_STATUS.md` + docs 樹整併 worklist 納入版控）。CI 綠。docs 樹整併變更已於本機完成、**待 commit**。
-- 前端 `tree-project-frontend`：admin 完善 PR [#3](https://github.com/KyleliuNDHU/tree-project-frontend/pull/3)（分支 `feat/admin-panel-completeness`）**已合併進 `main`**（合併 commit `16f9caa`）。`main` 已含 CRUD/系統維運/權限對齊。
+- 前端 `tree-project-frontend`：admin 完善 PR [#3](https://github.com/<GITHUB_OWNER>/tree-project-frontend/pull/3)（分支 `feat/admin-panel-completeness`）**已合併進 `main`**（合併 commit `16f9caa`）。`main` 已含 CRUD/系統維運/權限對齊。
 
 **待辦（依優先序）**
 1. [x] **Merge PR #3**（admin 後台完善）。已合併（`16f9caa`），前端 `main` 已含 CRUD/系統維運/權限對齊。
@@ -36,13 +36,27 @@
 
 ---
 
+## 0f. 交接清倉：docs/repo 整理（2026-06-11 執行）
+
+> 目標：repo 只留「交接所需」內容；研究產出/個人資料備份到本機 `c:\projects\tree_project\handover_backup_20260611\`（**不入庫、不交接**）。
+
+- [x] **docs 樹收斂**：`frontend/docs/` 殘留的 14 份過時文件（roadmap/舊計畫/個人 SSH 筆記/舊交接手冊等）備份後移除；8 份仍有效文件升級進 canonical（`FIELD_SURVEY_SOP`、`HANDOFF_SECRETS_CHECKLIST`、`SURVEY_HISTORY`、`ML_CORRECTION_UPLOAD`、`ADMIN_AND_INVITE_DESIGN`、`MEETING_MINUTES_20260528`、外接 GNSS 交接 ×2）。兩 repo `docs/` 重建為 canonical 鏡像。
+- [x] **canonical 清理**：移除 `history/`（7 檔）與 5 份過時 roadmap/會議簡報文件（備份）；論文產物（docx/pdf/figures/論文腳本）移出 docs（備份 `docs_paper/`）。
+- [x] **ml_service 研究產出清倉**：~8.7 GB benchmark/訓練結果（`benchmark_*`、`phone_flow_*`、`trunk_detector_training/run/`、散落 csv/log/研究腳本）備份至 `ml_research/` 並自 repo 移除；`.gitignore` 補 benchmark/模型來源規則。**保留**：服務程式、再訓練管線腳本與 README。
+- [x] **幽靈 submodule 修正**：`depth_pro_src`、`sam2_src`、`third_party/UniDepth`、`third_party/depth-anything-3` 四個 gitlink 無 `.gitmodules`（clone 後無法初始化）→ 自 index 移除，取得方式見 `SELF_HOST_ML_GUIDE.md`／`ml_service/README.md`。
+- [x] **文件層去個人化**（原 §2 worklist）：`HANDOFF.md`、`VERIFICATION_CHECKLIST.md`、本檔、`BUILD_GUIDE.md` 之個人 IP/主機名/帳號/姓名全面占位化（`<SERVER_USER>@<SERVER_IP>`、`<HOST>`、`<TAILSCALE_HOST>`、`<GITHUB_OWNER>` 等）；個人部署筆記/簡歷自 `project_code/` 移備份。
+- [x] 斷鏈修復：`FIELD_SURVEY_SOP`／`MEETING_MINUTES`／外接 GNSS 文件中指向已移除文件的連結改指 `HANDOFF.md`；`HANDOFF.md` §10 文件地圖更新。
+- 殘留（拍板項）：`LICENSE` 著作權行 `Copyright (c) 2025 KyleliuNDHU`——著作權人為使用者本人，MIT 慣例保留名字；是否改中性名稱**留使用者決定**。
+
+---
+
 ## 0c. 程式碼健檢 + 實機 log 分析（2026-06-09）
 
 > 來源：一次完整 `flutter run` 實機 log（量測/維護/地圖全流程）＋ SSH 後端檢查。
 > 修復範圍策略＝**track_only**（記錄為主），但下列 **F-A／F-B** 為使用者直接回報、已動手處理。
 
 **SSH 後端檢查（2026-06-09）**
-- `richardhualienserver` 後端 `git log -1` = `f11d60d`（與本機 main 一致）；PM2 `tree-backend` cluster ×2 online；`/health`=OK；`backend-error-*.log` **無錯誤**。後端側健康。
+- `<HOST>` 後端 `git log -1` = `f11d60d`（與本機 main 一致）；PM2 `tree-backend` cluster ×2 online；`/health`=OK；`backend-error-*.log` **無錯誤**。後端側健康。
 
 **本輪已處理**
 - [x] **F-B 地圖「專案選單不配合縣市」（前端，已修）**：根因＝`MapPage._refreshProjectsForCity` 呼叫 `projects/by_area/<縣市>`，但該路由 `:area` 是「**區位名稱**」非「縣市」，把縣市當區位送進去永遠 0 筆 → 專案下拉塌成只剩「全部」。修法：移除該誤用 API，改在 `_loadMapData` 載入後，依「**已按縣市過濾的快取樹木**」在地端推導專案清單（`_deriveFilteredProjectsForCity`），免後端配合、免重部署。`flutter test` 387 pass、analyze 無新錯。
@@ -196,27 +210,27 @@
 ## 交接去個人化 worklist（**fresh 策略**，2026-06-09 定）
 
 > 決策：**完全去個人化** — 程式碼零硬編碼個人值，下一棒自行申請所有帳號/金鑰。  
-> 既有清單：`frontend/docs/HANDOFF_SECRETS_CHECKLIST.md`（金鑰/網址/帳號）、`docs/LAB_DEPLOYMENT_GUIDE.md`（部署）、`frontend/docs/UBUNTU_SSH_ACCESS.md`（SSH）。  
+> 既有清單：`docs/HANDOFF_SECRETS_CHECKLIST.md`（金鑰/網址/帳號）、`docs/LAB_DEPLOYMENT_GUIDE.md`（部署）。  
 > ⚠️ **執行時機：在「真人/硬體驗證」完成之後**（去個人化會抽掉驗證所需的後端 IP/憑證/SSH 資訊）。
 
 ### 1. 程式碼層（硬編碼個人值 → 可設定 / 占位）
 - [x] `frontend/lib/config/app_config.dart` → `defaultBaseUrl` 改為**空字串**（強制 `--dart-define=API_BASE_URL`）；空值時於 `_setEnvironment` 印明確警告。（2026-06-10）
-- [x] `frontend/lib/main.dart` → `SelfHostedHttpOverrides` 移除硬編碼 `100.118.203.75`／`100.81.214.9`；改 `--dart-define=SELF_SIGNED_TRUSTED_HOSTS`（逗號分隔，支援 `.suffix` 後綴；預設空＝只走正規 TLS）。（2026-06-10）
-- [x] `backend/database/initial_data/users.pg.sql` → 移除真實姓名種子帳號（`林柔安`／`劉旻豪`+`Kyleliu`）；保留 bootstrap `admin`（CI/首次登入）+ `test`/`tt2` 通用角色帳號（display 改通用、清 admin 港務專案關聯）。**剩餘**：完整改 `create_lab_admin.js` 部署時建立（帳密部署者輸入）— 待後續。（2026-06-10）
+- [x] `frontend/lib/main.dart` → `SelfHostedHttpOverrides` 移除硬編碼 `<SERVER_IP>`／`<ML_HOST_IP>`；改 `--dart-define=SELF_SIGNED_TRUSTED_HOSTS`（逗號分隔，支援 `.suffix` 後綴；預設空＝只走正規 TLS）。（2026-06-10）
+- [x] `backend/database/initial_data/users.pg.sql` → 移除真實姓名種子帳號（`<NAME>`／`<NAME>`+`<OWNER>`）；保留 bootstrap `admin`（CI/首次登入）+ `test`/`tt2` 通用角色帳號（display 改通用、清 admin 港務專案關聯）。**剩餘**：完整改 `create_lab_admin.js` 部署時建立（帳密部署者輸入）— 待後續。（2026-06-10）
 - [x] `backend/scripts/test_prod_handbook_e2e.js` → host fallback 由個人 Tailscale 網址改 `http://localhost:3000/api`（仍可 `TEST_BASE_URL` 覆寫）。（2026-06-10）
 - [x] 港務測試種子 `06_project_boundaries_seed.pg.sql` 經查**已隔離**：`migrate.js` L47–48 排除於正式 migration、僅 dev-fixtures（`seed_dev_boundaries.js`）載入 → 正式庫不含港務資料，無需處理。
 - [x] `.env.example` 補齊：新增 14 個漏列的選用鍵（`AGENT_FETCH_*`／`LLM_*`／`CARBON_CALC_LEGACY_TIPC`／`DEBUG_MAP`／`CORS_ORIGIN`／`TEST_*`）；所有計費/機密金鑰本就已占位。**查證**：全庫追蹤檔無硬編碼金鑰、`.env` 已 gitignore。（2026-06-10）
 - [ ] `backend/.env`（實機真實值，Tailscale/ngrok）不入庫——本就 gitignore，交接時舊金鑰全部作廢重申請（見 §3）。
-- [ ] `backend/LICENSE` 著作權人 `KyleliuNDHU`（屬法律/歸屬決定，**留待使用者拍板**，未擅改）。
-- [ ] 殘留掃描：程式/腳本層已清；**文件層**（`docs/**`、根目錄部署筆記）仍含個人值，見第 2 節（時機：硬體驗證後）。
+- [ ] `backend/LICENSE` 著作權人 `<GITHUB_OWNER>`（屬法律/歸屬決定，**留待使用者拍板**，未擅改）。
+- [x] 殘留掃描：程式/腳本層已清；文件層已於 2026-06-11 占位化完成（見 §0f），repo 全庫掃描個人值 = 0 命中（`LICENSE` 著作權行除外，留使用者拍板）。
 
 ### 2. 文件層（個人值 → 占位符，與既有 checklist 風格一致）
-- [ ] `UBUNTU_SSH_ACCESS.md`、`HANDOFF.md`、本 `WORK_STATUS.md`、`SELF_HOST_ML_GUIDE.md`、`DBH_MEASUREMENT_RESEARCH_V2.md`、`ml_service/README.md`、`backend/CHANGELOG.md`：`kyleliu@100.118.203.75`→`<SERVER_USER>@<SERVER_IP>`、`richardhualienserver`→`<HOST>`、`*.tail124a1b.ts.net`→`<TAILSCALE_HOST>`。
-- [ ] 根目錄 `完整部署方案：Render → 自架 Ubuntu 筆電伺服器.txt`：移出版控/刪除或占位化（含個人部署筆記）。
+- [x] 文件層個人值全面占位化（2026-06-11，見 §0f）：`HANDOFF.md`、本 `WORK_STATUS.md`、`VERIFICATION_CHECKLIST.md`、`BUILD_GUIDE.md` 等改 `<SERVER_USER>@<SERVER_IP>`／`<HOST>`／`<TAILSCALE_HOST>`／`<GITHUB_OWNER>`；`UBUNTU_SSH_ACCESS.md` 已移出 repo（備份）。
+- [x] 根目錄 `完整部署方案：Render → 自架 Ubuntu 筆電伺服器.txt`：已移出 `project_code/`（備份於 `handover_backup_20260611/personal_root/`）。
 
 ### 3. 帳號 / 服務（fresh：交接時下一棒自建）
-- [ ] GitHub `KyleliuNDHU/tree-project-*`：下一棒 fork/新建 repo，更新 remote 與 webhook secret。
-- [ ] Tailscale tailnet（`KyleliuNDHU@`）、Ubuntu `kyleliu` 帳號：下一棒自建 tailnet / Linux 帳號 + 公鑰。
+- [ ] GitHub `<GITHUB_OWNER>/tree-project-*`：下一棒 fork/新建 repo，更新 remote 與 webhook secret。
+- [ ] Tailscale tailnet（`<GITHUB_OWNER>@`）、Ubuntu `<SERVER_USER>` 帳號：下一棒自建 tailnet / Linux 帳號 + 公鑰。
 - [ ] 所有金鑰（DB/JWT/Cloudinary/PlantNet/AI/ML/Admin/Webhook/Maps）依 `HANDOFF_SECRETS_CHECKLIST.md` §A **全部作廢重申請**。
 
 ### 4. 業界標準收尾
@@ -266,7 +280,7 @@
 
 目標：把管理後台補到業界可用水準 — 修 bug、補「後端已有但前端缺 UI」的 CRUD、新增系統維運分頁，並讓前端權限閘對齊後端 `requireRole`。
 
-> ✅ **前端 `tree-project-frontend` PR [#3](https://github.com/KyleliuNDHU/tree-project-frontend/pull/3)（分支 `feat/admin-panel-completeness`，HEAD `f02188b`）CI test pass（1m55s）**；本機 `flutter test` 387 pass / 0 fail，`flutter analyze` 變更檔僅 info 級。
+> ✅ **前端 `tree-project-frontend` PR [#3](https://github.com/<GITHUB_OWNER>/tree-project-frontend/pull/3)（分支 `feat/admin-panel-completeness`，HEAD `f02188b`）CI test pass（1m55s）**；本機 `flutter test` 387 pass / 0 fail，`flutter analyze` 變更檔僅 info 級。
 
 ### 修正（bugs / 死碼）
 - [x] `services/admin_service.dart`：備份端點 `backup` → `admin/backup`（原本打不到後端受保護路由）。

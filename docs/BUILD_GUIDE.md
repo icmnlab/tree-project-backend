@@ -65,7 +65,7 @@ storeFile=keystore/upload-keystore-new.jks
    ```powershell
    # Windows
    mkdir android\keystore
-   copy c:\Users\aaari\upload-keystore.jks android\keystore\
+   copy <KEYSTORE_PATH>\upload-keystore.jks android\keystore\
    ```
    
    ```bash

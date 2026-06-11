@@ -14,8 +14,8 @@
 - **ML 服務（選用）**：樹幹偵測 / 深度估計代理（獨立服務，後端透過 `ML_SERVICE_URL` 代理）。
 
 兩個 repo（各自獨立）：
-- `KyleliuNDHU/tree-project-backend`
-- `KyleliuNDHU/tree-project-frontend`
+- `<GITHUB_OWNER>/tree-project-backend`
+- `<GITHUB_OWNER>/tree-project-frontend`
 
 > ⚠️ 工作區根目錄 `project_code/` 不是 git repo；`backend/` 與 `frontend/` 各是一個 repo，
 > `docs/`、`ml_service/` 為輔助目錄。
@@ -213,10 +213,18 @@ pm2 reload tree-backend          # 手動重載
 | `VERIFICATION_CHECKLIST.md` | 部署後實機驗證清單（§0、§8–§10） |
 | `LAB_DEPLOYMENT_GUIDE.md` | 脫離個人帳號、實驗室獨立部署 |
 | `BUILD_GUIDE.md` | App 建置細節 |
+| `HANDOFF_SECRETS_CHECKLIST.md` | 交接日金鑰/帳號/網址逐項清單（必看） |
 | `PROJECT_DATA_AND_DOMAIN.md` | CSV / 專案語意（domain 真相） |
+| `FIELD_SURVEY_SOP.md` | 現場調查操作 SOP（拿儀器到現場照著做） |
+| `MEETING_MINUTES_20260528.md` | 2026-05-28 會議決議（功能取捨依據） |
+| `SURVEY_HISTORY.md` | 同一棵樹多次調查（歷次量測）機制 |
+| `ADMIN_AND_INVITE_DESIGN.md` | 管理後台與邀請碼規格 |
+| `ML_CORRECTION_UPLOAD.md` | ML 校正資料上傳（訓練資料回收） |
+| `HANDOFF_EXTERNAL_GNSS_AND_BLE.md` / `HANDOFF_外接GNSS現場量測.md` | 外接 GNSS + BLE 現場量測交接 |
 | `DATABASE_NORMALIZATION.md` / `BOUNDARY_SYSTEM_DESIGN.md` / `CARBON_CALCULATION.md` | 各子系統設計 |
 | `backend/tests/FRAMEWORK.md` | 後端測試框架寫法 |
-| `history/` | 舊版交接與分析（僅參考，可能過時） |
+
+> 歷史性分析/舊版交接文件已於 2026-06-11 整理移出 repo（原 `docs/history/`、各 roadmap/計畫文件），備份於專案擁有者本機 `handover_backup_20260611/`。
 
 ---
 

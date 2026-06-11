@@ -1,6 +1,0 @@
-name,gt_dbh_cm,gt_dist_m,pred_dbh_cm,pred_depth_m,pixel_width,confidence,method,abs_err_cm,rel_err_pct,elapsed_s,ok,error
-00CC1E5F-4EA1-4AA4-8828-D0E60B632B7F-231103163010,56.40,2.497,84.82,2.497,173.75,0.78,multi_row_median+seg_mask+reference,28.42,50.39,0.36,1,
-00E6190A-4D41-41CD-8FE1-B36E79A59793-231102165223,39.80,0.847,46.10,0.847,260.00,0.85,multi_row_median+seg_mask+reference,6.30,15.83,0.35,1,
-0151C7D1-F6D7-41FD-BF35-0186A4A122D3-231106165832,41.00,1.155,48.02,1.155,207.50,0.89,multi_row_median+seg_mask+reference,7.02,17.12,0.35,1,
-01EA669D-D466-446C-9099-AFC61378584E-231106164921,21.00,0.838,25.13,0.838,156.67,0.98,multi_row_median+seg_mask+reference,4.13,19.67,0.36,1,
-047DC49B-1361-4F16-AC46-7A1B827719D0-231102162939,34.00,0.883,40.94,0.883,227.92,0.85,multi_row_median+seg_mask+reference,6.94,20.41,0.36,1,

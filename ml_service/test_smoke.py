@@ -1,6 +1,7 @@
 """Quick smoke test for depth estimation pipeline."""
+import os
 import sys
-sys.path.insert(0, r"c:\Users\aaari\OneDrive\Desktop\project_management_tree-app\20_\tree_project\project_code\backend\ml_service")
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import numpy as np
 from PIL import Image
