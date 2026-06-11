@@ -1,9 +1,11 @@
-# 交接：外接 GNSS + 現場 BLE 量測（2026-05）
+# 交接：外接 GNSS + 現場 BLE 量測（2026-05，外接 GNSS 已取消）
 
-> 給接手的開發者。  
-> **交接總覽**：[`HANDOFF.md`](HANDOFF.md)  
-> **精简交接文案**：[`HANDOFF_外接GNSS現場量測.md`](HANDOFF_外接GNSS現場量測.md)  
-> 儀器實測結論見 `test/vlgeo2_ble_analysis/docs/`。
+> ⚠️ **狀態（2026-05-28 會議決議）：外接 GNSS 不採購、不續做**（見 `MEETING_MINUTES_20260528.md`）。
+> 現場 GPS 一律使用**手機定位（樹旁取樣）**，現行流程見 `FIELD_SURVEY_SOP.md`。
+> 本文件保留作為**技術存檔**：若日後重啟外接 GNSS，按此文件繼續即可。
+> 文中「下一步程式」皆為**未實作的歷史規劃**（`external_gnss_service.dart` 不存在）。
+>
+> **交接總覽**：[`HANDOFF.md`](HANDOFF.md)；儀器實測結論見 `test/vlgeo2_ble_analysis/docs/`。
 
 ## 現狀（APP）
 
@@ -194,7 +196,7 @@ GND 共地
 | 依据 | 说明 |
 |------|------|
 | **标准 NMEA** | LG290P 输出 `$GNGGA` / `$GNGSA`；全球通用，非厂商私有 |
-| **标准 BLE NUS** | 与 Geo2 相同 Service/Notify UUID（`ble_live_session_page.dart` L37–38） |
+| **标准 BLE NUS** | 与 Geo2 相同 Service/Notify UUID（见 `lib/utils/ble_uart_discovery.dart`） |
 | **APP 已有 BLE 栈** | `flutter_blue_plus` 已连 Geo2；第二设备连 `TreeGNSS` 为同库扩展 |
 | **明确接点** | `_resolveGpsForLiveMeasurement`（L399）现用 Geolocator → 改读 `ExternalGnssService` |
 | **备选路线** | 若外掛不可用：MEMORY + CSV GPS（零硬件，精度 2.5 m） |

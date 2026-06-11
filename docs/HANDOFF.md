@@ -187,7 +187,7 @@ pm2 reload tree-backend          # 手動重載
 - **專案邊界系統**（convex-hull 建議邊界、outlier 排除）：`BOUNDARY_SYSTEM_DESIGN.md`
 - **碳匯計算**：`CARBON_CALCULATION.md`
 - **VLGEO2 BLE 整合**（NUS/Haglof、CSV TYPE 1P/3P/DME/3D/SET、現場 PHGF）：`VLGEO2_STD_APPLICATION_GUIDE.md`、`frontend` 內 `ble_data_processor.dart` / `data_filter_service.dart`
-- **AI Agent / 文字轉 SQL**：`AI_Agent_完整說明.md`
+- **AI Agent / 文字轉 SQL**：`AI_AGENT_GUIDE.md`
 - **ML 自架**：`SELF_HOST_ML_GUIDE.md`
 
 ---
@@ -221,7 +221,7 @@ pm2 reload tree-backend          # 手動重載
 | `SURVEY_HISTORY.md` | 同一棵樹多次調查（歷次量測）機制 |
 | `ADMIN_AND_INVITE_DESIGN.md` | 管理後台與邀請碼規格 |
 | `ML_CORRECTION_UPLOAD.md` | ML 校正資料上傳（訓練資料回收） |
-| `HANDOFF_EXTERNAL_GNSS_AND_BLE.md` / `HANDOFF_外接GNSS現場量測.md` | 外接 GNSS + BLE 現場量測交接 |
+| `HANDOFF_EXTERNAL_GNSS_AND_BLE.md` | 外接 GNSS 技術存檔（已取消採購，文件開頭有狀態聲明） |
 | `DATABASE_NORMALIZATION.md` / `BOUNDARY_SYSTEM_DESIGN.md` / `CARBON_CALCULATION.md` | 各子系統設計 |
 | `backend/tests/FRAMEWORK.md` | 後端測試框架寫法 |
 
@@ -248,9 +248,10 @@ pm2 reload tree-backend          # 手動重載
 | AI 對話（樹木問答） | 前端 `screens/ai_chat_page.dart`、後端 `routes/ai.js` | **掛載中**（首頁卡片/樹木頁入口），依賴 `LLM_*` 環境變數，未設定時降級 |
 | AI 永續報告 | `/ai-sustainability-report` 路由、`routes/ai.js` | 掛載中，同上依賴 LLM 設定 |
 | 視覺 DBH（純視覺量測） | 前端 `screens/scanner_page.dart`、`services/pure_vision_dbh_service.dart`、後端 `routes/ml_service.js`、`ml_service/`（Python） | **掛載中**（V3 整合表單/編輯頁/首頁「測試掃描」卡），精度仍在研究階段，見 `DBH_PURE_VISION_RESEARCH.md` |
-| AR 量測 | `services/ar_measurement_service.dart` 等 | 程式碼保留，未主打 |
+| AR 量測 | `services/ar_measurement_service.dart`、`services/v3/ar_measurement_integration_service.dart`（零引用，整合範例） | 程式碼保留，未主打 |
+| WebSocket 即時掃描 | `services/scanner_service.dart`（零引用；對接 ml_service `/ws/scan`） | 程式碼保留，未掛載 |
 | ML 訓練資料收集 | 後端 `routes/ml_training_data.js` | 保留 |
-| 樹木調查頁（unscoped 模式） | `tree_survey_page.dart` | 底部分頁已移除（與列表重疊）；**保留**供專案/區位下鑽與首頁「樹木調查」卡片使用 |
+| 樹木調查頁（unscoped 模式） | `tree_survey_page.dart` | 底部分頁已移除（與列表重疊）；**保留**供專案/區下鑽與首頁「樹木調查」卡片使用 |
 | 自動多邊形邊界建議 | 後端 boundarySuggest | 通用功能、需使用者確認後才寫入 |
 | 年碳吸存推估 | `tree_survey_measurements` 歷次快照已就緒（含 create_v2 首筆） | 演算法（存量差分）待累積多期資料後實作，見 `CARBON_CALCULATION.md` |
 

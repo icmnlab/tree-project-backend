@@ -2,7 +2,7 @@
 
 > **預設模型**：`gpt-5.4-mini`（Agent、Chat 備援、前端預設）  
 > **版本定位**：v2 — 受控外部檢索 + 報表匯出（**無 RAG、不寫入 DB**）  
-> **最後整理**：2026-05-22
+> **最後整理**：2026-06-11（詞彙：畫面「專案」= DB `project_areas`／「區」= DB `projects`，文中 DB 鍵名不變）
 
 ---
 
@@ -13,7 +13,7 @@
 | # | 直接貼上這句 | 預期 Agent 行為 |
 |---|-------------|----------------|
 | 1 | `列出可查的政策網站` | `list_policy_sources` 或 `list_demo_policy_urls` |
-| 2 | `高雄港有多少棵樹` | 若無 DB 工具會引導匯出；可改問匯出 |
+| 2 | `高雄港有多少棵樹` | 呼叫 `query_tree_data` 或 `project_summary` 直接查 DB 統計 |
 | 3 | `匯出高雄港樹木 Excel` | `export_excel` → 回傳 `downloadUrl` |
 
 ### B. 政策檢索（展示白名單 + 引用）

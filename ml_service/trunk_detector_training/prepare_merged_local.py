@@ -12,7 +12,7 @@
 
 設計：
   - 先用 inspect_dataset.py 已下載完的 trunk_training_data/
-  - 沿用 train_n_s_models.py 的去重 / class 過濾 / VOC→YOLO 轉換規則
+  - 含去重 / class 過濾 / VOC→YOLO 轉換規則
   - 80/15/5 split (seed=42)
   - 保留沒有任何 trunk 的影像作為 negative samples (10% Roboflow / 5% Urban / 0% Xiang)
   - **EXTRA_TRUNK_OVERRIDES 預設關閉**（user 須以 --include-post 開啟才把 weppw 的 'post' class 當 trunk）

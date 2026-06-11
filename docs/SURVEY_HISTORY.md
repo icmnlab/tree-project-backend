@@ -1,6 +1,6 @@
 # 同一棵樹的多次調查（歷次資料）
 
-> 更新：2026-06-07
+> 更新：2026-06-11
 
 ## 目前機制（已上線）
 
@@ -16,16 +16,17 @@
 
 | 值 | 來源 |
 |----|------|
-| `new` | 現場 transfer 新建 tree_survey |
+| `new` | 現場 transfer 新建 tree_survey；**或智慧/快速模式手動新增**（2026-06-10 起 `create_v2` 同步寫入初始快照，`pending_id=NULL`） |
 | `maintenance` | 對既有 `target_tree_id` 複查 |
 | `snapshot` | migration 17 對歷史資料的 baseline 回填 |
 
-## 已知缺口（2026-06-07 修復進度）
+## 已知缺口（2026-06-11 修復進度）
 
 | 缺口 | 狀態 |
 |------|------|
 | transfer 寫歷次失敗被 silent skip | **已修**（失敗則整批 rollback） |
-| 手動 `update_v2` / CSV 不寫歷次 | 待辦（P1） |
+| 手動新增（`create_v2`）不寫歷次 | **已修**（2026-06-10，建樹同 transaction 寫入 `survey_mode='new'` 快照） |
+| 手動 `update_v2` / CSV 匯入不寫歷次 | **刻意不寫**：編輯是「修正目前值」而非新量測；CSV 匯入屬測試資料。如需編輯軌跡見 audit_logs 待辦 |
 | transfer 無 audit log | 待辦（P1） |
 | `UPDATE_TREE` 無 before/after | 待辦（P1） |
 | 刪樹 CASCADE 刪歷次 | 待辦（P3 soft delete） |
@@ -38,5 +39,5 @@
 
 ## 相關文件
 
-- `backend/docs/WORK_STATUS.md`
+- `docs/WORK_STATUS.md`
 - `backend/database/initial_data/15_tree_survey_measurements.pg.sql`

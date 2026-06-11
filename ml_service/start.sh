@@ -5,6 +5,7 @@
 # 使用方式:
 #   cd /opt/tree-app/ml_service
 #   ./start.sh                     # 預設模式 (DA V2 Base)
+#   ./start.sh --preset da3        # DA3 Metric Large + OpenVINO + server YOLO（與 Windows start.ps1 預設一致）
 #   ./start.sh --preset pro        # Depth Pro 模式
 #   ./start.sh --preset pro_ov     # Depth Pro + OpenVINO
 #   ./start.sh --preset openvino   # DA V2 + OpenVINO
@@ -33,7 +34,7 @@ while [[ $# -gt 0 ]]; do
         --workers)  WORKERS="$2"; shift 2 ;;
         --port)     PORT_ARG="$2"; shift 2 ;;
         -h|--help)
-            echo "Usage: $0 [--preset default|pro|openvino|pro_ov] [--verify] [--debug] [--workers N] [--port N]"
+            echo "Usage: $0 [--preset default|da3|pro|openvino|pro_ov] [--verify] [--debug] [--workers N] [--port N]"
             exit 0
             ;;
         *)
@@ -55,6 +56,22 @@ fi
 
 # --- 依 Preset 設定模型 ---
 case "$PRESET" in
+    da3)
+        export ML_DEPTH_MODEL="da3_metric_large"
+        export ML_USE_OPENVINO="true"
+        : "${ML_DA3_OV_DIR:=openvino_models/da3_metric_large}"
+        : "${ML_DA3_OV_DEVICE:=AUTO}"     # Linux 一般無 Intel NPU；AUTO 會挑可用裝置
+        export ML_DA3_OV_DIR ML_DA3_OV_DEVICE
+        export ML_ENABLE_SAM="false"
+        export ML_FORCE_SERVER_YOLO="true"
+        : "${ML_SERVER_YOLO_DEVICE:=AUTO}"
+        export ML_SERVER_YOLO_DEVICE
+        echo ""
+        echo "  Model: DA3 Metric Large + OpenVINO ($ML_DA3_OV_DEVICE) + server YOLO mask"
+        if [ ! -f "$SCRIPT_DIR/$ML_DA3_OV_DIR/openvino_model.xml" ]; then
+            echo "  WARNING: DA3 IR not found at $ML_DA3_OV_DIR — run: python da3_to_openvino.py"
+        fi
+        ;;
     pro)
         export ML_DEPTH_MODEL="depth_pro"
         export ML_USE_OPENVINO="false"
@@ -176,7 +193,7 @@ fi
 echo "  [Check] Verifying Python dependencies..."
 if ! $PYTHON_EXE -c "import fastapi, uvicorn, pydantic" 2>/dev/null; then
     echo "  [Check] Missing critical dependencies. Installing..."
-    $PYTHON_EXE -m pip install -r requirements_sota.txt
+    $PYTHON_EXE -m pip install -r requirements.txt
 fi
 
 # --- 自動檢查模型 ---

@@ -6,7 +6,8 @@
 |------|----------|
 | `coa_table_6_4.json` | 表 6-4 林型係數（D, BEF, BCEF, R, CF） |
 | `coa_volume_equations.json` | 表 6-2 針葉、表 6-3 闊葉材積式 |
-| `coa_species_forest_type.json` | 僅保留說明；林型由程式依樹種推斷 |
+
+> 註：早期的 `coa_species_forest_type.json`（空殼）與 `coa_volume_equations_starter.json`（啟動集）已移除；林型由 `handbookCarbonService` 依樹種推斷。
 
 ## 建置
 

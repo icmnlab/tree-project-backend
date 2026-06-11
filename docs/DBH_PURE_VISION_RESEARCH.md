@@ -1,5 +1,8 @@
 # 純視覺 DBH 測量技術研究報告
 
+> 📁 **歷史研究存檔**（2025-07，V1）：文中提及的 `ar_dbh_measurement_page.dart`、`depth_estimation_service.dart` 等規劃檔案未實作或已移除。
+> 後續版本見 `DBH_MEASUREMENT_RESEARCH_V2.md`；最終落地方案見 `backend/ml_service/README.md`。
+
 ## Pure Vision DBH Measurement Technical Research Report
 
 **版本**: 1.0  

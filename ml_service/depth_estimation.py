@@ -60,7 +60,7 @@ _detected_backend_cache = None
 # DA3 OpenVINO acceleration ---------------------------------------------------
 # When `_da3_ov_compiled` is set, _infer_da3() will run depth on the iGPU via
 # OpenVINO IR (FP16) instead of the much slower PyTorch CPU path.
-# Validation (da3_ov_validate.py) confirms < 1% per-pixel diff vs PT-FP32.
+# Validated at development time: < 1% per-pixel diff vs PT-FP32.
 _da3_ov_compiled = None
 _da3_ov_input_shape: tuple[int, int] | None = None  # (H, W) IR was exported at
 _da3_ov_device = None  # "GPU" / "CPU" / "NPU"
@@ -709,7 +709,7 @@ def _infer_da3(image: Image.Image, model, config) -> DepthResult:
     When a DA3 OpenVINO IR is loaded (`_da3_ov_compiled` is not None) and the
     image's preprocessed shape matches the IR's static input shape, the forward
     pass runs on the iGPU (FP16) instead of PyTorch CPU \u2014 ~5-6\u00d7 faster, with
-    <1% per-pixel numerical drift (validated by da3_ov_validate.py).
+    <1% per-pixel numerical drift (validated at development time).
     """
     target_h, target_w = image.height, image.width
 

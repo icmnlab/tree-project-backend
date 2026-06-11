@@ -4,7 +4,7 @@
 =================================================================
 目的：在訓練前徹底了解每個資料來源的「真實樣貌」，避免垃圾進垃圾出。
 
-來源（與 train_n_s_models.py 同步）：
+來源（與 prepare_merged_local.py 的資料來源同步）：
   1. Roboflow × 5：tree-trunk-detection-bi-axe / cherry-trunks /
      tree_trunk-weppw / tree-trunk-detection-369pz / tree-trunk-segmentation-ixblx
   2. Kaggle: erickendric/tree-dataset-of-urban-street-segmentation-trunk
@@ -49,7 +49,7 @@ if hasattr(sys.stdout, "reconfigure"):
 # ║  Config                                                        ║
 # ╚═══════════════════════════════════════════════════════════════╝
 
-# 與 train_n_s_models.py 一致。金鑰一律由環境變數提供，勿寫死於程式。
+# 金鑰一律由環境變數提供，勿寫死於程式。
 #   set ROBOFLOW_API_KEY / KAGGLE_USERNAME / KAGGLE_KEY（或用 .env）
 ROBOFLOW_API_KEY = os.environ.get("ROBOFLOW_API_KEY", "")
 KAGGLE_USERNAME = os.environ.get("KAGGLE_USERNAME", "")

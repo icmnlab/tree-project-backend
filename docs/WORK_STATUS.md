@@ -49,6 +49,20 @@
 - [x] **交接日流程文件化**（2026-06-11）：`LAB_DEPLOYMENT_GUIDE.md` 新增 §0「交接日流程」——fresh snapshot push（orphan branch，不帶舊歷史）→ 金鑰輪替 → 部署 → webhook 設定 → 管理員/種子帳號處理 → APK → 驗收 checklist。`HANDOFF.md` §1 系統描述改通用（港務=測試資料）、§11 指向交接日流程；兩 repo README 個人網路描述中性化。
 - 殘留（拍板項）：`LICENSE` 著作權行 `Copyright (c) 2025 KyleliuNDHU`——著作權人為使用者本人，MIT 慣例保留名字；是否改中性名稱**留使用者決定**。
 
+### 0f-2. 全量審查修正（2026-06-11 第二輪，4 個並行審查的落地）
+
+- [x] **後端清倉**：刪 MySQL 時代遺留 `create_admin.js`/`update_admin_password.js`/`build.sh`；刪孤兒 SQL（`initial_data/06_project_boundaries_seed.pg.sql` 重複副本、`tree_images_2nf_migration.pg.sql` 已併入 `tree_images.pg.sql`）；刪 `data/` 未用檔（starter/species_forest_type/twCounty2010.fixed/fix 腳本）。皆備份 `backend_legacy/`。`data/tree_survey_template.xlsx` 確認**存在且被 `routes/treeSurvey.js` 使用**（先前審查誤報）。
+- [x] **文件對齊現況**（11 份全查）：
+  - GNSS 交接：中文版刪除（與英文版重複）；英文版頂部加「**外接 GNSS 已取消採購**（2026-05-28 會議）」狀態聲明，內容標為技術存檔。
+  - `SURVEY_HISTORY.md`：create_v2 已寫歷次（06-10 修復）反映進缺口表；`update_v2`/CSV 不寫歷次改標「刻意不寫」。
+  - `ADMIN_AND_INVITE_DESIGN.md`：邀請碼入口、稽核頁已實作、詞彙對齊。
+  - `DATABASE_NORMALIZATION.md`：結論改「符合 2NF」（與 `PROJECT_DATA_AND_DOMAIN.md` §5.5 統一）；邊界 FK 已由 migration 18 修復。
+  - `AI_Agent_完整說明.md` → **改名 `AI_AGENT_GUIDE.md`**；Demo 行為、日期、詞彙更新。
+  - 其餘小修：`FIELD_SURVEY_SOP`（導航路徑）、`BOUNDARY_SYSTEM_DESIGN`（詞彙聲明）、`VLGEO2_STD_APPLICATION_GUIDE`（PDF 改外部連結）、`ML_CORRECTION_UPLOAD`（路由名/頁面）、`CARBON_CALCULATION`（雙端路徑）、DBH 研究 ×2（加「歷史存檔」聲明）。
+- [x] **前端清倉**：`test/Tree_app_equipment_info/`（~98 檔研究遺留）移備份，測試 fixture 留 `test/fixtures/vlgeo2/`（`DATA_2.CSV`+協議文件）；`test/vlgeo2_ble_analysis/` 精簡（留 docs/verify 腳本/可安裝韌體）；未用 assets 12 檔、死碼 4 檔（`custom_dropdown`/`species_card`/`tree_species`/`tipc_kp_lookup.g`）、根目錄散檔 3 檔移備份；verify 腳本/文件中的個人 venv 路徑與 email 清除。
+- [x] **版本同步**：前端 `pubspec.yaml` 18.3.2+10 → **18.4.0+11**，CHANGELOG 補 v18.4.0 條目。
+- [x] `HANDOFF.md` §12 補記保留的零引用實驗檔（`scanner_service.dart`、`ar_measurement_integration_service.dart`）。
+
 ---
 
 ## 0c. 程式碼健檢 + 實機 log 分析（2026-06-09）

@@ -1,6 +1,6 @@
 # VLGEO2 STD 應用程式手冊（外部參考）
 
-> 硬體技術手冊（本 repo 已有）：`project_code/Manual_Hagloef-Vertex-Laser-Geo2_80-194-02_80-195-02_en_30042024.pdf`  
+> 硬體技術手冊（原廠 PDF，不隨 repo 交付）：[Grube mirror](https://cdn.grube.de/2025/02/14/Manual_Hagloef-Vertex-Laser-Geo2_80-194-02_80-195-02_en_30042024.pdf) 或向 Haglöf 索取  
 > 下列為 **STD 應用層**（含 MAP TARGET、MAP TRAIL、林相量測選單）的公開文件連結。
 
 ## 官方來源

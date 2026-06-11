@@ -1,8 +1,0 @@
-{
-  "_meta": {
-    "description": "林型由 handbookCarbonService 依表6-2針葉樹種與表6-4預設推斷；不在此硬編碼港區/校園樹種。",
-    "default_forest_type": "天然闘葉林",
-    "override_only": true
-  },
-  "species_to_forest_type": {}
-}

@@ -15,7 +15,7 @@
 flutter run --dart-define=ENABLE_ML_CORRECTION_UPLOAD=true
 ```
 
-啟用後：系統設定頁會出現「修正紀錄上傳」卡片，並每 30 分鐘嘗試上傳至後端 `ml_training_data` API。
+啟用後：V3 服務頁（`v3_services_page.dart`）會出現「修正紀錄上傳」卡片，並每 30 分鐘嘗試上傳至後端 `POST /api/ml-training/batch`（`routes/ml_training_data.js`）。
 
 ## 建議
 

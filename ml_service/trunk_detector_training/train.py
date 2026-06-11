@@ -172,7 +172,7 @@ def main():
     parser.add_argument('--imgsz', type=int, default=640, help='Image size (default: 640)')
     parser.add_argument('--device', type=str, default='cpu',
                         help='Device: "cpu", "0" (NVIDIA GPU), "mps" (Apple M1/M2). '
-                             'Default: cpu. Use Colab notebook (train_colab.ipynb) for GPU training.')
+                             'Default: cpu. Use a GPU environment (e.g. Colab) for faster training.')
     parser.add_argument('--workers', type=int, default=4, help='DataLoader workers (default: 4)')
     parser.add_argument('--patience', type=int, default=30, help='Early stopping patience (default: 30)')
     parser.add_argument('--resume', action='store_true', help='Resume from last checkpoint')

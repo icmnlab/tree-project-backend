@@ -1,12 +1,15 @@
 # 純視覺 DBH 測量技術研究報告 V2
 
+> 📁 **歷史研究存檔**：本文是 2026-02 的研究規劃，文中待辦與檔案規劃不代表現況。
+> 最終落地方案 = DA3 深度估計 + 伺服器端 YOLOv8-seg，見 `backend/ml_service/README.md`。
+
 ## Pure Vision DBH Measurement Technical Research Report — 2026 Edition
 
 **版本**: 2.0  
 **日期**: 2026-02  
 **專案**: Sustainable TreeAI — TIPC 樹木管理系統  
 **目標**: 基於自架 MacBook 伺服器的高精度純視覺 DBH 自動測量方案  
-**前版**: [V1 — 2025-07](./pure_vision_dbh_research.md)
+**前版**: [V1 — 2025-07](./DBH_PURE_VISION_RESEARCH.md)
 
 ---
 

@@ -1,9 +1,12 @@
 # 資料庫正規化說明（二階正規化 2NF）
 
+> 更新：2026-06-11。正式結論見 `PROJECT_DATA_AND_DOMAIN.md` §5.5（**符合 2NF**；本文補充歷史脈絡與刻意反規範的設計取捨）。
+
 ## 簡短結論
 
-**部分符合 2NF，但不是嚴格的全庫 2NF。**  
-核心主檔（`projects`、`project_areas`、`users`、`user_projects`）設計接近 2NF/3NF；**調查業務表**（`tree_survey`、`pending_tree_measurements`、`project_boundaries`）為了現場效能與歷史相容，**刻意冗餘** `project_name`、`project_area` 等字串，且邊界表以 `project_name` 為 UNIQUE 鍵而**未**與 `projects.project_code` 建立 FK，因此存在**更新異常**風險（也是專案邊界 BUG 的根因之一）。
+**所有表皆符合 2NF**（單欄主鍵下不存在部分依賴；`user_projects` 複合鍵欄位皆完全依賴整鍵）。  
+**調查業務表**（`tree_survey`、`pending_tree_measurements`、`project_boundaries`）為了現場效能與歷史相容，**刻意冗餘** `project_name`、`project_area` 等字串（屬 3NF 層級的取捨，不違反 2NF）。  
+邊界表早期未與 `projects.project_code` 建 FK 的問題，**已由 migration `18_project_boundaries_fk.pg.sql` 修復**（建立 `fk_project_boundaries_project_code`，`ON DELETE SET NULL / ON UPDATE CASCADE`）。
 
 ---
 
@@ -36,8 +39,8 @@
 ### `project_boundaries`
 
 - 主鍵語意：`project_name` UNIQUE
-- 另有 `project_code` 可為 NULL → 與 `projects` **無 FK**
-- `boundary_coordinates` JSONB 依賴 `project_name`，不依賴 `project_code`
+- `project_code` 可為 NULL，但**已建 FK**（migration 18：`fk_project_boundaries_project_code`）
+- `boundary_coordinates` JSONB 仍以 `project_name` 為主要對齊鍵（建議演進見下）
 
 ### `pending_tree_measurements`
 
@@ -57,10 +60,10 @@
 
 ## 與功能 BUG 的關係
 
-| 正規化問題 | 造成的現象 |
-|------------|------------|
-| 邊界 keyed by name | 專案改名後邊界「消失」 |
-| code 可 NULL | 權限過濾漏列、BLE 匹配錯專案 |
-| 無 FK | UPSERT 覆寫 code 為 NULL |
+| 正規化問題 | 造成的現象 | 狀態 |
+|------------|------------|------|
+| 邊界 keyed by name | 區改名後邊界「消失」 | 程式層已緩解 |
+| code 可 NULL | 權限過濾漏列、BLE 匹配錯區 | migration 16/18/20 回填+stub |
+| 無 FK | UPSERT 覆寫 code 為 NULL | **已修**（migration 18 建 FK） |
 
-本輪程式修復已緩解（COALESCE、路由順序、登出清快取、儲存時解析 code），**資料模型**仍建議上表演進。
+程式修復（COALESCE、路由順序、登出清快取、儲存時解析 code）+ migration 16/18/20 已落地；長期仍建議上節的資料模型演進。

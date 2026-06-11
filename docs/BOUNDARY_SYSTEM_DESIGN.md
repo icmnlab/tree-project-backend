@@ -1,6 +1,7 @@
-# 專案邊界 — 全系統設計與情境對照
+# 區邊界（DB: project_boundaries）— 全系統設計與情境對照
 
-> 回答：「先新增專案 → 智慧表單／地圖／BLE 會不會出問題？」  
+> ⚠️ 詞彙：本文寫於 2026-06 詞彙互換前。文中「專案」= DB `projects` = **現行 UI 的「區」**；完整對照見 `HANDOFF.md` §8 詞彙對照表。
+> 回答：「先新增區 → 智慧表單／地圖／BLE 會不會出問題？」  
 > 程式協調：`lib/services/v3/project_boundary_coordinator.dart`
 
 ---

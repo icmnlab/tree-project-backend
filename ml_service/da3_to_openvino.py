@@ -292,7 +292,7 @@ def main():
     ap.add_argument("--skip-export", action="store_true",
                     help="skip export, only run smoke (OV IR must already exist)")
     ap.add_argument("--skip-smoke", action="store_true",
-                    help="skip the built-in smoke test (use da3_ov_validate.py instead)")
+                    help="skip the built-in smoke test")
     ap.add_argument("--smoke-n", type=int, default=5)
     ap.add_argument("--device", default="GPU",
                     help="OV device for smoke (GPU / CPU / NPU)")
@@ -338,7 +338,7 @@ def main():
         sys.exit(2)
 
     if args.skip_smoke:
-        print("[ok] skipping built-in smoke test (run da3_ov_validate.py for apples-to-apples)")
+        print("[ok] skipping built-in smoke test")
         return
 
     summary = smoke_test(da3, out_dir=out_dir,
