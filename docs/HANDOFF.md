@@ -168,6 +168,19 @@ pm2 reload tree-backend          # 手動重載
 
 ## 8. 資料模型與領域重點（指路）
 
+### ⚠️ 詞彙對照表（必讀，2026-06-11 全面換詞）
+
+依會議決定，**畫面顯示詞彙**已全面改為「專案/區」二層；**程式碼、資料庫、API 鍵一律未改**。維護時務必對照：
+
+| 畫面詞（新） | 舊畫面詞 | 程式 / DB / API（不變） | 英文 UI |
+|---|---|---|---|
+| **專案**（上層） | 區位／專案區位 | `project_areas`、`area_name`、JSON 鍵 `專案區位`、`project_location` | Project |
+| **區**（下層） | 專案 | `projects`、`project_code`、JSON 鍵 `專案名稱`／`專案代碼`、`project_name` | Block |
+
+- 也就是說：程式裡的 `project`/`專案名稱` 對應畫面上的「**區**」；`area`/`專案區位` 對應畫面上的「**專案**」。
+- **角色名稱不在換詞範圍**：`專案管理員` 等五個角色是 DB 值，維持原字。
+- 後端回傳的中文錯誤訊息仍可能用舊詞（顯示頻率低，列為接手者待辦）。
+
 - **CSV / 專案語意**（program_name→project_location、block_name→project_name 等）：`PROJECT_DATA_AND_DOMAIN.md`
 - **資料庫正規化 / schema**：`DATABASE_NORMALIZATION.md`
 - **專案邊界系統**（convex-hull 建議邊界、outlier 排除）：`BOUNDARY_SYSTEM_DESIGN.md`
