@@ -4,6 +4,75 @@
 
 ---
 
+## 0. 交接日流程（一次做完）
+
+> 情境：實驗室提供自己的 GitHub repo 與部署主機，原作者把程式碼交過去後即可完全脫手。
+
+### 0.1 推送程式碼到實驗室 GitHub（fresh snapshot）
+
+**不要直接 `git push` 帶完整歷史**——舊 commit 歷史含開發期的個人 IP／帳號等資訊。
+改用「單一乾淨快照」開新歷史（兩個 repo 各做一次）：
+
+```bash
+cd backend     # frontend 同理
+git checkout main && git pull
+git checkout --orphan handover
+git add -A
+git commit -m "Initial handover snapshot"
+git remote add lab https://github.com/<LAB_OWNER>/tree-project-backend.git
+git push lab handover:main
+git checkout main           # 回到原分支，本機歷史不受影響
+```
+
+推上去後 CI 會自動跑（workflow 不依賴任何 GitHub Secrets，零設定即可綠）。
+
+### 0.2 金鑰全部重新申請
+
+依 `HANDOFF_SECRETS_CHECKLIST.md` §A 逐項作廢舊金鑰、申請新金鑰，填入部署主機的 `backend/.env`
+（範本 `backend/.env.example`）。Google Maps key 填 `frontend/android/key.properties`（範本 `key.properties.example`）。
+
+### 0.3 部署主機（見本指南 §3）
+
+照 §3 安裝依賴、建 DB、跑 `migrate.js`（正式庫設 `SKIP_CSV_IMPORT=1`）、PM2 啟動。
+
+### 0.4 設定自動部署 webhook
+
+實驗室 GitHub repo → Settings → Webhooks → Add webhook：
+- Payload URL：`https://<部署主機>/webhook/deploy`
+- Content type：`application/json`
+- Secret：與主機 `backend/.env` 的 `DEPLOY_WEBHOOK_SECRET` 一致（自訂隨機字串）
+- 事件：Just the push event
+
+之後 push 到 `main` 即自動部署（機制見 `HANDOFF.md` §6.1）。
+
+### 0.5 建立管理員、處理種子帳號
+
+```bash
+node scripts/create_lab_admin.js --username labadmin --password '<強密碼>' --display '實驗室管理員'
+```
+並**修改或停用** seed 的 `admin/12345`（`test`/`tt2` 為通用測試帳號，正式庫建議一併停用）。
+
+### 0.6 建置 APK 與驗收
+
+```bash
+cd frontend
+flutter build apk --release --dart-define=API_BASE_URL=https://<部署主機>/api
+```
+最後跑一輪 `VERIFICATION_CHECKLIST.md`，並在 GitHub 設定 `main` 分支保護（required CI check）。
+
+### 0.7 交接日 checklist
+
+- [ ] 兩 repo fresh push 完成、CI 綠
+- [ ] `HANDOFF_SECRETS_CHECKLIST.md` §A 金鑰全部輪替完
+- [ ] 後端部署完成、`/health` OK
+- [ ] webhook 自動部署測試一次（push 小變更 → 自動上線）
+- [ ] 管理員帳號建立、seed 帳號處理完
+- [ ] APK 建置並在實機登入成功
+- [ ] `VERIFICATION_CHECKLIST.md` 跑過一輪
+- [ ] 原作者個人帳號（Tailscale／GitHub webhook／雲端服務）全部移除存取
+
+---
+
 ## 1. 架構建議（單機實驗室）
 
 ```
@@ -17,7 +86,7 @@
 ```
 
 - **不要**把 JWT、DB 密碼、ML API Key 寫死在 App；使用建置時注入或首次啟動設定。
-- **不要**在實驗室機器登入開發者 GitHub；僅用 zip / 內部 git mirror 部署程式。
+- 程式碼以**實驗室自己的 GitHub repo** 為準（見 §0.1 fresh push）；不要在實驗室機器登入開發者個人帳號。
 
 ---
 
@@ -86,7 +155,10 @@ flutter build apk --release \
 
 ---
 
-## 5. 管理用 Web UI（規劃，待實作）
+## 5. 管理用 Web UI（**已決定 defer，非必做**）
+
+> 2026-06 決議：App 內建管理後台（admin 頁）已涵蓋使用者/邀請碼/專案管理需求，
+> 獨立瀏覽器版 Web portal **刻意不做**；未來若有需求，建議用 React-Admin/Refine 接現有 REST+JWT，非手刻。
 
 教授／管理員需要**不改程式**即可：
 

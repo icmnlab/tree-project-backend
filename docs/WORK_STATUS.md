@@ -46,6 +46,7 @@
 - [x] **幽靈 submodule 修正**：`depth_pro_src`、`sam2_src`、`third_party/UniDepth`、`third_party/depth-anything-3` 四個 gitlink 無 `.gitmodules`（clone 後無法初始化）→ 自 index 移除，取得方式見 `SELF_HOST_ML_GUIDE.md`／`ml_service/README.md`。
 - [x] **文件層去個人化**（原 §2 worklist）：`HANDOFF.md`、`VERIFICATION_CHECKLIST.md`、本檔、`BUILD_GUIDE.md` 之個人 IP/主機名/帳號/姓名全面占位化（`<SERVER_USER>@<SERVER_IP>`、`<HOST>`、`<TAILSCALE_HOST>`、`<GITHUB_OWNER>` 等）；個人部署筆記/簡歷自 `project_code/` 移備份。
 - [x] 斷鏈修復：`FIELD_SURVEY_SOP`／`MEETING_MINUTES`／外接 GNSS 文件中指向已移除文件的連結改指 `HANDOFF.md`；`HANDOFF.md` §10 文件地圖更新。
+- [x] **交接日流程文件化**（2026-06-11）：`LAB_DEPLOYMENT_GUIDE.md` 新增 §0「交接日流程」——fresh snapshot push（orphan branch，不帶舊歷史）→ 金鑰輪替 → 部署 → webhook 設定 → 管理員/種子帳號處理 → APK → 驗收 checklist。`HANDOFF.md` §1 系統描述改通用（港務=測試資料）、§11 指向交接日流程；兩 repo README 個人網路描述中性化。
 - 殘留（拍板項）：`LICENSE` 著作權行 `Copyright (c) 2025 KyleliuNDHU`——著作權人為使用者本人，MIT 慣例保留名字；是否改中性名稱**留使用者決定**。
 
 ---

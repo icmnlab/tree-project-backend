@@ -45,7 +45,7 @@
 
 | 項目 | 目前 | 交接動作 |
 |------|------|----------|
-| GitHub repo | `<GITHUB_OWNER>/tree-project-backend`、`tree-project-frontend` | 轉移所有權或 fork 到接手者帳號，更新 remote 與 webhook |
+| GitHub repo | `<GITHUB_OWNER>/tree-project-backend`、`tree-project-frontend` | 以 fresh snapshot push 到接手者 repo（步驟見 `LAB_DEPLOYMENT_GUIDE.md` §0.1），再設定 webhook |
 | Tailscale tailnet | `<GITHUB_OWNER>@` | 接手者建立自己的 tailnet 或建立專用帳號 |
 | 伺服器 Linux 帳號 | `<SERVER_USER>@`（Ubuntu） | 建立接手者帳號與 SSH 公鑰 |
 | 種子使用者 | `backend/database/initial_data/users.pg.sql`（✅ 2026-06-10 已移除真人姓名帳號，僅留 `admin`/`test`/`tt2` 通用帳號） | 全新部署請**改掉預設 `admin` 密碼**或改用部署腳本建立新管理員帳密 |

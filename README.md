@@ -5,7 +5,8 @@ Handles authentication, tree-survey CRUD, project/area management, image
 storage (Cloudinary), reverse-proxying to a Python ML service, an AI chat
 assistant (Text-to-SQL) and a tool-using AI Agent.
 
-Production runs on a self-hosted Ubuntu host fronted by Tailscale + Nginx, with
+Production runs on a self-hosted Ubuntu host behind a reverse proxy
+(Nginx; the original deployment used Tailscale for private networking), with
 PM2 cluster-mode supervision (see `ecosystem.config.js`).
 
 ---

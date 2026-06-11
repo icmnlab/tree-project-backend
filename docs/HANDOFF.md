@@ -7,7 +7,8 @@
 
 ## 1. 這是什麼系統
 
-**永續碳匯樹木管理系統（Sustainable TreeAI）**：港務造林地的樹木調查與碳匯管理。
+**永續碳匯樹木管理系統（Sustainable TreeAI）**：通用的樹木調查與碳匯管理系統（目標使用單位：國立東華大學環境學院）。
+庫內的港務造林地資料只是開發/CI 測試資料（`backend/dev-fixtures/`），正式上線**不會**匯入，系統也沒有針對該批資料的特殊邏輯。
 
 - **前端**：Flutter App（Android 為主），現場調查、地圖、BLE 連 VLGEO2 測樹儀、AI 助理。
 - **後端**：Node.js + Express + PostgreSQL，提供 API、整批/現場量測資料寫入、專案/邊界/碳匯計算。
@@ -229,6 +230,8 @@ pm2 reload tree-backend          # 手動重載
 ---
 
 ## 11. 待辦與下一步
+
+**交接日**：照 `LAB_DEPLOYMENT_GUIDE.md` §0「交接日流程」一次做完（fresh push → 金鑰輪替 → 部署 → webhook → 驗收）。
 
 見 `WORK_STATUS.md`「待辦」與 `VERIFICATION_CHECKLIST.md`。目前重點：
 - 把仍標「實機」的 P0 項目盡量轉成自動化測試/腳本（GPS 三選一、新增樹不進待辦、儀器欄位 transfer→history…）。
