@@ -12,6 +12,7 @@
 - DB migration `30_project_boundaries_source.pg.sql`：`project_boundaries` 加 `source VARCHAR(20)`（既有列 NULL）；同步 `06a` schema 與 route `initializeTable`。
 - 相依套件：新增 `proj4`、`@xmldom/xmldom`、`jszip`（KML 以 xmldom 手動解析，避免 ESM 互通問題）。
 - 測試：`tests/invariants/boundaryImport.test.js`（8 純邏輯案例，免 DB）+ `tests/contracts/project_boundary_import.test.js`（自相交拒絕、source 回讀、GeoJSON 匯入預覽）。
+- 部署強化 `scripts/deploy.sh`：cluster `pm2 reload` 偶爾留下未替換的舊 worker（實測曾殘留數天，造成請求在新／舊程式碼間輪詢、回應不一致）；reload 後新增殘留偵測（uptime>120s）→ 自動 `pm2 restart` 強制全部換新版。
 
 ---
 

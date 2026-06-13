@@ -105,7 +105,18 @@ fi
 
 # 5. Graceful reload (zero-downtime for cluster mode)
 log "Reloading PM2 (graceful)..."
-pm2 reload tree-backend 2>&1 | tee -a "$DEPLOY_LOG"
+pm2 reload tree-backend --update-env 2>&1 | tee -a "$DEPLOY_LOG"
+
+# 5b. 確保所有 worker 都已換成新版
+#     cluster 模式下 graceful reload 偶爾會留下未替換的舊 worker（曾觀察到舊 worker 殘留數天，
+#     造成請求在新／舊程式碼間輪詢，回應不一致）。若偵測到 uptime > 120s 的殘留 worker，
+#     改用 pm2 restart 強制全部重啟（lab 流量低，短暫重啟可接受）。
+sleep 3
+STALE=$(pm2 jlist 2>/dev/null | node -e 'let d="";process.stdin.on("data",c=>d+=c).on("end",()=>{try{const a=JSON.parse(d).filter(p=>p.name==="tree-backend");const now=Date.now();console.log(a.filter(p=>now-p.pm2_env.pm_uptime>120000).length)}catch(e){console.log(0)}})' 2>/dev/null || echo 0)
+if [ "${STALE:-0}" != "0" ]; then
+    log "偵測到 $STALE 個 worker 未更新（graceful reload 殘留），改用 pm2 restart 強制重啟..."
+    pm2 restart tree-backend --update-env 2>&1 | tee -a "$DEPLOY_LOG"
+fi
 
 # 6. Wait and verify health
 sleep 5
