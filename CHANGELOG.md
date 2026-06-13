@@ -4,6 +4,14 @@
 
 ---
 
+## (2026-06-13) — 邊界匯出 KML
+
+- 新增 `GET /api/project-boundaries/export.kml?project=<名稱>`（或 `?code=<代碼>`，`projectAuthFilter` 權限）：將指定區的已儲存邊界輸出為 KML（`application/vnd.google-earth.kml+xml`，座標 `lng,lat,0`、環自動閉合），可在 Google Earth 開啟，與既有匯入形成雙向。
+- 權限：若使用者有專案過濾清單，匯出對象的 `project_code` 不在清單內回 403；查無邊界回 404。
+- 測試：`tests/contracts/project_boundary_import.test.js` 新增匯出案例（驗 KML 內容、`lng,lat` 序、404）。
+
+---
+
 ## (2026-06-13) — 邀請碼可刪除紀錄
 
 - 新增 `DELETE /api/invites/:inviteId`（`requireRole('業務管理員')`）：硬刪除單筆邀請碼紀錄並寫稽核 `DELETE_INVITE`。

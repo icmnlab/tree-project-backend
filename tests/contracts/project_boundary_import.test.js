@@ -116,6 +116,67 @@ module.exports = {
       },
     },
     {
+      name: '邊界匯出：GET export.kml 回 KML（lng,lat 序、可於 Google Earth 開啟）',
+      run: async (ctx) => {
+        const { api, factories, assert: A, cleanup } = ctx;
+        await api.login('admin');
+
+        const area = factories.buildArea();
+        const rArea = await api.post('project_areas', area);
+        A.assertJsonOk(rArea, '建區位');
+        cleanup.track('area', rArea.body.data.id);
+
+        const rProj = await api.post('projects/add', {
+          name: factories.buildProject({ area: area.area_name }).name,
+          area: area.area_name,
+        });
+        A.assertJsonOk(rProj, '建專案');
+        const code = rProj.body.project.code;
+        const projName = rProj.body.project.name;
+        cleanup.track('project', code);
+
+        const square = [
+          [23.860, 121.510],
+          [23.860, 121.512],
+          [23.862, 121.512],
+          [23.862, 121.510],
+        ];
+        const rBnd = await api.post('project-boundaries', {
+          projectName: projName,
+          projectCode: code,
+          coordinates: square,
+          source: 'coords',
+        });
+        A.assertJsonOk(rBnd, '建邊界');
+        cleanup.track('custom', `bnd-${code}`, async (cApi) => {
+          await cApi.delete(`project-boundaries/by_code/${encodeURIComponent(code)}`);
+        });
+
+        const r = await api.get('project-boundaries/export.kml', {
+          query: { project: projName },
+        });
+        A.assertStatus(r, 200, '匯出 KML 應 200');
+        const ct = r.headers['content-type'] || '';
+        assert.ok(ct.includes('kml'), `content-type 應含 kml，實得 ${ct}`);
+        const kml = typeof r.body === 'string' ? r.body : String(r.body);
+        assert.ok(kml.includes('<kml'), '應為 KML 文件');
+        assert.ok(kml.includes('<Polygon>'), '應含 Polygon');
+        // KML 用 lng,lat,0 序，且環需閉合（首點重複）
+        assert.ok(kml.includes('121.51,23.86,0'), '座標應為 lng,lat,0 序');
+      },
+    },
+    {
+      name: '邊界匯出：不存在的專案 → 404',
+      run: async (ctx) => {
+        const { api, assert: A } = ctx;
+        await api.login('admin');
+        const r = await api.get('project-boundaries/export.kml', {
+          query: { project: '__不存在的專案__' + Date.now() },
+        });
+        A.assertStatus(r, 404, '無邊界應 404');
+      },
+    },
+    {
       name: '邊界匯入：上傳 GeoJSON → 200 預覽（不寫庫）',
       run: async (ctx) => {
         const { api, assert: A } = ctx;

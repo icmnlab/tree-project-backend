@@ -50,6 +50,12 @@
 - [ ] **方式 2（含座標圖檔）**：UI 預留「即將推出」，待學院提供範例檔（GeoTIFF/世界檔）再實作。
 - [ ] **待學院提供** GIS/KML 範例檔以校驗座標格式（無 `crs` 標示時以數值範圍推斷投影座標）。
 
+### 0g-2. 邊界匯出 KML + 自動重排升級（2026-06-13）
+
+- [x] **匯出 KML**：`GET /api/project-boundaries/export.kml`（`projectAuthFilter`，403/404 守備）；前端邊界頁右上「匯出」圖示走 `DownloadService`，Android 用 Google Earth 開啟，與匯入雙向。
+- [x] **自動重排升級**：`boundary_input.dart` 加 `reorderByNearestNeighbor` + `tryAutoReorder`（角度→最近鄰）；貼座標/匯入「自動重排」；**手動繪製**自相交於儲存時亦提供自動重排。誠實標註凹形極限（多邊形化不唯一）。
+- [x] **樣本/測試/文件**：`sample_boundary_complex.kml`（凹形 KML）；前端 3 重排單元測試、後端 2 匯出契約測試；`VERIFICATION_CHECKLIST` B9/B16–B19、`BOUNDARY_SYSTEM_DESIGN §3.5`、`boundary_samples/README`、前後端 CHANGELOG、pubspec 18.6.0+17。
+
 ---
 
 ## 0f. 交接清倉：docs/repo 整理（2026-06-11 執行）

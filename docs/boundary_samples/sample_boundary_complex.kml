@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>環境學院魚塭（凹多邊形 KML 測試）</name>
+    <description>9 點凹形，依地圖順時針排序，WGS84 (EPSG:4326)。座標為 lng,lat,0。用於測試「匯入 KML（凹形）」與「匯出 KML → Google Earth 開啟」雙向。</description>
+    <Placemark>
+      <name>環境學院魚塭 邊界</name>
+      <Style>
+        <LineStyle><color>ff0000ff</color><width>2</width></LineStyle>
+        <PolyStyle><color>3300ffff</color></PolyStyle>
+      </Style>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>120.1222905,23.2637175,0 120.1233066,23.2638557,0 120.1240910,23.2619545,0 120.1242669,23.2584254,0 120.1219538,23.2583754,0 120.1218188,23.2615941,0 120.1224000,23.2619421,0 120.1224003,23.2630480,0 120.1219813,23.2632104,0 120.1222905,23.2637175,0</coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>

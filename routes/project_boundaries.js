@@ -265,6 +265,91 @@ router.get('/', projectAuthFilter, async (req, res) => {
     }
 });
 
+/** XML 文字跳脫，避免專案名稱含特殊字元破壞 KML。 */
+function escapeXml(s) {
+    return String(s).replace(/[<>&'"]/g, (c) => ({
+        '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;',
+    }[c]));
+}
+
+/** 將 [[lat,lng],...] 轉為 Google Earth 可開啟的 KML 字串（KML 用 lng,lat,0、需閉合環）。 */
+function boundaryToKml(name, coords) {
+    const ring = [...coords];
+    const first = ring[0];
+    const last = ring[ring.length - 1];
+    if (!(Math.abs(first[0] - last[0]) < 1e-9 && Math.abs(first[1] - last[1]) < 1e-9)) {
+        ring.push(first);
+    }
+    const coordStr = ring.map((c) => `${c[1]},${c[0]},0`).join(' ');
+    const safeName = escapeXml(name || '專案邊界');
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${safeName}</name>
+    <Placemark>
+      <name>${safeName} 邊界</name>
+      <Style>
+        <LineStyle><color>ff0000ff</color><width>2</width></LineStyle>
+        <PolyStyle><color>3300ffff</color></PolyStyle>
+      </Style>
+      <Polygon>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>${coordStr}</coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>
+  </Document>
+</kml>`;
+}
+
+/**
+ * 匯出單一專案邊界為 KML（可於 Google Earth 開啟，與匯入形成雙向）
+ * GET /api/project-boundaries/export.kml?project=<名稱> 或 ?code=<代碼>
+ */
+router.get('/export.kml', projectAuthFilter, async (req, res) => {
+    const projectName = (req.query.project || '').toString().trim();
+    const projectCode = (req.query.code || '').toString().trim();
+    if (!projectName && !projectCode) {
+        return res.status(400).json({ success: false, message: '請提供 project 或 code 參數' });
+    }
+    try {
+        const field = projectName ? 'project_name' : 'project_code';
+        const value = projectName || projectCode;
+        const { rows } = await db.query(
+            `SELECT project_name, project_code, boundary_coordinates
+             FROM project_boundaries WHERE ${field} = $1`,
+            [value]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: '找不到此專案的邊界' });
+        }
+        const row = rows[0];
+        // 權限：若有過濾清單，該邊界 project_code 必須在內
+        if (req.projectFilter && !req.projectFilter.includes(row.project_code)) {
+            return res.status(403).json({ success: false, message: '無權匯出此專案邊界' });
+        }
+        const coords = typeof row.boundary_coordinates === 'string'
+            ? JSON.parse(row.boundary_coordinates)
+            : row.boundary_coordinates;
+        if (!Array.isArray(coords) || coords.length < 3) {
+            return res.status(400).json({ success: false, message: '此專案邊界資料不完整' });
+        }
+        const kml = boundaryToKml(row.project_name, coords);
+        const safeFile = `${(row.project_name || 'boundary')
+            .replace(/[^\w\u4e00-\u9fa5.-]/g, '_')}.kml`;
+        res.setHeader('Content-Type',
+            'application/vnd.google-earth.kml+xml; charset=utf-8');
+        res.setHeader('Content-Disposition',
+            `attachment; filename="${encodeURIComponent(safeFile)}"`);
+        res.send(kml);
+    } catch (err) {
+        console.error('[project_boundaries] KML 匯出錯誤:', err);
+        res.status(500).json({ success: false, message: 'KML 匯出失敗' });
+    }
+});
+
 /**
  * 專案邊界狀態（metadata vs spatial）
  * GET /api/project_boundaries/status/:projectName
