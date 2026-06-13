@@ -78,7 +78,7 @@
 | 匯入 KML/KMZ | `kml` | Google Earth 匯出（方式 3） | WGS84（KML 規格固定） |
 | 匯入 GeoJSON | `geojson` | GIS 匯出（方式 3） | WGS84 或 TWD97/TM2(EPSG:3826/3825)，後端 `proj4` 自動轉換 |
 | 建議邊界 | `suggest` | 由樹木 GPS 凸包（既有） | WGS84 |
-| 含座標圖檔 | （預留） | 方式 2，UI 顯示「即將推出」，尚未實作 | — |
+| 含座標圖檔 | （未實作） | 方式 2，已從 UI 移除「即將推出」項；待學院提供範例檔再評估 | — |
 
 **後端**：
 - `utils/boundaryImport.js` 解析 KML/KMZ/GeoJSON → 統一輸出 `[[lat,lng],...]` 開放環；多多邊形取面積最大並警告；`turf.kinks` 偵測自相交。
