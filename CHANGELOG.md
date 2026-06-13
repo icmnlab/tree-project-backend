@@ -4,6 +4,14 @@
 
 ---
 
+## (2026-06-13) — 邀請碼可刪除紀錄
+
+- 新增 `DELETE /api/invites/:inviteId`（`requireRole('業務管理員')`）：硬刪除單筆邀請碼紀錄並寫稽核 `DELETE_INVITE`。
+  `registration_invites` 無被其他表以外鍵參照，刪除不影響已用此碼完成註冊的帳號（註冊時 `project_codes` 已複製至使用者）。
+- 配合前端「邀請碼管理」新增「刪除紀錄」與依日期分組顯示（`GET /invites` 已回傳 `created_at`，本次未變更）。
+
+---
+
 ## (2026-06-13) — 邊界輸入方式擴充（方式 1 貼座標 + 方式 3 GIS 匯入）
 
 - 新增 `utils/boundaryImport.js`：解析 **KML / KMZ / GeoJSON** → 統一輸出 `[[lat,lng],...]` 開放環。KML 依規格固定 WGS84；GeoJSON 讀 `crs` 或以數值範圍推斷，**TWD97/TM2(EPSG:3826/3825) 以 `proj4` 自動轉 WGS84**；多多邊形取面積最大並警告；`turf.kinks` 偵測自相交。

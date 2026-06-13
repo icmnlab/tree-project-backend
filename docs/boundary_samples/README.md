@@ -12,6 +12,15 @@
 | `sample_boundary.kml` | 匯入 KML（Google Earth 匯出格式） | B9 |
 | `coords_complex_pond.txt` | **複雜（凹）多邊形**：環境學院魚塭 9 點，貼上座標 | B12（驗證可畫非四方形/凹形且不自相交） |
 | `sample_boundary_complex.geojson` | 同上凹多邊形的 GeoJSON 版本 | B12 |
+| `coords_scrambled_convex.txt` | **亂序凸四邊形**（對角交錯）：示範自相交偵測 + 依角度重排 | B13（解析後應警告自相交；按「依角度重排」後恢復正常）|
+
+## 座標順序（重要）
+
+邊界是「依點的先後順序連線」而成，所以**順序決定形狀**：
+
+- **凸形（如四方形）亂序**：會自相交，系統會警告；按「依角度重排」可自動排回正確形狀（見 `coords_scrambled_convex.txt`）。
+- **凹形（如魚塭）亂序**：無法只靠角度自動還原（幾何上不唯一）。請用正確順序，或**從 Google Earth/GIS 匯出 KML/GeoJSON**（檔案本身保留繞行順序，匯入即正確）。
+- `lng,lat` 與 `lat,lng` 會依台灣經緯度範圍自動判斷；無法判斷時用對話框上的「假設順序」。
 
 ## 使用方式
 

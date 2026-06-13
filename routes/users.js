@@ -798,6 +798,38 @@ router.patch('/invites/:inviteId/deactivate', requireRole('業務管理員'), as
     }
 });
 
+// 刪除邀請碼紀錄（業務管理員以上）
+// 註：刪除僅移除這筆邀請紀錄，不影響已用此碼完成註冊的帳號（註冊時 project_codes
+//     已複製到使用者，registration_invites 無被其他表以外鍵參照）。破壞性操作，記稽核。
+router.delete('/invites/:inviteId', requireRole('業務管理員'), async (req, res) => {
+    const inviteId = parseInt(req.params.inviteId, 10);
+    if (!Number.isFinite(inviteId)) {
+        return res.status(400).json({ success: false, message: '無效的邀請碼 ID' });
+    }
+    try {
+        await ensureInvitesTable();
+        const { rows } = await db.query(
+            `DELETE FROM registration_invites WHERE invite_id = $1
+             RETURNING code, role`,
+            [inviteId]
+        );
+        if (rows.length === 0) {
+            return res.status(404).json({ success: false, message: '邀請碼不存在' });
+        }
+        await AuditLogService.log({
+            userId: req.user.user_id,
+            username: req.user.username,
+            action: 'DELETE_INVITE',
+            details: { invite_id: inviteId, code: rows[0].code, role: rows[0].role },
+            req,
+        });
+        res.json({ success: true, message: '已刪除邀請碼紀錄' });
+    } catch (err) {
+        console.error('刪除邀請碼失敗:', err);
+        res.status(500).json({ success: false, message: '刪除邀請碼失敗' });
+    }
+});
+
 // 公開註冊（需有效邀請碼）
 router.post('/register', loginLimiter, async (req, res) => {
     const { invite_code, username, password, display_name } = req.body;
