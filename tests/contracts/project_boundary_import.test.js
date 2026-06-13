@@ -12,16 +12,16 @@
 
 const assert = require('assert');
 
-function buildMultipartGeoJson(filename, geojsonString) {
+function buildMultipart(filename, contentType, content) {
   const boundary = '----treeaiBoundaryTest' + Date.now();
   const head =
     `--${boundary}\r\n` +
     `Content-Disposition: form-data; name="file"; filename="${filename}"\r\n` +
-    'Content-Type: application/geo+json\r\n\r\n';
+    `Content-Type: ${contentType}\r\n\r\n`;
   const tail = `\r\n--${boundary}--\r\n`;
   const payload = Buffer.concat([
     Buffer.from(head, 'utf8'),
-    Buffer.from(geojsonString, 'utf8'),
+    Buffer.from(content, 'utf8'),
     Buffer.from(tail, 'utf8'),
   ]);
   return {
@@ -30,6 +30,10 @@ function buildMultipartGeoJson(filename, geojsonString) {
       'Content-Type': `multipart/form-data; boundary=${boundary}`,
     },
   };
+}
+
+function buildMultipartGeoJson(filename, geojsonString) {
+  return buildMultipart(filename, 'application/geo+json', geojsonString);
 }
 
 module.exports = {
@@ -201,6 +205,35 @@ module.exports = {
         assert.strictEqual(r.body.preview, true, '應為預覽（不寫庫）');
         assert.ok(Array.isArray(r.body.coordinates) && r.body.coordinates.length >= 3, '應回 ≥3 頂點');
         assert.strictEqual(r.body.format, 'geojson', 'format 應為 geojson');
+      },
+    },
+    {
+      name: '邊界匯入：KML 僅含圖釘(Point) → 200 預覽 + 標記點警告',
+      run: async (ctx) => {
+        const { api, assert: A } = ctx;
+        await api.login('admin');
+
+        const pts = [
+          [120.1210000, 23.2640000],
+          [120.1245000, 23.2638000],
+          [120.1250000, 23.2585000],
+          [120.1205000, 23.2588000],
+        ];
+        const placemarks = pts
+          .map(([lng, lat]) =>
+            `<Placemark><Point><coordinates>${lng},${lat},0</coordinates></Point></Placemark>`)
+          .join('');
+        const kml = `<?xml version="1.0"?><kml><Document>${placemarks}</Document></kml>`;
+        const { body, headers } = buildMultipart(
+          'points.kml', 'application/vnd.google-earth.kml+xml', kml);
+        const r = await api.post('project-boundaries/import', body, { headers });
+        A.assertJsonOk(r, '只有圖釘的 KML 應 200');
+        assert.strictEqual(r.body.format, 'kml', 'format 應為 kml');
+        assert.ok(r.body.coordinates.length >= 3, '應回 ≥3 頂點');
+        assert.ok(
+          (r.body.warnings || []).some((w) => String(w).includes('標記點')),
+          '應警告使用標記點'
+        );
       },
     },
   ],
