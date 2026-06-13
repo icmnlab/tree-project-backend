@@ -41,6 +41,7 @@
 - 主鍵語意：`project_name` UNIQUE
 - `project_code` 可為 NULL，但**已建 FK**（migration 18：`fk_project_boundaries_project_code`）
 - `boundary_coordinates` JSONB 仍以 `project_name` 為主要對齊鍵（建議演進見下）
+- `source`（migration 30）：邊界輸入來源（draw|coords|kml|geojson|suggest），完全相依於代理鍵 `id`，不影響 2NF/3NF；既有列 NULL
 
 ### `pending_tree_measurements`
 

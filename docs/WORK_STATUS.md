@@ -36,6 +36,22 @@
 
 ---
 
+## 0g. 邊界輸入方式擴充（2026-06-13 執行）
+
+依環境學院需求（直接鍵入座標 / 匯入圖檔 / 匯入 GIS/KML）擴充區邊界輸入：
+
+- [x] **方式 1 貼上座標**：`frontend/lib/utils/boundary_input.dart`（順序自動判斷、收尾去重、錯誤行回報、自相交+依角度重排）。
+- [x] **方式 3 匯入 KML/KMZ/GeoJSON**：`backend/utils/boundaryImport.js`（`proj4` TWD97/TM2→WGS84、多多邊形取最大、`turf.kinks` 自相交）；`POST /api/project-boundaries/import`（預覽不寫庫）。
+- [x] **儲存強化**：`POST /api/project-boundaries` 加 `source`、`allowTreesOutside`；寫入前 `turf.kinks` 拒絕自相交（400 `SELF_INTERSECTING`）。
+- [x] **DB**：migration `30_project_boundaries_source.pg.sql`（`source` 欄位）。
+- [x] **相依**：後端 `proj4`、`@xmldom/xmldom`、`jszip`；前端沿用 `file_picker`。
+- [x] **測試**：後端 8 純邏輯 + 3 契約；前端 9 單元；`flutter test` 全綠（424）。
+- [x] **文件**：`BOUNDARY_SYSTEM_DESIGN.md §3.5`、`VERIFICATION_CHECKLIST.md B8–B13`、`MEETING_MINUTES_20260528.md`、`PROJECT_DATA_AND_DOMAIN.md`、`DATABASE_NORMALIZATION.md`、前後端 CHANGELOG、pubspec 18.5.0+12。
+- [ ] **方式 2（含座標圖檔）**：UI 預留「即將推出」，待學院提供範例檔（GeoTIFF/世界檔）再實作。
+- [ ] **待學院提供** GIS/KML 範例檔以校驗座標格式（無 `crs` 標示時以數值範圍推斷投影座標）。
+
+---
+
 ## 0f. 交接清倉：docs/repo 整理（2026-06-11 執行）
 
 > 目標：repo 只留「交接所需」內容；研究產出/個人資料備份到本機 `c:\projects\tree_project\handover_backup_20260611\`（**不入庫、不交接**）。

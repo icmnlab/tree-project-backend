@@ -67,6 +67,42 @@
 
 ---
 
+## 3.5 邊界輸入方式（2026-06 擴充）
+
+依環境學院需求，邊界頁 `project_boundary_draw_page` 支援多種輸入方式，全部走「**預覽 → 確認 → 儲存**」一致流程（與「建議邊界」相同），不直接寫庫：
+
+| 方式 | 來源值 `source` | 說明 | 座標系統 |
+|------|----------------|------|---------|
+| 手繪 | `draw` | 點選地圖逐點繪製 | WGS84 |
+| 貼上座標 | `coords` | 貼上座標清單（方式 1）；前端 `lib/utils/boundary_input.dart` 解析 | WGS84，自動判斷 lng,lat / lat,lng |
+| 匯入 KML/KMZ | `kml` | Google Earth 匯出（方式 3） | WGS84（KML 規格固定） |
+| 匯入 GeoJSON | `geojson` | GIS 匯出（方式 3） | WGS84 或 TWD97/TM2(EPSG:3826/3825)，後端 `proj4` 自動轉換 |
+| 建議邊界 | `suggest` | 由樹木 GPS 凸包（既有） | WGS84 |
+| 含座標圖檔 | （預留） | 方式 2，UI 顯示「即將推出」，尚未實作 | — |
+
+**後端**：
+- `utils/boundaryImport.js` 解析 KML/KMZ/GeoJSON → 統一輸出 `[[lat,lng],...]` 開放環；多多邊形取面積最大並警告；`turf.kinks` 偵測自相交。
+- `POST /api/project-boundaries/import`（`requireRole('專案管理員')`，multipart `file`，上限 `BOUNDARY_IMPORT_MAX_MB`，預設 5MB）→ 僅回傳預覽，不寫庫。
+- `POST /api/project-boundaries` 新增 `source`、`allowTreesOutside` 欄位；寫入前一律以 `turf.kinks` 拒絕自相交（回 400 `SELF_INTERSECTING`）。
+- `project_boundaries.source` 欄位（migration `30_project_boundaries_source.pg.sql`）記錄來源供溯源；既有列為 NULL。
+
+**情境與跳出/返回**（沿用既有繪製流程，無新增風險）：
+- 貼座標/匯入載入頂點後即進入「繪製中」狀態 → `PopScope` 草稿保護生效（離開前警告未儲存）。
+- 切換「區」下拉 → 既有 `_onProjectChanged` 清空草稿。
+- 儲存成功 → `afterBoundaryMutation` 通知各頁刷新；樂觀鎖 409 衝突沿用既有對話框。
+- 自相交時前端預覽提供「依角度重排後載入」；後端為最後防線再次拒絕。
+
+**防呆（座標品質）**：
+- 經緯度顛倒：台灣經度約 120（絕對值 > 90）、緯度約 23（≤ 90），**逐組自動判斷** lng,lat 或 lat,lng；無法判斷時採使用者選的假設順序。
+- 缺小數點（例如學院圖一的 `1201240910` 應為 `120.1240910`）：超出合理範圍的值會被略過並在預覽以 ⚠️ 明確提示「疑似缺少小數點，應為 …？」，**不自動竄改**（以正常邏輯為主，由使用者確認修正）。
+- 非四方形（非凸）邊界：座標需「依邊界走訪順序」貼上；自動「依角度重排」僅適合凸/簡單形狀。預覽會在地圖畫出多邊形供**視覺確認**，這是最終防呆。
+
+**格式確認（依學院訊息與圖一）**：圖一為「方式 1 直接鍵入」範例，格式為 **WGS84 十進位度數、(經度, 緯度)**。方式 3 的「Google Earth」匯出即 **KML/KMZ（規格固定 WGS84）**，「GIS 圖檔」常見為 **GeoJSON**（支援 WGS84 與 TWD97/TM2 自動轉換）；**Shapefile(.shp) 暫不支援**，建議改用 KML/GeoJSON 匯出。
+
+**多人**：匯入僅產生預覽（read-only），實際寫入仍走既有樂觀鎖 + 角色權限，無新增併發風險。
+
+---
+
 ## 4. 仍須知／長期改進
 
 | 項目 | 說明 |
@@ -75,6 +111,10 @@
 | 重疊邊界 | 多專案重疊時取第一個；應加使用者選擇 UI |
 | BLE 未用 `/batch_match` | 與後端權限／重疊語意未完全對齊 |
 | 刪除專案順序 | 應先刪邊界再刪專案（後端／cleanup 需一致） |
+| 邊界僅單一多邊形 | MultiPolygon／含洞（holes）暫不支援，匯入多多邊形取面積最大 |
+| 方式 2（含座標圖檔） | 尚未實作；需學院提供範例（GeoTIFF/世界檔）後再評估 |
+| Shapefile（.shp） | 暫不支援，建議學院改用 KML/GeoJSON 匯出 |
+| TWD97 自動偵測 | 無 `crs` 標示的 GeoJSON 以數值範圍推斷投影座標，建議拿到學院範例檔後再校驗 |
 
 ---
 

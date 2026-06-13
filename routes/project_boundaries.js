@@ -10,11 +10,72 @@
 
 const express = require('express');
 const router = express.Router();
+const multer = require('multer');
 const db = require('../config/db');
 const turf = require('@turf/turf');
 const { requireRole } = require('../middleware/roleAuth');
 const { projectAuthFilter } = require('../middleware/projectAuth');
 const { suggestBoundaryFromTrees } = require('../utils/boundarySuggest');
+const { parseBoundaryFile } = require('../utils/boundaryImport');
+
+// 邊界檔案匯入：記憶體暫存，上限 5MB（KML/KMZ/GeoJSON 通常很小）
+const BOUNDARY_IMPORT_MAX_MB = Number(process.env.BOUNDARY_IMPORT_MAX_MB) || 5;
+const boundaryUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: BOUNDARY_IMPORT_MAX_MB * 1024 * 1024 },
+    fileFilter: (req, file, cb) => {
+        const name = (file.originalname || '').toLowerCase();
+        if (name.endsWith('.kml') || name.endsWith('.kmz') ||
+            name.endsWith('.geojson') || name.endsWith('.json')) {
+            cb(null, true);
+        } else {
+            cb(new Error('只允許上傳 .kml / .kmz / .geojson 檔案'));
+        }
+    },
+});
+
+function handleBoundaryUpload(req, res, next) {
+    boundaryUpload.single('file')(req, res, (err) => {
+        if (err) {
+            const message = err.code === 'LIMIT_FILE_SIZE'
+                ? `檔案大小超過限制（最大 ${BOUNDARY_IMPORT_MAX_MB}MB）`
+                : err.message || '檔案上傳失敗';
+            return res.status(400).json({ success: false, message });
+        }
+        next();
+    });
+}
+
+/** 統一邊界座標健檢：格式、頂點數、自相交。回 { ok, status?, message? } */
+function validateBoundaryCoordinates(coordinates) {
+    if (!coordinates || !Array.isArray(coordinates) || coordinates.length < 3) {
+        return { ok: false, status: 400, message: '邊界座標必須至少包含 3 個頂點' };
+    }
+    for (const coord of coordinates) {
+        if (!Array.isArray(coord) || coord.length !== 2 ||
+            typeof coord[0] !== 'number' || typeof coord[1] !== 'number' ||
+            !Number.isFinite(coord[0]) || !Number.isFinite(coord[1])) {
+            return { ok: false, status: 400, message: '座標格式不正確，應為 [[lat, lng], ...]' };
+        }
+    }
+    // 自相交檢查（轉 [lng,lat] 閉合後用 turf.kinks）
+    try {
+        const closed = coordinates.map((c) => [c[1], c[0]]);
+        closed.push(closed[0]);
+        const poly = turf.polygon([closed]);
+        if (turf.kinks(poly).features.length > 0) {
+            return {
+                ok: false,
+                status: 400,
+                code: 'SELF_INTERSECTING',
+                message: '邊界線自相交，會造成非預期範圍，請調整頂點順序後再儲存',
+            };
+        }
+    } catch (e) {
+        return { ok: false, status: 400, message: '無法建立有效的多邊形，請檢查座標是否正確' };
+    }
+    return { ok: true };
+}
 
 /**
  * 初始化資料表 (如果不存在)
@@ -27,6 +88,7 @@ async function initializeTable() {
             project_code VARCHAR(50),
             project_area VARCHAR(50),
             boundary_coordinates JSONB NOT NULL,
+            source VARCHAR(20),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
         );
@@ -36,6 +98,9 @@ async function initializeTable() {
 
         -- [Phase 2b] 補上 project_area 欄位（舊資料表升級）
         ALTER TABLE project_boundaries ADD COLUMN IF NOT EXISTS project_area VARCHAR(50);
+
+        -- 邊界輸入來源欄位（draw|coords|kml|geojson|suggest）
+        ALTER TABLE project_boundaries ADD COLUMN IF NOT EXISTS source VARCHAR(20);
 
         -- [Phase 2c] updated_at 改 TIMESTAMPTZ + trigger，供樂觀鎖使用
         ALTER TABLE project_boundaries ALTER COLUMN updated_at TYPE TIMESTAMPTZ;
@@ -165,7 +230,7 @@ async function ensureProjectForBoundary(client, { projectName, projectCode, proj
 router.get('/', projectAuthFilter, async (req, res) => {
     try {
         let query = `
-            SELECT id, project_name, project_code, project_area, boundary_coordinates, created_at, updated_at
+            SELECT id, project_name, project_code, project_area, boundary_coordinates, source, created_at, updated_at
             FROM project_boundaries
         `;
         const params = [];
@@ -329,6 +394,42 @@ router.post('/suggest', requireRole('專案管理員'), async (req, res) => {
 });
 
 /**
+ * 匯入邊界檔案（KML / KMZ / GeoJSON）→ 回傳正規化預覽（不寫入 DB）
+ * POST /api/project_boundaries/import
+ *
+ * multipart/form-data，欄位名 file。
+ * 沿用「建議邊界」的預覽→確認模式：前端確認後再呼叫 POST / 儲存。
+ */
+router.post('/import', requireRole('專案管理員'), handleBoundaryUpload, async (req, res) => {
+    if (!req.file || !req.file.buffer) {
+        return res.status(400).json({ success: false, message: '請提供邊界檔案（欄位名 file）' });
+    }
+    try {
+        const result = await parseBoundaryFile(req.file.buffer, req.file.originalname);
+        if (!result.ok) {
+            return res.status(422).json({
+                success: false,
+                code: result.code,
+                message: result.message,
+            });
+        }
+        res.json({
+            success: true,
+            preview: true,
+            coordinates: result.coordinates,
+            format: result.format,
+            detectedCrs: result.detectedCrs,
+            stats: result.stats,
+            warnings: result.warnings,
+            message: '邊界檔案解析成功（尚未儲存），請確認後再儲存。',
+        });
+    } catch (err) {
+        console.error('[project_boundaries] 匯入解析錯誤:', err);
+        res.status(500).json({ success: false, message: '邊界檔案解析失敗' });
+    }
+});
+
+/**
  * 新增或更新專案邊界
  * POST /api/project_boundaries
  * 
@@ -336,33 +437,27 @@ router.post('/suggest', requireRole('專案管理員'), async (req, res) => {
  * {
  *   projectName: string,
  *   projectCode: string (optional),
- *   coordinates: [[lat, lng], [lat, lng], ...] // 多邊形頂點
+ *   coordinates: [[lat, lng], [lat, lng], ...], // 多邊形頂點
+ *   source: string (optional), // draw|coords|kml|geojson|suggest
+ *   allowTreesOutside: boolean (optional), // 預覽已確認時允許界外既有樹木
+ *   expectedUpdatedAt: string (optional) // 樂觀鎖
  * }
  */
 router.post('/', requireRole('專案管理員'), async (req, res) => {
     const { projectName, projectCode, projectArea, coordinates } = req.body;
-    
+    const allowTreesOutside = req.body.allowTreesOutside === true;
+    const ALLOWED_SOURCES = ['draw', 'coords', 'kml', 'geojson', 'suggest'];
+    const source = ALLOWED_SOURCES.includes(req.body.source) ? req.body.source : null;
+
     // 驗證輸入
     if (!projectName) {
         return res.status(400).json({ success: false, message: '專案名稱不能為空' });
     }
-    
-    if (!coordinates || !Array.isArray(coordinates) || coordinates.length < 3) {
-        return res.status(400).json({ 
-            success: false, 
-            message: '邊界座標必須至少包含 3 個頂點' 
-        });
-    }
-    
-    // 驗證座標格式
-    for (const coord of coordinates) {
-        if (!Array.isArray(coord) || coord.length !== 2 ||
-            typeof coord[0] !== 'number' || typeof coord[1] !== 'number') {
-            return res.status(400).json({ 
-                success: false, 
-                message: '座標格式不正確，應為 [[lat, lng], ...]' 
-            });
-        }
+
+    // 統一座標健檢（格式 + 頂點數 + 自相交）
+    const v = validateBoundaryCoordinates(coordinates);
+    if (!v.ok) {
+        return res.status(v.status).json({ success: false, code: v.code, message: v.message });
     }
     
     const client = await db.pool.connect();
@@ -397,7 +492,8 @@ router.post('/', requireRole('專案管理員'), async (req, res) => {
         );
         
         // 如果有現有樹木，驗證新邊界是否涵蓋所有樹木
-        if (existingTrees.length > 0) {
+        // allowTreesOutside：前端已在預覽明確告知使用者界外樹木並取得確認時，允許跳過此硬性檢查
+        if (existingTrees.length > 0 && !allowTreesOutside) {
             // 建立多邊形 (turf 需要 [lng, lat] 格式，且首尾相連)
             const polygonCoords = coordinates.map(c => [c[1], c[0]]); // 轉換為 [lng, lat]
             polygonCoords.push(polygonCoords[0]); // 閉合多邊形
@@ -465,16 +561,17 @@ router.post('/', requireRole('專案管理員'), async (req, res) => {
 
         // 使用 UPSERT 語法
         const { rows } = await client.query(`
-            INSERT INTO project_boundaries (project_name, project_code, project_area, boundary_coordinates, updated_at)
-            VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+            INSERT INTO project_boundaries (project_name, project_code, project_area, boundary_coordinates, source, updated_at)
+            VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
             ON CONFLICT (project_name) 
             DO UPDATE SET 
                 project_code = COALESCE(EXCLUDED.project_code, project_boundaries.project_code),
                 project_area = COALESCE(EXCLUDED.project_area, project_boundaries.project_area),
                 boundary_coordinates = EXCLUDED.boundary_coordinates,
+                source = COALESCE(EXCLUDED.source, project_boundaries.source),
                 updated_at = CURRENT_TIMESTAMP
             RETURNING *
-        `, [projectName, resolvedProjectCode ?? projectCode, resolvedArea, JSON.stringify(coordinates)]);
+        `, [projectName, resolvedProjectCode ?? projectCode, resolvedArea, JSON.stringify(coordinates), source]);
         
         await client.query('COMMIT');
         

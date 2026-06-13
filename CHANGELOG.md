@@ -4,6 +4,17 @@
 
 ---
 
+## (2026-06-13) — 邊界輸入方式擴充（方式 1 貼座標 + 方式 3 GIS 匯入）
+
+- 新增 `utils/boundaryImport.js`：解析 **KML / KMZ / GeoJSON** → 統一輸出 `[[lat,lng],...]` 開放環。KML 依規格固定 WGS84；GeoJSON 讀 `crs` 或以數值範圍推斷，**TWD97/TM2(EPSG:3826/3825) 以 `proj4` 自動轉 WGS84**；多多邊形取面積最大並警告；`turf.kinks` 偵測自相交。
+- 新增 `POST /api/project-boundaries/import`（`requireRole('專案管理員')`，multipart `file`，上限 `BOUNDARY_IMPORT_MAX_MB`，預設 5MB）→ **僅回傳預覽，不寫庫**（沿用「建議邊界」預覽→確認模式）。
+- `POST /api/project-boundaries`：新增 `source`（draw|coords|kml|geojson|suggest）與 `allowTreesOutside` 旗標；**寫入前一律以 `turf.kinks` 拒絕自相交**（400 `SELF_INTERSECTING`）；界外既有樹木檢查在前端明確確認後可由 `allowTreesOutside` 略過。
+- DB migration `30_project_boundaries_source.pg.sql`：`project_boundaries` 加 `source VARCHAR(20)`（既有列 NULL）；同步 `06a` schema 與 route `initializeTable`。
+- 相依套件：新增 `proj4`、`@xmldom/xmldom`、`jszip`（KML 以 xmldom 手動解析，避免 ESM 互通問題）。
+- 測試：`tests/invariants/boundaryImport.test.js`（8 純邏輯案例，免 DB）+ `tests/contracts/project_boundary_import.test.js`（自相交拒絕、source 回讀、GeoJSON 匯入預覽）。
+
+---
+
 ## (2026-06-10) — 歷次量測快照補洞：create_v2 首筆入歷史
 
 - `controllers/treeSurveyCreateController.js`：手動新增（智慧/快速模式）原本**只寫 tree_survey 主表**、不寫 `tree_survey_measurements`；年碳吸存推估靠歷次快照差分，首筆缺漏會讓這些樹永遠少一期。現在 create_v2 同一交易內補寫 survey_mode='new' 快照（pending_id=NULL）。

@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS project_boundaries (
     project_code VARCHAR(50),
     project_area VARCHAR(50),
     boundary_coordinates JSONB NOT NULL,
+    source VARCHAR(20),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -24,3 +25,4 @@ CREATE INDEX IF NOT EXISTS idx_project_boundaries_code ON project_boundaries(pro
 -- Legacy upgrade: ensure newer columns exist on pre-existing tables
 ALTER TABLE project_boundaries ADD COLUMN IF NOT EXISTS project_code VARCHAR(50);
 ALTER TABLE project_boundaries ADD COLUMN IF NOT EXISTS project_area VARCHAR(50);
+ALTER TABLE project_boundaries ADD COLUMN IF NOT EXISTS source VARCHAR(20);

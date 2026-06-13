@@ -91,6 +91,7 @@ dev-fixtures/06_project_boundaries_seed.pg.sql  →  node scripts/seed_dev_bound
 | **專案代碼** | `projects.project_code` | **全系統穩定主鍵**（寫入、權限、FK 一律用它） | 不要用 name 當鍵 |
 | **區 / Block** | `project_boundaries.project_area`、現場 `project_area` | 常與「專案區位」混用；App 現場多指**同港區下的分區標籤** | 需與 `project_areas` 對齊 |
 | **邊界** | `project_boundaries.boundary_coordinates` | 某 **project_name** 的 GIS 多邊形 | 不等於 `projects` 列是否存在 |
+| **邊界來源** | `project_boundaries.source` | 輸入方式 `draw\|coords\|kml\|geojson\|suggest`（migration 30；既有列 NULL） | 僅供溯源，非權威欄位 |
 
 ### 資料權威順序（業界 single source of truth）
 

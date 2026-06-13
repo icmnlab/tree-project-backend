@@ -69,6 +69,7 @@ const migrationFiles = [
   '27_maintenance_tree_locks.pg.sql', // 維護重測互斥鎖（Phase A 多人協作）
   '28_instrument_traceability.pg.sql',
   '29_pending_created_by.pg.sql', // [稽核#1/#3] pending 擁有權欄位 created_by_user_id // 儀器 TYPE / instrument_dbh 追溯
+  '30_project_boundaries_source.pg.sql', // 邊界輸入來源欄位（draw|coords|kml|geojson|suggest）供溯源
 ];
 
 // Define the order for view creation

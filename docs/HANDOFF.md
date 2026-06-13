@@ -184,7 +184,7 @@ pm2 reload tree-backend          # 手動重載
 
 - **CSV / 專案語意**（program_name→project_location、block_name→project_name 等）：`PROJECT_DATA_AND_DOMAIN.md`
 - **資料庫正規化 / schema**：`DATABASE_NORMALIZATION.md`
-- **專案邊界系統**（convex-hull 建議邊界、outlier 排除）：`BOUNDARY_SYSTEM_DESIGN.md`
+- **專案邊界系統**（手繪／貼座標／匯入 KML·GeoJSON／convex-hull 建議邊界）：`BOUNDARY_SYSTEM_DESIGN.md`（輸入方式見 §3.5）
 - **碳匯計算**：`CARBON_CALCULATION.md`
 - **VLGEO2 BLE 整合**（NUS/Haglof、CSV TYPE 1P/3P/DME/3D/SET、現場 PHGF）：`VLGEO2_STD_APPLICATION_GUIDE.md`、`frontend` 內 `ble_data_processor.dart` / `data_filter_service.dart`
 - **AI Agent / 文字轉 SQL**：`AI_AGENT_GUIDE.md`
@@ -253,6 +253,7 @@ pm2 reload tree-backend          # 手動重載
 | ML 訓練資料收集 | 後端 `routes/ml_training_data.js` | 保留 |
 | 樹木調查頁（unscoped 模式） | `tree_survey_page.dart` | 底部分頁已移除（與列表重疊）；**保留**供專案/區下鑽與首頁「樹木調查」卡片使用 |
 | 自動多邊形邊界建議 | 後端 boundarySuggest | 通用功能、需使用者確認後才寫入 |
+| 邊界輸入（貼座標 / 匯入 KML·KMZ·GeoJSON） | `boundary_input.dart` / `boundaryImport.js` / `POST /project-boundaries/import` | 預覽→確認→儲存；TWD97/TM2 自動轉 WGS84；方式 2（含座標圖檔）UI 預留 |
 | 年碳吸存推估 | `tree_survey_measurements` 歷次快照已就緒（含 create_v2 首筆） | 演算法（存量差分）待累積多期資料後實作，見 `CARBON_CALCULATION.md` |
 
 已刪除（被新版完全取代的死碼，不建議復活）：V1 手動輸入頁（被 V3 整合表單取代）、`/ai-assistant` 重複路由、`ble_live` 死分支。
