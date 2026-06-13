@@ -63,7 +63,7 @@
 - [x] **文件層去個人化**（原 §2 worklist）：`HANDOFF.md`、`VERIFICATION_CHECKLIST.md`、本檔、`BUILD_GUIDE.md` 之個人 IP/主機名/帳號/姓名全面占位化（`<SERVER_USER>@<SERVER_IP>`、`<HOST>`、`<TAILSCALE_HOST>`、`<GITHUB_OWNER>` 等）；個人部署筆記/簡歷自 `project_code/` 移備份。
 - [x] 斷鏈修復：`FIELD_SURVEY_SOP`／`MEETING_MINUTES`／外接 GNSS 文件中指向已移除文件的連結改指 `HANDOFF.md`；`HANDOFF.md` §10 文件地圖更新。
 - [x] **交接日流程文件化**（2026-06-11）：`LAB_DEPLOYMENT_GUIDE.md` 新增 §0「交接日流程」——fresh snapshot push（orphan branch，不帶舊歷史）→ 金鑰輪替 → 部署 → webhook 設定 → 管理員/種子帳號處理 → APK → 驗收 checklist。`HANDOFF.md` §1 系統描述改通用（港務=測試資料）、§11 指向交接日流程；兩 repo README 個人網路描述中性化。
-- 殘留（拍板項）：`LICENSE` 著作權行 `Copyright (c) 2025 KyleliuNDHU`——著作權人為使用者本人，MIT 慣例保留名字；是否改中性名稱**留使用者決定**。
+- [x] 拍板：`LICENSE` 著作權行 `Copyright (c) 2025 KyleliuNDHU` **維持不變**（2026-06-13 使用者決定；著作權人為本人，MIT 慣例保留名字）。其餘交接檔案經 `git grep` 確認無 SSH 帳號／IP／ts.net 名稱／email 等個資外洩。
 
 ### 0f-2. 全量審查修正（2026-06-11 第二輪，4 個並行審查的落地）
 
