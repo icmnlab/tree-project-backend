@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <Placemark>
+      <name>樣本邊界 KML</name>
+      <Polygon><outerBoundaryIs><LinearRing>
+        <coordinates>120.121,23.264,0 120.1245,23.2638,0 120.125,23.2585,0 120.1205,23.2588,0 120.121,23.264,0</coordinates>
+      </LinearRing></outerBoundaryIs></Polygon>
+    </Placemark>
+  </Document>
+</kml>

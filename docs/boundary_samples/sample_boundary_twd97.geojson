@@ -1,0 +1,44 @@
+{
+  "type": "FeatureCollection",
+  "crs": {
+    "type": "name",
+    "properties": {
+      "name": "urn:ogc:def:crs:EPSG::3826"
+    }
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "樣本邊界 TWD97/TM2"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              160065.449,
+              2573789.597
+            ],
+            [
+              160423.436,
+              2573765.282
+            ],
+            [
+              160471.055,
+              2573178.021
+            ],
+            [
+              160010.797,
+              2573214.029
+            ],
+            [
+              160065.449,
+              2573789.597
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

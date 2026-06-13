@@ -1,0 +1,38 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "樣本邊界 WGS84"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              120.121,
+              23.264
+            ],
+            [
+              120.1245,
+              23.2638
+            ],
+            [
+              120.125,
+              23.2585
+            ],
+            [
+              120.1205,
+              23.2588
+            ],
+            [
+              120.121,
+              23.264
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

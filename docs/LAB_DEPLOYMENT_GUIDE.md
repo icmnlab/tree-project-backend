@@ -74,14 +74,13 @@ flutter build apk --release --dart-define=API_BASE_URL=https://<部署主機>/ap
 >      tailscale serve --bg --https 443 http://127.0.0.1:3000   # 關閉：tailscale serve --https=443 off
 >      ```
 >      App 指向 `https://<主機>.<tailnet>.ts.net/api`。
->    - 正式法（保留 nginx 速率限制／安全標頭，需 sudo）：
+>    - 正式法（保留 nginx 速率限制／安全標頭，需 sudo）：**一鍵腳本**
 >      ```bash
->      sudo tailscale cert --cert-file /opt/tree-app/ssl/ts.crt \
->           --key-file /opt/tree-app/ssl/ts.key <主機>.<tailnet>.ts.net
->      # nginx：server_name 加上該 ts.net 名稱，ssl_certificate 指向 ts.crt/ts.key
->      sudo nginx -t && sudo systemctl reload nginx
->      # Tailscale 憑證約 90 天，需排程 renew（crontab 重跑 tailscale cert + reload nginx）
+>      sudo bash scripts/setup_tailscale_tls.sh   # 自動偵測 ts.net 名稱、產憑證、改 nginx（含備份/測試/回滾）、設 90 天 renew cron
 >      ```
+>      手動等效步驟：`sudo tailscale cert --cert-file /opt/tree-app/ssl/ts.crt --key-file /opt/tree-app/ssl/ts.key <主機>.<tailnet>.ts.net` →
+>      nginx `server_name` 加該 ts.net 名稱、`ssl_certificate` 指向 ts.crt/ts.key → `sudo nginx -t && sudo systemctl reload nginx`。
+>      （Tailscale 憑證約 90 天，腳本已設 `/etc/cron.d/tree-tls-renew` 自動續期。）
 > 用 `curl https://<主機>/api/health`（**不要加 `-k`**）回 200/401 且無憑證錯誤，即代表手機會信任。
 
 ### 0.7 交接日 checklist

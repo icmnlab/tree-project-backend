@@ -13,6 +13,8 @@
 - 相依套件：新增 `proj4`、`@xmldom/xmldom`、`jszip`（KML 以 xmldom 手動解析，避免 ESM 互通問題）。
 - 測試：`tests/invariants/boundaryImport.test.js`（8 純邏輯案例，免 DB）+ `tests/contracts/project_boundary_import.test.js`（自相交拒絕、source 回讀、GeoJSON 匯入預覽）。
 - 部署強化 `scripts/deploy.sh`：cluster `pm2 reload` 偶爾留下未替換的舊 worker（實測曾殘留數天，造成請求在新／舊程式碼間輪詢、回應不一致）；reload 後新增殘留偵測（uptime>120s）→ 自動 `pm2 restart` 強制全部換新版。
+- 新增 `scripts/setup_tailscale_tls.sh`：一鍵讓 nginx 對 ts.net 名稱提供 **Tailscale 有效憑證**（解決 Android 拒絕自簽憑證導致手機連不上後端）；含 nginx 備份/`nginx -t`/回滾與 90 天 renew cron。
+- 新增 `docs/boundary_samples/`：邊界輸入實機測試樣本（貼座標 txt、WGS84/TWD97 GeoJSON、KML、防呆缺小數點 txt），對應驗證表 B8–B14。
 
 ---
 
