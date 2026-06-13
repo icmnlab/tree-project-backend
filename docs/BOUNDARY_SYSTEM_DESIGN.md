@@ -87,6 +87,7 @@
 
 **後端**：
 - `utils/boundaryImport.js` 解析 KML/KMZ/GeoJSON → 統一輸出 `[[lat,lng],...]` 開放環；多多邊形取面積最大並警告；`turf.kinks` 偵測自相交。
+- **KML 多幾何容錯**（2026-06-13，依學院實檔調整）：同一份 Google Earth KML 常同時含圖釘(Point)/路徑(LineString)/多邊形(Polygon)。匯入優先序：① Polygon 外環 →（無）② LineString 視為封閉邊界（警告）→（無）③ ≥3 個 Point 依文件順序連成邊界（警告）。座標切分用 `\s+`（容換行/tab）並忽略高度值；Point 名稱可能含缺小數點的標籤（如 `1201240910`）但實際 `<coordinates>` 正確，採用座標而非名稱。
 - `POST /api/project-boundaries/import`（`requireRole('專案管理員')`，multipart `file`，上限 `BOUNDARY_IMPORT_MAX_MB`，預設 5MB）→ 僅回傳預覽，不寫庫。
 - `POST /api/project-boundaries` 新增 `source`、`allowTreesOutside` 欄位；寫入前一律以 `turf.kinks` 拒絕自相交（回 400 `SELF_INTERSECTING`）。
 - `project_boundaries.source` 欄位（migration `30_project_boundaries_source.pg.sql`）記錄來源供溯源；既有列為 NULL。

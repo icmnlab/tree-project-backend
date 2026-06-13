@@ -4,6 +4,14 @@
 
 ---
 
+## (2026-06-13) — KML 匯入多幾何容錯（依學院實檔）
+
+- `utils/boundaryImport.js`：同一份 Google Earth KML 常同時含圖釘(Point)/路徑(LineString)/多邊形(Polygon)。匯入優先序改為 ① Polygon →（無）② LineString 視為封閉邊界 →（無）③ ≥3 個 Point 依文件順序連成邊界；後兩者各帶警告。
+- 用學院實際匯出的 `未命名的地圖專案.kml`（9 圖釘 + 多邊形「區塊1」）實測：正確採用多邊形、9 頂點、約 12.1 公頃、不自相交。
+- 測試：`tests/invariants/boundaryImport.test.js` 新增 3 案（純 Point fallback、LineString fallback、Point+Polygon 優先採用 Polygon）。
+
+---
+
 ## (2026-06-13) — 邊界匯出 KML
 
 - 新增 `GET /api/project-boundaries/export.kml?project=<名稱>`（或 `?code=<代碼>`，`projectAuthFilter` 權限）：將指定區的已儲存邊界輸出為 KML（`application/vnd.google-earth.kml+xml`，座標 `lng,lat,0`、環自動閉合），可在 Google Earth 開啟，與既有匯入形成雙向。

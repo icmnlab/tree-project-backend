@@ -55,6 +55,7 @@
 - [x] **匯出 KML**：`GET /api/project-boundaries/export.kml`（`projectAuthFilter`，403/404 守備）；前端邊界頁右上「匯出」圖示走 `DownloadService`，Android 用 Google Earth 開啟，與匯入雙向。
 - [x] **自動重排升級**：`boundary_input.dart` 加 `reorderByNearestNeighbor` + `tryAutoReorder`（角度→最近鄰）；貼座標/匯入「自動重排」；**手動繪製**自相交於儲存時亦提供自動重排。誠實標註凹形極限（多邊形化不唯一）。
 - [x] **樣本/測試/文件**：`sample_boundary_complex.kml`（凹形 KML）；前端 3 重排單元測試、後端 2 匯出契約測試；`VERIFICATION_CHECKLIST` B9/B16–B19、`BOUNDARY_SYSTEM_DESIGN §3.5`、`boundary_samples/README`、前後端 CHANGELOG、pubspec 18.6.0+17。
+- [x] **KML 多幾何容錯（依學院實檔 2026-06-13）**：學院實際 KML（9 圖釘 + 多邊形「區塊1」）實測正確採多邊形（9 頂點/12.1 公頃）。`boundaryImport.js` 匯入優先序 Polygon→LineString→Point，後兩者帶警告；新增 3 單元測試與 `sample_boundary_points_only.kml`、驗證項 B20/B21。**已部署遠端驗證**。
 
 ---
 

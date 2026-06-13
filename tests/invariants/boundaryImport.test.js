@@ -97,6 +97,48 @@ module.exports = {
             },
         },
         {
+            name: 'boundaryImport: KML 僅含 Point 標記 → 依順序連成邊界 + 警告',
+            run: async () => {
+                // 模擬使用者在 Google Earth 只點圖釘（無多邊形）
+                const placemarks = WGS_RING.slice(0, 4)
+                    .map(([lng, lat]) =>
+                        `<Placemark><Point><coordinates>${lng},${lat},0</coordinates></Point></Placemark>`)
+                    .join('');
+                const kml = `<?xml version="1.0"?><kml><Document>${placemarks}</Document></kml>`;
+                const r = await parseBoundaryFile(Buffer.from(kml), 'points.kml');
+                assert.strictEqual(r.ok, true, r.message);
+                assert.strictEqual(r.format, 'kml');
+                assert.strictEqual(r.coordinates.length, 4);
+                assert.ok(r.warnings.some((w) => w.includes('標記點')), '應警告使用標記點');
+            },
+        },
+        {
+            name: 'boundaryImport: KML 僅含 LineString(路徑) → 視為封閉邊界 + 警告',
+            run: async () => {
+                const coordsText = WGS_RING.map(([lng, lat]) => `${lng},${lat},0`).join(' ');
+                const kml = `<?xml version="1.0"?><kml><Document><Placemark><LineString><coordinates>${coordsText}</coordinates></LineString></Placemark></Document></kml>`;
+                const r = await parseBoundaryFile(Buffer.from(kml), 'path.kml');
+                assert.strictEqual(r.ok, true, r.message);
+                assert.strictEqual(r.coordinates.length, 4);
+                assert.ok(r.warnings.some((w) => w.includes('路徑')), '應警告路徑視為封閉邊界');
+            },
+        },
+        {
+            name: 'boundaryImport: KML 同時含 Point 與 Polygon → 優先採用 Polygon',
+            run: async () => {
+                const stray = '<Placemark><Point><coordinates>121.0,24.0,0</coordinates></Point></Placemark>';
+                const coordsText = WGS_RING.map(([lng, lat]) => `${lng},${lat},0`).join(' ');
+                const kml = `<?xml version="1.0"?><kml><Document>${stray}<Placemark><Polygon><outerBoundaryIs><LinearRing><coordinates>${coordsText}</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></Document></kml>`;
+                const r = await parseBoundaryFile(Buffer.from(kml), 'mixed.kml');
+                assert.strictEqual(r.ok, true, r.message);
+                assert.strictEqual(r.coordinates.length, 4);
+                // 不應誤用零散點：未出現「標記點」警告
+                assert.ok(!r.warnings.some((w) => w.includes('標記點')), '有 Polygon 時不應採用零散點');
+                // 取到的是台南附近多邊形（緯度約 23.26，而非零散點 24.0）
+                assert.ok(Math.abs(r.coordinates[0][0] - 23.26371) < 1e-3);
+            },
+        },
+        {
             name: 'boundaryImport: 多個多邊形 → 取面積最大 + 警告',
             run: async () => {
                 const small = [

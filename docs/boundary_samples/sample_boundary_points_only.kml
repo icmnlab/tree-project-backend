@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>只有圖釘點（無多邊形）測試</name>
+    <description>模擬使用者在 Google Earth 只「新增地標(圖釘)」而沒有畫多邊形。系統會依文件順序把這些點連成邊界，並警告「使用標記點」。共 4 點（台南附近四方形）。</description>
+    <Placemark><name>(120.1210,23.2640)</name><Point><coordinates>120.1210000,23.2640000,0</coordinates></Point></Placemark>
+    <Placemark><name>(120.1245,23.2638)</name><Point><coordinates>120.1245000,23.2638000,0</coordinates></Point></Placemark>
+    <Placemark><name>(120.1250,23.2585)</name><Point><coordinates>120.1250000,23.2585000,0</coordinates></Point></Placemark>
+    <Placemark><name>(120.1205,23.2588)</name><Point><coordinates>120.1205000,23.2588000,0</coordinates></Point></Placemark>
+  </Document>
+</kml>

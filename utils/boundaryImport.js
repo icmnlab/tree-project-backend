@@ -192,9 +192,10 @@ function parseKmlString(kml) {
         return { ok: false, code: 'PARSE_ERROR', message: `KML 解析失敗：${e.message}` };
     }
 
-    // 取所有 Polygon 的外環 coordinates
-    const polygons = doc.getElementsByTagName('Polygon');
     const rawRings = [];
+
+    // 1) 優先：Polygon 外環（Google Earth「多邊形」）
+    const polygons = doc.getElementsByTagName('Polygon');
     for (let i = 0; i < polygons.length; i++) {
         const poly = polygons[i];
         const outer = poly.getElementsByTagName('outerBoundaryIs')[0] || poly;
@@ -204,11 +205,41 @@ function parseKmlString(kml) {
         if (ring.length >= 3) rawRings.push(ring);
     }
 
+    // 2) 退而求其次：LineString（Google Earth「路徑」）視為封閉邊界
     if (rawRings.length === 0) {
-        return { ok: false, code: 'NO_POLYGON', message: 'KML 中找不到多邊形（Polygon）' };
+        const lines = doc.getElementsByTagName('LineString');
+        for (let i = 0; i < lines.length; i++) {
+            const coordsEl = lines[i].getElementsByTagName('coordinates')[0];
+            if (!coordsEl) continue;
+            const ring = parseKmlCoordinateText(coordsEl.textContent || '');
+            if (ring.length >= 3) rawRings.push(ring);
+        }
+        if (rawRings.length > 0) {
+            warnings.push('KML 未含多邊形，已將「路徑(LineString)」視為封閉邊界；若形狀不符請在 Google Earth 改用多邊形繪製。');
+        }
+    }
+
+    // 3) 最後手段：多個 Point 標記，依文件順序連成一個邊界
+    if (rawRings.length === 0) {
+        const points = doc.getElementsByTagName('Point');
+        const ring = [];
+        for (let i = 0; i < points.length; i++) {
+            const coordsEl = points[i].getElementsByTagName('coordinates')[0];
+            if (!coordsEl) continue;
+            const pr = parseKmlCoordinateText(coordsEl.textContent || '');
+            if (pr.length >= 1) ring.push(pr[0]);
+        }
+        if (ring.length >= 3) {
+            rawRings.push(ring);
+            warnings.push(`KML 未含多邊形，已用 ${ring.length} 個標記點依文件順序連成邊界；若形狀不對，請調整點的順序、或在 Google Earth 改用多邊形繪製。`);
+        }
+    }
+
+    if (rawRings.length === 0) {
+        return { ok: false, code: 'NO_POLYGON', message: 'KML 中找不到可用邊界（多邊形 Polygon、路徑 LineString，或至少 3 個標記點）' };
     }
     if (rawRings.length > 1) {
-        warnings.push(`KML 含 ${rawRings.length} 個多邊形，已自動取面積最大者；其餘忽略。`);
+        warnings.push(`KML 含 ${rawRings.length} 個邊界，已自動取面積最大者；其餘忽略。`);
     }
 
     // KML 依 OGC 規格固定 WGS84
