@@ -10,6 +10,8 @@
 | `sample_boundary_wgs84.geojson` | 匯入 GeoJSON（WGS84） | B9 |
 | `sample_boundary_twd97.geojson` | 匯入 GeoJSON（TWD97/TM2, EPSG:3826）→ 後端自動轉 WGS84 | B9 |
 | `sample_boundary.kml` | 匯入 KML（Google Earth 匯出格式） | B9 |
+| `coords_complex_pond.txt` | **複雜（凹）多邊形**：環境學院魚塭 9 點，貼上座標 | B12（驗證可畫非四方形/凹形且不自相交） |
+| `sample_boundary_complex.geojson` | 同上凹多邊形的 GeoJSON 版本 | B12 |
 
 ## 使用方式
 
