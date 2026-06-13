@@ -60,6 +60,30 @@ flutter build apk --release --dart-define=API_BASE_URL=https://<部署主機>/ap
 ```
 最後跑一輪 `VERIFICATION_CHECKLIST.md`，並在 GitHub 設定 `main` 分支保護（required CI check）。
 
+> ⚠️ **手機端 TLS 必須是「受信任的有效憑證」**
+> Android 預設**拒絕自簽憑證**。若 `API_BASE_URL` 指向自簽憑證的主機（例如直接用
+> `https://<IP>/api`，憑證 CN=IP、自簽），App 啟動自檢會出現：
+> `CERTIFICATE_VERIFY_FAILED: self signed certificate`，**所有 API 都連不上**。
+>
+> 正確做法（擇一）：
+> 1. **機構網域 + 正式憑證**（最佳）：用學校／圖資中心的網域 + Let's Encrypt（certbot），
+>    `API_BASE_URL=https://tree.example.edu.tw/api`。
+> 2. **Tailscale 有效憑證**（內網/測試很方便，免費自動簽發）：
+>    - 快速法（免 sudo，operator 即可，但繞過 nginx 速率限制）：
+>      ```bash
+>      tailscale serve --bg --https 443 http://127.0.0.1:3000   # 關閉：tailscale serve --https=443 off
+>      ```
+>      App 指向 `https://<主機>.<tailnet>.ts.net/api`。
+>    - 正式法（保留 nginx 速率限制／安全標頭，需 sudo）：
+>      ```bash
+>      sudo tailscale cert --cert-file /opt/tree-app/ssl/ts.crt \
+>           --key-file /opt/tree-app/ssl/ts.key <主機>.<tailnet>.ts.net
+>      # nginx：server_name 加上該 ts.net 名稱，ssl_certificate 指向 ts.crt/ts.key
+>      sudo nginx -t && sudo systemctl reload nginx
+>      # Tailscale 憑證約 90 天，需排程 renew（crontab 重跑 tailscale cert + reload nginx）
+>      ```
+> 用 `curl https://<主機>/api/health`（**不要加 `-k`**）回 200/401 且無憑證錯誤，即代表手機會信任。
+
 ### 0.7 交接日 checklist
 
 - [ ] 兩 repo fresh push 完成、CI 綠
