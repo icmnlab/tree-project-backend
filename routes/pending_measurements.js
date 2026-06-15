@@ -816,6 +816,7 @@ async function insertTreeSurveyMeasurementHistory(client, {
   treeId,
   pendingRow,
   speciesId,
+  speciesName,
   finalDbh,
   finalStatus,
   surveyNotes,
@@ -824,16 +825,17 @@ async function insertTreeSurveyMeasurementHistory(client, {
 }) {
   if (pendingRow.id != null) {
     const dup = await client.query(
-      'SELECT 1 FROM tree_survey_measurements WHERE pending_id = $1 LIMIT 1',
+      'SELECT id FROM tree_survey_measurements WHERE pending_id = $1 LIMIT 1',
       [pendingRow.id],
     );
     if (dup.rows.length > 0) {
       console.log(`[Transfer] skip duplicate history pending_id=${pendingRow.id}`);
-      return;
+      return dup.rows[0].id;
     }
   }
   const measuredAt = pendingRow.completed_at ?? new Date();
-  await client.query(`
+  const effectiveSpeciesName = speciesName ?? pendingRow.species_name ?? '待辨識';
+  const inserted = await client.query(`
     INSERT INTO tree_survey_measurements (
       tree_id, pending_id, survey_time,
       tree_height_m, dbh_cm, species_name, species_id,
@@ -841,13 +843,14 @@ async function insertTreeSurveyMeasurementHistory(client, {
       x_coord, y_coord, survey_mode,
       instrument_type, instrument_dbh_cm
     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+    RETURNING id
   `, [
     treeId,
     pendingRow.id,
     measuredAt,
     pendingRow.tree_height,
     finalDbh,
-    pendingRow.species_name ?? '待辨識',
+    effectiveSpeciesName,
     speciesId,
     finalStatus,
     surveyNotes,
@@ -858,7 +861,11 @@ async function insertTreeSurveyMeasurementHistory(client, {
     resolveInstrumentType(pendingRow),
     pendingRow.instrument_dbh_cm ?? null,
   ]);
+  return inserted.rows[0].id;
 }
+
+// 由樹況推導生命週期狀態（純邏輯抽到 utils/treeLifecycle.js 供測試與共用）
+const { lifecycleFromStatus } = require('../utils/treeLifecycle');
 
 function parseTreeStatusFromNotes(notes) {
   const raw = (notes ?? '').trim();
@@ -1037,7 +1044,7 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
         }
 
         const targetRes = await client.query(`
-          SELECT id, project_code, system_tree_id, project_tree_id
+          SELECT id, project_code, system_tree_id, project_tree_id, species_name, species_id
           FROM tree_survey
           WHERE id = $1 AND (is_placeholder IS NULL OR is_placeholder = false)
           FOR UPDATE
@@ -1060,6 +1067,43 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
 
         const shouldUpdateTreeLocation = shouldUpdateTreeLocationFromPending(p);
 
+        // [樹種繼承] 重測未填樹種時，沿用既有樹木的樹種（不覆寫成「待辨識」）。
+        // 前端維護表單已預填樹種，此為後端安全網；繼承時碳儲量以繼承樹種重算。
+        const inheritSpecies = !(p.species_name && String(p.species_name).trim());
+        const maintSpeciesName = inheritSpecies
+          ? (target.species_name ?? '待辨識')
+          : p.species_name;
+        const maintSpeciesId = inheritSpecies ? (target.species_id ?? null) : speciesId;
+        const maintCarbon = inheritSpecies
+          ? carbonCalculationService.calculateCarbonStorage(maintSpeciesName, finalDbh, p.tree_height)
+          : finalCarbonStorage;
+
+        // [生命週期] 由本次樹況推導；淘汰木設 retired_at/reason，恢復正常則清空（軟性復原）。
+        const lifecycle = lifecycleFromStatus(finalStatus) ?? 'active';
+        const isRetired = lifecycle !== 'active';
+        const retiredParams = isRetired ? [p.completed_at ?? new Date(), finalStatus] : [];
+
+        const baseParams = [
+          maintSpeciesName ?? '待辨識',
+          maintSpeciesId,
+          p.tree_height,
+          finalDbh,
+          finalStatus,
+          surveyNotes,
+          p.completed_at ?? new Date(),
+          maintCarbon,
+          target.id,
+        ];
+        const locParams = shouldUpdateTreeLocation ? [p.tree_longitude, p.tree_latitude] : [];
+        // 參數順序：$1..$9 base、($10,$11)=座標（若有）、($12,$13)=淘汰欄位（若有）
+        const updateParams = [...baseParams, ...locParams, ...retiredParams];
+        const locClause = shouldUpdateTreeLocation ? ', x_coord = $10, y_coord = $11' : '';
+        // retired 參數從 $10 或 $12 起算，視是否有座標而定
+        const retireBase = shouldUpdateTreeLocation ? 12 : 10;
+        const lifecycleSetResolved = isRetired
+          ? `, lifecycle_status = '${lifecycle}', retired_at = COALESCE(retired_at, $${retireBase}), retired_reason = $${retireBase + 1}`
+          : `, lifecycle_status = 'active', retired_at = NULL, retired_reason = NULL`;
+
         await client.query(`
           UPDATE tree_survey
           SET species_name = $1,
@@ -1070,47 +1114,26 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
               survey_notes = $6,
               survey_time = $7,
               carbon_storage = $8
-              ${shouldUpdateTreeLocation ? ', x_coord = $10, y_coord = $11' : ''}
+              ${locClause}
+              ${lifecycleSetResolved}
           WHERE id = $9
-        `, shouldUpdateTreeLocation
-          ? [
-              p.species_name ?? '待辨識',
-              speciesId,
-              p.tree_height,
-              finalDbh,
-              finalStatus,
-              surveyNotes,
-              p.completed_at ?? new Date(),
-              finalCarbonStorage,
-              target.id,
-              p.tree_longitude,
-              p.tree_latitude,
-            ]
-          : [
-              p.species_name ?? '待辨識',
-              speciesId,
-              p.tree_height,
-              finalDbh,
-              finalStatus,
-              surveyNotes,
-              p.completed_at ?? new Date(),
-              finalCarbonStorage,
-              target.id,
-            ]);
+        `, updateParams);
 
         treeSurveyId = target.id;
         systemTreeId = target.system_tree_id;
 
-        await insertTreeSurveyMeasurementHistory(client, {
+        const maintMeasurementId = await insertTreeSurveyMeasurementHistory(client, {
             treeId: treeSurveyId,
             pendingRow: p,
-            speciesId,
+            speciesId: maintSpeciesId,
+            speciesName: maintSpeciesName,
             finalDbh,
             finalStatus,
             surveyNotes,
-            finalCarbonStorage,
+            finalCarbonStorage: maintCarbon,
             surveyMode,
           });
+        p.__measurement_id = maintMeasurementId;
       } else {
         // 生成 system_tree_id
         systemTreeId = `ST-${nextSysId}`;
@@ -1136,6 +1159,11 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
           projectTreeId = `PT-${Date.now()}`;
         }
 
+        // 新樹的生命週期：通常 active；若現場直接標記枯死/倒塌/移除亦尊重之。
+        const newLifecycle = lifecycleFromStatus(finalStatus) ?? 'active';
+        const newRetiredAt = newLifecycle !== 'active' ? (p.completed_at ?? new Date()) : null;
+        const newRetiredReason = newLifecycle !== 'active' ? finalStatus : null;
+
         // 插入到 tree_survey（含必要的 system_tree_id, project_tree_id）
         const insertResult = await client.query(`
           INSERT INTO tree_survey (
@@ -1144,8 +1172,9 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
             species_name, species_id, tree_height_m, dbh_cm,
             x_coord, y_coord,
             status, survey_notes, survey_time,
-            carbon_storage
-          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+            carbon_storage,
+            lifecycle_status, retired_at, retired_reason
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
           RETURNING id
         `, [
           systemTreeId,
@@ -1163,10 +1192,13 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
           surveyNotes,
           p.completed_at ?? new Date(),
           finalCarbonStorage,
+          newLifecycle,
+          newRetiredAt,
+          newRetiredReason,
         ]);
         treeSurveyId = insertResult.rows[0].id;
 
-        await insertTreeSurveyMeasurementHistory(client, {
+        const newMeasurementId = await insertTreeSurveyMeasurementHistory(client, {
           treeId: treeSurveyId,
           pendingRow: p,
           speciesId,
@@ -1176,6 +1208,7 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
           finalCarbonStorage,
           surveyMode,
         });
+        p.__measurement_id = newMeasurementId;
       }
       
       transferredIds.push(treeSurveyId);
@@ -1224,13 +1257,16 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
         console.warn('[Transfer] tree_measurement_raw insert skipped:', rawErr.message);
       }
 
-      // 遷移照片：將 tree_images 的 pending owner 轉為正式 tree_survey owner。
+      // 遷移照片：將 tree_images 的 pending owner 轉為正式 tree_survey owner，
+      // 並把本次拍的照片綁定到該次量測歷史（measurement_id），供歷史面板逐次顯示。
       try {
         await client.query(`
           UPDATE tree_images 
-          SET owner_type = 'survey', owner_id = $1
+          SET owner_type = 'survey',
+              owner_id = $1,
+              measurement_id = COALESCE(measurement_id, $3)
           WHERE owner_type = 'pending' AND owner_id = $2
-        `, [treeSurveyId, p.id]);
+        `, [treeSurveyId, p.id, p.__measurement_id ?? null]);
       } catch (imgErr) {
         console.warn(`[Transfer] tree_images migration skipped for pending_id=${p.id}:`, imgErr.message);
       }

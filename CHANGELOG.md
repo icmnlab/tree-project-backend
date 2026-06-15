@@ -4,6 +4,59 @@
 
 ---
 
+## (2026-06-15b) — 樹況選單目錄（內建+自訂可共享）+ 修正枯立木碳匯歸類
+
+新增可共享的「樹況選單目錄」，並修正「枯立木（立枯死木）」被誤計為活立木的問題。
+
+- **資料庫（2NF）**
+  - `33_tree_status_options.pg.sql`：新增 `tree_status_options` 目錄表（代理主鍵 `id`、`name` UNIQUE、`lifecycle`、`is_builtin`、`is_active`、`created_by`、`sort_order`）。`name` 為候選鍵，`lifecycle` 等非鍵欄位完全相依於鍵，符合 2NF/3NF。
+  - 內建種子：正常/傾斜/病蟲害/枯萎=`active`；枯立木/枯死=`dead`；倒塌=`fallen`；已移除=`removed`（參考 `tree_survey_data.csv` 既有狀況）。
+  - **修正 migration 31 漏網**：原回填僅認「枯死/死亡」，漏掉「枯立木」（立枯死木 snag 屬非活立木）。本檔回填 `status LIKE '%枯立%'` → `lifecycle='dead'`，避免誤計入活立木碳儲量。
+  - 已登記於 `scripts/migrate.js`；增量部署 `run_pending_migrations.js` 自動套用。
+- **API**
+  - `GET /api/tree-statuses`：列出啟用中的樹況（供新增／維護量測表單下拉；任何已登入者可讀）。
+  - `POST /api/tree-statuses`：新增自訂樹況（`調查管理員` 以上）；未給 `lifecycle` 時由狀況文字推導。**多人同時新增同名以 `UNIQUE(name)` + `ON CONFLICT DO UPDATE … RETURNING (xmax=0)` 收斂**，回 `created` 旗標，不重複建立。
+- **生命週期推導（`utils/treeLifecycle.js`）**：新增「枯立」→`dead`、「倒伏」→`fallen`；「枯萎」維持 `active`（可回復逆境，仍屬活立木）。前後端推導邏輯一致。
+- **測試**
+  - `tests/invariants/treeLifecycle.test.js`：新增枯立木→dead、枯萎→active、倒伏→fallen 案例（7 pass）。
+  - `tests/contracts/tree_statuses.test.js`：GET 內建對照、POST 自訂含「枯立」自動 dead、重複新增收斂、未登入 401。
+  - `tests/contracts/tree_lifecycle_retire.test.js`：retire(dead)→by_id 回讀 dead+retired_at、restore→active 清空、非法 lifecycle→400。
+- **API 密鑰現況註記**：`config/apiKeys.js` 的 `validateApiKey` 目前未被任何路由／中介層呼叫（全站走 JWT）；admin 產生的金鑰目前不具實際驗證效力，屬休眠功能（見 `docs/HANDOFF.md`）。
+
+---
+
+## (2026-06-15) — 交接整備：補齊淘汰/復原端點、文件對齊
+
+- **修正：`POST /tree_survey/:id/retire`、`/restore` 端點補上**：前一版前端詳情頁已呼叫此二端點，但後端遺漏實作（會 404）。本次於 `routes/treeSurvey.js` 補齊：
+  - `retire`：驗證 `lifecycle_status ∈ dead|fallen|removed`，設 `retired_at`/`retired_reason` 與對應 `status` 文字，寫稽核 `RETIRE_TREE`。
+  - `restore`：清 `retired_at`/`reason`、`lifecycle_status='active'`、`status='正常'`，寫稽核 `RESTORE_TREE`。
+  - 權限定為 `調查管理員`+`projectAuth`（與維護量測流程一致；低於 `DELETE` 的 `專案管理員`）。
+- **文件對齊**：`README.md` 角色權限矩陣與 `tree_survey` 端點清單補上 retire/restore；`docs/BOUNDARY_SYSTEM_DESIGN.md` §3.5 新增「匯入純文字座標檔 (.txt/.csv)」一列（前端解析，與貼上座標同驗證）。
+
+---
+
+## (2026-06-13) — 維護量測：樹種繼承、照片跟隨歷史、樹木生命週期（淘汰/復原）
+
+新增「樹木生命週期」與維護量測強化，全盤考量程式碼與資料庫。
+
+- **資料庫**
+  - `31_tree_lifecycle_status.pg.sql`：`tree_survey` 新增 `lifecycle_status`（active|dead|fallen|removed）、`retired_at`、`retired_reason`，並依既有 `status` 文字保守回填淘汰狀態。
+  - `32_tree_images_measurement_link.pg.sql`：`tree_images` 新增 `measurement_id`（軟連結 `tree_survey_measurements.id`），讓照片可跟隨某一次量測歷史。
+  - 兩檔已登記於 `scripts/migrate.js`，增量部署 `run_pending_migrations.js` 會自動套用；canonical schema 同步更新。
+- **碳匯帳務（依政府活立木生物量法）**：枯死/倒塌/移除木**不計入活立木碳儲量總計與在庫統計**，但保留歷史並單獨統計。涵蓋 `routes/statistics.js`（新增 `retired` 概況）、`controllers/reportController.js`、`controllers/aiReportController.js`、`services/agentDataTools.js`。
+- **維護 transfer（`routes/pending_measurements.js`）**
+  - 樹種繼承安全網：重測未填樹種時沿用既有樹種（不再覆寫成「待辨識」），並以繼承樹種重算碳儲量。
+  - 由本次樹況推導生命週期：標記枯死/倒塌/移除即淘汰（設 `retired_at`/`reason`）；恢復正常則自動復原。
+  - 將本次拍的照片綁定到新建立的量測歷史（`tree_images.measurement_id`）。
+- **端點**
+  - `POST /api/tree_survey/:id/retire`（`調查管理員`+專案權限）：軟性淘汰（dead|fallen|removed），寫稽核 `RETIRE_TREE`。
+  - `POST /api/tree_survey/:id/restore`：復原為存活，寫稽核 `RESTORE_TREE`。
+  - 樹木清單/地圖/單筆查詢回傳 `lifecycle_status`/`retired_at`/`retired_reason`。
+  - `GET /api/tree-images/tree/:treeId` 支援 `?latest=1`（最新一張）與 `?measurement_id=`（依歷史分組），回傳含 `measurement_id`。
+- **工具/測試**：`utils/treeLifecycle.js`（`lifecycleFromStatus`/`isRetiredLifecycle`，純邏輯）；`tests/invariants/treeLifecycle.test.js`（6 案，全綠）。
+
+---
+
 ## (2026-06-13) — KML 匯入多幾何容錯（依學院實檔）
 
 - `utils/boundaryImport.js`：同一份 Google Earth KML 常同時含圖釘(Point)/路徑(LineString)/多邊形(Polygon)。匯入優先序改為 ① Polygon →（無）② LineString 視為封閉邊界 →（無）③ ≥3 個 Point 依文件順序連成邊界；後兩者各帶警告。

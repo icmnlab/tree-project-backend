@@ -3,18 +3,20 @@
 提供給「專案邊界 → 更多輸入方式」功能做實機測試用的範例檔。
 所有樣本是台南附近、同一個四邊形邊界（不同格式/座標系），匯入後應落在同一位置、形狀相同。
 
+> 測試項對應 `VERIFICATION_CHECKLIST.md` 的 B 系列；`.txt`/`.csv` 既可用「貼上座標」也可用「匯入檔案」（B22/B23）。
+
 | 檔案 | 用途 | 測試項 |
 |------|------|--------|
-| `coords_sample.txt` | 貼上座標（WGS84，經度,緯度） | B8 |
-| `coords_sample_badrow.txt` | 防呆示範：第 3 筆故意掉小數點 | B10（應出現「疑似缺少小數點」並略過該行） |
-| `sample_boundary_wgs84.geojson` | 匯入 GeoJSON（WGS84） | B9 |
-| `sample_boundary_twd97.geojson` | 匯入 GeoJSON（TWD97/TM2, EPSG:3826）→ 後端自動轉 WGS84 | B9 |
-| `sample_boundary.kml` | 匯入 KML（Google Earth 匯出格式） | B9 |
-| `coords_complex_pond.txt` | **複雜（凹）多邊形**：環境學院魚塭 9 點，貼上座標 | B12（驗證可畫非四方形/凹形且不自相交） |
-| `sample_boundary_complex.geojson` | 同上凹多邊形的 GeoJSON 版本 | B12 |
-| `sample_boundary_complex.kml` | 同上凹多邊形的 **KML** 版本（測 KML 匯入凹形 + 與匯出雙向） | B15 |
+| `coords_sample.txt` | 貼上座標或匯入檔案（WGS84，經度,緯度） | B8（貼上）／B22（檔案匯入） |
+| `coords_sample_badrow.txt` | 防呆示範：第 3 筆故意掉小數點 | B14（貼上）／B23（檔案匯入）：應「疑似缺少小數點」並略過該行 |
+| `sample_boundary_wgs84.geojson` | 匯入 GeoJSON（WGS84） | B（匯入 GeoJSON） |
+| `sample_boundary_twd97.geojson` | 匯入 GeoJSON（TWD97/TM2, EPSG:3826）→ 後端自動轉 WGS84 | B（匯入 GeoJSON） |
+| `sample_boundary.kml` | 匯入 KML（Google Earth 匯出格式） | B（匯入 KML） |
+| `coords_complex_pond.txt` | **複雜（凹）多邊形**：環境學院魚塭 9 點，貼上座標 | B15（驗證可畫非四方形/凹形且不自相交） |
+| `sample_boundary_complex.geojson` | 同上凹多邊形的 GeoJSON 版本 | B15 |
+| `sample_boundary_complex.kml` | 同上凹多邊形的 **KML** 版本（測 KML 匯入凹形 + 與匯出雙向） | B19 |
 | `sample_boundary_points_only.kml` | **只有圖釘點、無多邊形**的 KML（模擬使用者只在 Google Earth 點地標） | B20（應依點順序連成邊界並警告） |
-| `coords_scrambled_convex.txt` | **亂序凸四邊形**（對角交錯）：示範自相交偵測 + 自動重排 | B13/B16（解析後應警告自相交；按「自動重排」後恢復正常）|
+| `coords_scrambled_convex.txt` | **亂序凸四邊形**（對角交錯）：示範自相交偵測 + 自動重排 | B16（解析後應警告自相交；按「自動重排」後恢復正常）|
 
 ## 座標順序與「自動重排」機制（重要）
 
@@ -50,7 +52,7 @@
 1. 把要測的檔案傳到手機（雲端硬碟／LINE Keep／USB 皆可）。
 2. App → 專案邊界繪製頁 → 底部「更多輸入方式」：
    - **貼上座標**：開啟 `coords_sample.txt`，複製內容貼入。
-   - **匯入 KML/GeoJSON**：選 `.geojson` 或 `.kml`。
+   - **匯入檔案**：選 `.kml` / `.kmz` / `.geojson` / `.txt` / `.csv`（`.txt`/`.csv` 由前端 `boundary_input.dart` 解析，同貼上座標的驗證）。
 3. 確認預覽地圖上的多邊形位置/形狀正確 → 儲存。
 4. 三個檔（wgs84 / twd97 / kml）匯入後邊界應**完全重疊**（驗證座標系自動處理正確）。
 

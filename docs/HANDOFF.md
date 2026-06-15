@@ -1,7 +1,7 @@
 # 交接總覽 HANDOFF（單一入口）
 
 > 新人接手請從這份開始。這裡只放「跑起來、測試、部署、找路」需要知道的事，
-> 細節指向各專門文件（見 §10 文件地圖）。最後更新：2026-06-09。
+> 細節指向各專門文件（見 §10 文件地圖）。最後更新：2026-06-15。
 
 ---
 
@@ -97,14 +97,14 @@ node tests/runner.js --list          # 只列出 case
 ### 5.2 前端測試
 ```bash
 cd frontend
-flutter test                 # 全套（目前 377 pass）
+flutter test                 # 全套（目前 429 pass）
 ```
 
 ### 5.3 CI（GitHub Actions，push / PR 觸發）
 | Repo | Workflow | 內容 |
 |------|----------|------|
-| backend | `.github/workflows/ci.yml` | 起 `postgres:15` → `migrate.js`（schema+seed）→ 啟 server → `tests/runner.js`（37 pass / 1 skip） |
-| frontend | `.github/workflows/ci.yml` | `flutter pub get` → `analyze`（advisory）→ `flutter test`（377 pass） |
+| backend | `.github/workflows/ci.yml` | 起 `postgres:15` → `migrate.js`（schema+seed）→ 啟 server → `tests/runner.js`（共 73 cases，CI 全綠，環境相依案視情況 skip） |
+| frontend | `.github/workflows/ci.yml` | `flutter pub get` → `analyze`（advisory）→ `flutter test`（429 pass） |
 
 CI 專用環境變數（在 workflow 內設，正式環境**不要**設）：
 - `DB_SSL=false`：連 CI 的無 SSL Postgres。
@@ -253,7 +253,12 @@ pm2 reload tree-backend          # 手動重載
 | ML 訓練資料收集 | 後端 `routes/ml_training_data.js` | 保留 |
 | 樹木調查頁（unscoped 模式） | `tree_survey_page.dart` | 底部分頁已移除（與列表重疊）；**保留**供專案/區下鑽與首頁「樹木調查」卡片使用 |
 | 自動多邊形邊界建議 | 後端 boundarySuggest | 通用功能、需使用者確認後才寫入 |
-| 邊界輸入（貼座標 / 匯入 KML·KMZ·GeoJSON） | `boundary_input.dart` / `boundaryImport.js` / `POST /project-boundaries/import` | 預覽→確認→儲存；TWD97/TM2 自動轉 WGS84；方式 2（含座標圖檔）UI 預留 |
+| 邊界輸入（貼座標 / 匯入 KML·KMZ·GeoJSON / .txt·.csv 座標檔） | `boundary_input.dart` / `boundaryImport.js` / `POST /project-boundaries/import` | 預覽→確認→儲存；TWD97/TM2 自動轉 WGS84；.txt/.csv 由前端 `boundary_input.dart` 解析；方式 2（含座標圖檔）UI 預留 |
+| 邊界匯出 KML | `GET /project-boundaries/export.kml` / `download_service.dart` | 邊界頁右上「匯出 KML」；可用 Google Earth 開啟、再匯入讀回 |
+| 樹木生命週期（淘汰/復原） | `tree_survey.lifecycle_status` / `utils/treeLifecycle.js` / `POST /tree_survey/:id/retire`·`/restore` | 淘汰木不計入活立木碳匯（見 `CARBON_CALCULATION.md`）；保留歷史/照片；可復原 |
+| 樹況選單目錄（內建+自訂可共享） | `tree_status_options`（migration 33） / `routes/tree_statuses.js` / `services/tree_status_service.dart` | 新增/維護表單動態下拉；可自打新狀況寫回共用選單；`lifecycle` 決定是否活立木（枯立木=dead） |
+| 照片歷史 | `tree_images.measurement_id` / `GET /tree-images/tree/:id?measurement_id=`·`?latest=1` | 各次量測照片綁定該次歷史；歷史面板逐次縮圖、詳情頁顯示最新照 |
+| API 密鑰（admin 產生/列表/刪除） | `routes/admin.js` `/apikeys` / `config/apiKeys.js` | **休眠功能**：`validateApiKey` 未被任何路由/中介層呼叫，產生之金鑰目前無驗證效力（全站走 JWT）。交接後若需對外程式化存取，須實作 `apiKeyAuth` 中介層；否則建議移除 admin 入口 |
 | 年碳吸存推估 | `tree_survey_measurements` 歷次快照已就緒（含 create_v2 首筆） | 演算法（存量差分）待累積多期資料後實作，見 `CARBON_CALCULATION.md` |
 
 已刪除（被新版完全取代的死碼，不建議復活）：V1 手動輸入頁（被 V3 整合表單取代）、`/ai-assistant` 重複路由、`ble_live` 死分支。

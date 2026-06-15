@@ -13,7 +13,7 @@ router.get('/', projectAuthFilter, async (req, res) => {
         if (req.projectFilter.length === 0) {
             return res.json({
                 success: true,
-                data: { species: [], projects: [], areas: [], sizes: null, carbon: null }
+                data: { species: [], projects: [], areas: [], sizes: null, carbon: null, retired: { total: 0, by_status: [] } }
             });
         }
         conditions.push(format('project_code IN (%L)', req.projectFilter));
@@ -26,8 +26,14 @@ router.get('/', projectAuthFilter, async (req, res) => {
         }
     }
 
-    const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
-    const andClause = conditions.length > 0 ? 'AND ' + conditions.join(' AND ') : '';
+    // [生命週期] 活立木生物量法：碳儲量與「在庫」統計僅計入存活樹（lifecycle_status='active'）；
+    // 淘汰木（枯死/倒塌/移除）單獨統計，不併入活立木碳儲總計。
+    const activeConditions = [...conditions, "(lifecycle_status = 'active')"];
+    const retiredConditions = [...conditions, "(lifecycle_status <> 'active')"];
+
+    const whereClause = 'WHERE ' + activeConditions.join(' AND ');
+    const andClause = 'AND ' + activeConditions.join(' AND ');
+    const whereRetired = 'WHERE ' + retiredConditions.join(' AND ');
 
     const client = await db.pool.connect();
     try {
@@ -77,13 +83,25 @@ router.get('/', projectAuthFilter, async (req, res) => {
             ${whereClause}
         `;
 
-        const [speciesRes, projectRes, areaRes, sizeRes, carbonRes] = await Promise.all([
+        // 淘汰木統計：依生命週期狀態分組計數（供報表呈現「已淘汰」概況）
+        const retiredQuery = `
+            SELECT lifecycle_status, COUNT(*) as count,
+                   SUM(carbon_storage) as last_carbon
+            FROM tree_survey
+            ${whereRetired}
+            GROUP BY lifecycle_status
+        `;
+
+        const [speciesRes, projectRes, areaRes, sizeRes, carbonRes, retiredRes] = await Promise.all([
             client.query(speciesQuery),
             client.query(projectQuery),
             client.query(areaQuery),
             client.query(sizeQuery),
-            client.query(carbonQuery)
+            client.query(carbonQuery),
+            client.query(retiredQuery)
         ]);
+
+        const retiredTotal = retiredRes.rows.reduce((sum, r) => sum + Number(r.count || 0), 0);
 
         res.json({
             success: true,
@@ -92,7 +110,11 @@ router.get('/', projectAuthFilter, async (req, res) => {
                 projects: projectRes.rows,
                 areas: areaRes.rows,
                 sizes: sizeRes.rows[0],
-                carbon: carbonRes.rows[0]
+                carbon: carbonRes.rows[0],
+                retired: {
+                    total: retiredTotal,
+                    by_status: retiredRes.rows
+                }
             }
         });
 

@@ -26,6 +26,9 @@
 | `users` | `user_id` | 帳號欄位依賴使用者鍵 |
 | `user_projects` | `(user_id, project_code)` | 關聯表，僅依賴複合鍵 |
 | `tree_species`（若存在） | 樹種 id | 樹種屬性依賴樹種鍵 |
+| `tree_status_options`（migration 33） | `id`（代理鍵；`name` 為候選鍵 UNIQUE） | 樹況選單目錄；`lifecycle`/`is_builtin`/`is_active`/`created_by`/`sort_order` 完全相依於鍵。`lifecycle` 相依於候選鍵 `name`（合法），符合 2NF/3NF |
+
+> 樹況採「目錄表 + `tree_survey.status` 文字快照」：目錄為選單與語意（活立木與否）來源；`tree_survey.status` 沿用既有反規範字串快取（不強制 FK，相容歷史自由文字）。多人同時新增同名以 `UNIQUE(name)` + `ON CONFLICT` 收斂。
 
 ---
 
@@ -35,6 +38,11 @@
 
 - 同時存 `project_code`、`project_name`、`project_location`（專案區位字串）
 - `project_name` **函數依賴**於 `project_code`（應可由 `projects` JOIN 得出）→ 違反 3NF，也帶來更名不同步
+- `lifecycle_status` / `retired_at` / `retired_reason`（migration 31）：樹木生命週期（active|dead|fallen|removed）與淘汰時間/原因，完全相依於代理鍵 `id`，不影響 2NF/3NF；既有列依 `status` 文字保守回填。淘汰木不計入活立木碳匯（見 `CARBON_CALCULATION.md`）。
+
+### `tree_images`
+
+- `measurement_id`（migration 32）：軟連結到 `tree_survey_measurements` 該次量測歷史（供歷史面板逐次縮圖），相依於代理鍵 `id`；NULL 表示未綁定特定量測（相容舊資料）。
 
 ### `project_boundaries`
 

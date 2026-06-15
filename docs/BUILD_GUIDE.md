@@ -2,17 +2,19 @@
 
 ## 快速開始
 
+> **必須**以 `--dart-define=API_BASE_URL=https://<你的主機>/api` 建置（零硬編碼，見 `app_config.dart` / `HANDOFF_SECRETS_CHECKLIST.md`）；未提供時 App 連不到後端。
+
 ### Android APK (Windows)
 ```powershell
 cd frontend
-flutter build apk --release --build-name=15.0.0 --build-number=1
+flutter build apk --release --build-name=18.8.0 --build-number=19 --dart-define=API_BASE_URL=https://<你的主機>/api
 # 輸出: build\app\outputs\flutter-apk\app-release.apk
 ```
 
 ### iOS (Mac)
 ```bash
 cd frontend
-flutter build ios --release --build-name=15.0.0 --build-number=1
+flutter build ios --release --build-name=18.8.0 --build-number=19 --dart-define=API_BASE_URL=https://<你的主機>/api
 # 然後使用 Xcode Archive 進行發布
 ```
 
@@ -26,8 +28,8 @@ flutter build ios --release --build-name=15.0.0 --build-number=1
 | `x.0.x` | 次版本，對應功能完善 |
 | `x.x.0` | 修補版本，對應 bug fix |
 
-**當前版本**: `16.0.2` (已發布) - UI 重設計、樹種辨識完善
-**上一版本**: `15.0.0`
+**當前版本**: `18.8.0+19` - .txt/.csv 邊界匯入、retire/restore 端點補齊、文件對齊
+**上一版本**: `18.7.0+18`（維護量測：樹種繼承、最新照片、樹木生命週期）
 
 ---
 
@@ -220,7 +222,7 @@ Execution failed for task ':app:validateSigningRelease'.
 
 ```yaml
 # pubspec.yaml 應該與發布版本同步
-version: 14.3.1+1
+version: 18.8.0+19
 ```
 
 **注意**: `+1` 是 build number，每次發布都應該遞增

@@ -29,7 +29,10 @@ CREATE TABLE IF NOT EXISTS tree_images (
     
     -- 元數據 (JSONB)
     metadata JSONB DEFAULT '{}',
-    
+
+    -- 可選：對應某一次量測歷史 tree_survey_measurements.id（軟連結，無硬 FK）
+    measurement_id BIGINT,
+
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -101,6 +104,7 @@ END $$;
 CREATE INDEX IF NOT EXISTS idx_tree_images_owner ON tree_images(owner_type, owner_id);
 CREATE INDEX IF NOT EXISTS idx_tree_images_type ON tree_images(image_type);
 CREATE INDEX IF NOT EXISTS idx_tree_images_cloud_public_id ON tree_images(cloud_public_id);
+CREATE INDEX IF NOT EXISTS idx_tree_images_measurement ON tree_images(measurement_id);
 
 -- Step 4: 觸發器
 CREATE OR REPLACE FUNCTION update_tree_images_updated_at()

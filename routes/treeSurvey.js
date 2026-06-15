@@ -14,6 +14,7 @@ const AuditLogService = require('../services/auditLogService');
 const { projectAuth, projectAuthFilter, hasProjectPermission } = require('../middleware/projectAuth');
 const { requireRole } = require('../middleware/roleAuth');
 const { attachDomainAliases, attachDomainAliasesList } = require('../utils/domainAliases');
+const { isRetiredLifecycle } = require('../utils/treeLifecycle');
 
 const DEBUG_MAP = process.env.DEBUG_MAP === '1' || process.env.DEBUG_MAP === 'true';
 function mapApiLog(msg, extra) {
@@ -89,6 +90,9 @@ router.get('/', projectAuthFilter, async (req, res) => {
                 x_coord AS "X坐標",
                 y_coord AS "Y坐標",
                 status AS "狀況",
+                lifecycle_status AS "生命週期",
+                retired_at AS "淘汰時間",
+                retired_reason AS "淘汰原因",
                 notes AS "註記",
                 tree_notes AS "樹木備註",
                 tree_height_m AS "樹高（公尺）",
@@ -341,6 +345,7 @@ router.get('/map', projectAuthFilter, async (req, res) => {
                 project_code AS "專案代碼",
                 project_name AS "專案名稱",
                 species_name AS "樹種名稱",
+                lifecycle_status AS "生命週期",
                 x_coord AS "X坐標",
                 y_coord AS "Y坐標"
             FROM tree_survey 
@@ -461,6 +466,9 @@ router.get('/by_id/:id', projectAuthFilter, async (req, res) => {
                 x_coord AS "X坐標",
                 y_coord AS "Y坐標",
                 status AS "狀況",
+                lifecycle_status AS "生命週期",
+                retired_at AS "淘汰時間",
+                retired_reason AS "淘汰原因",
                 notes AS "註記",
                 tree_notes AS "樹木備註",
                 tree_height_m AS "樹高（公尺）",
@@ -769,6 +777,83 @@ router.delete('/:id', requireRole('專案管理員'), projectAuth, async (req, r
     } catch (err) {
         console.error('刪除樹木資料錯誤:', err);
         res.status(500).json({ success: false, message: '刪除樹木資料失敗' });
+    }
+});
+
+
+// 淘汰木健康狀態文字對照（lifecycle_status -> status）
+const RETIRE_STATUS_TEXT = { dead: '枯死', fallen: '倒塌', removed: '已移除' };
+
+// 將樹木標記為已淘汰（枯死/倒塌/移除）— 調查管理員以上 + 專案權限
+// 不刪除資料：保留歷史與照片，僅排除活立木碳匯與維護待辦，地圖灰階顯示，可復原。
+// 採 調查管理員：與維護量測流程一致（現場人員回報枯死/倒塌/移除即可淘汰），低於 DELETE 的 專案管理員。
+router.post('/:id/retire', requireRole('調查管理員'), projectAuth, async (req, res) => {
+    const { id } = req.params;
+    const lifecycle = String(req.body?.lifecycle_status || '').trim();
+    const note = (req.body?.note != null) ? String(req.body.note).trim() : '';
+    if (!isRetiredLifecycle(lifecycle)) {
+        return res.status(400).json({ success: false, message: 'lifecycle_status 必須為 dead / fallen / removed' });
+    }
+    try {
+        const reasonText = note || RETIRE_STATUS_TEXT[lifecycle];
+        const sql = `
+            UPDATE tree_survey
+            SET lifecycle_status = $2,
+                retired_at = NOW(),
+                retired_reason = $3,
+                status = $4
+            WHERE id = $1
+            RETURNING id
+        `;
+        const { rowCount } = await db.query(sql, [id, lifecycle, reasonText, RETIRE_STATUS_TEXT[lifecycle]]);
+        if (rowCount === 0) {
+            return res.status(404).json({ success: false, message: '找不到指定的樹木資料' });
+        }
+        await AuditLogService.log({
+            userId: req.user?.user_id,
+            username: req.user?.username,
+            action: 'RETIRE_TREE',
+            resourceType: 'tree_survey',
+            resourceId: id,
+            details: { lifecycle_status: lifecycle, reason: reasonText },
+            req
+        });
+        res.json({ success: true, message: '已標記為淘汰（不計入活立木碳匯）' });
+    } catch (err) {
+        console.error(`淘汰樹木 (ID: ${id}) 錯誤:`, err);
+        res.status(500).json({ success: false, message: '標記淘汰時發生錯誤' });
+    }
+});
+
+// 復原樹木為「存活」狀態 — 調查管理員以上 + 專案權限
+router.post('/:id/restore', requireRole('調查管理員'), projectAuth, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const sql = `
+            UPDATE tree_survey
+            SET lifecycle_status = 'active',
+                retired_at = NULL,
+                retired_reason = NULL,
+                status = '正常'
+            WHERE id = $1
+            RETURNING id
+        `;
+        const { rowCount } = await db.query(sql, [id]);
+        if (rowCount === 0) {
+            return res.status(404).json({ success: false, message: '找不到指定的樹木資料' });
+        }
+        await AuditLogService.log({
+            userId: req.user?.user_id,
+            username: req.user?.username,
+            action: 'RESTORE_TREE',
+            resourceType: 'tree_survey',
+            resourceId: id,
+            req
+        });
+        res.json({ success: true, message: '已復原為存活（重新計入活立木碳匯）' });
+    } catch (err) {
+        console.error(`復原樹木 (ID: ${id}) 錯誤:`, err);
+        res.status(500).json({ success: false, message: '復原時發生錯誤' });
     }
 });
 

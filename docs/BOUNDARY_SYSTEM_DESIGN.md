@@ -75,6 +75,7 @@
 |------|----------------|------|---------|
 | 手繪 | `draw` | 點選地圖逐點繪製 | WGS84 |
 | 貼上座標 | `coords` | 貼上座標清單（方式 1）；前端 `lib/utils/boundary_input.dart` 解析 | WGS84，自動判斷 lng,lat / lat,lng |
+| 匯入純文字座標檔 (.txt/.csv) | `manual` | 學院常見的逐行座標檔，前端直接以 `boundary_input.dart` 解析（與貼上座標同驗證：順序偵測、自相交、缺小數點提醒），不經後端 | WGS84，自動判斷 lng,lat / lat,lng |
 | 匯入 KML/KMZ | `kml` | Google Earth 匯出（方式 3） | WGS84（KML 規格固定） |
 | 匯入 GeoJSON | `geojson` | GIS 匯出（方式 3） | WGS84 或 TWD97/TM2(EPSG:3826/3825)，後端 `proj4` 自動轉換 |
 | 建議邊界 | `suggest` | 由樹木 GPS 凸包（既有） | WGS84 |

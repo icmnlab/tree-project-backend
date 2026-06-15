@@ -5,6 +5,43 @@
 
 ---
 
+## (2026-06-15b) 樹況選單目錄（內建+自訂可共享）+ 修正枯立木碳匯歸類 — 已完成（前後端 + DB）
+
+- **樹況選單目錄（2NF）**：新增 `tree_status_options` 表（`33_tree_status_options.pg.sql`，代理主鍵 + `name` UNIQUE + `lifecycle`/`is_builtin`/`is_active`/`created_by`/`sort_order`）。內建：正常/傾斜/病蟲害/枯萎=active、枯立木/枯死=dead、倒塌=fallen、已移除=removed。
+- **修正枯立木歸類**：migration 31 僅認「枯死/死亡」漏掉「枯立木」（立枯死木 snag 屬非活立木），migration 33 回填 `枯立`→`dead`；`utils/treeLifecycle.js` 同步加「枯立→dead、倒伏→fallen」，枯萎維持 active。
+- **API**：`GET /api/tree-statuses`（下拉清單，已登入可讀）、`POST /api/tree-statuses`（自訂，`調查管理員`+，`ON CONFLICT` 收斂並回 `created`）。
+- **前端**：新增/維護量測表單樹況改為動態載入（`services/tree_status_service.dart`），含「其他（自訂）」自打並寫回共用選單；淘汰判定依目錄 `lifecycle`。API 不可用時落回內建後備清單。
+- **測試**：`treeLifecycle.test.js`（7 案綠，含枯立木→dead）；新增 `contracts/tree_statuses.test.js`、`contracts/tree_lifecycle_retire.test.js`（需部署環境跑）。
+- **API 密鑰現況**：`validateApiKey` 未被任何路由呼叫，admin 產生之金鑰目前無驗證效力（休眠功能，全站走 JWT）。
+- **版本**：前端 `18.9.0+20`。
+
+---
+
+## (2026-06-15) 交接整備：.txt/.csv 邊界匯入、retire/restore 端點補齊、文件對齊 — 已完成
+
+- **後端補齊**：`POST /tree_survey/:id/retire`、`/restore` 先前僅前端呼叫、後端漏實作（會 404），本次於 `routes/treeSurvey.js` 補上（`調查管理員`+`projectAuth`，寫稽核 `RETIRE_TREE`/`RESTORE_TREE`）。
+- **邊界匯入 .txt/.csv**：邊界頁「匯入檔案」新增 `.txt`/`.csv` 逐行座標檔支援，前端以 `boundary_input.dart` 解析（同貼上座標的驗證）。見 `BOUNDARY_SYSTEM_DESIGN.md` §3.5。
+- **移除除錯遙測**：`debug/debug_session_log.dart` 移除 POST 到本機 ingest（硬編碼位址/UUID）的旁路，保留輕量 `FieldLog` 包裝。
+- **文件對齊現況**：`backend/README.md`（角色矩陣 + retire/restore + 修正 `trees.js`/`create_admin.js` 等失效引用）、`CARBON_CALCULATION.md`（活立木統計範圍）、`DATABASE_NORMALIZATION.md`（migration 31/32 欄位）、`FIELD_SURVEY_SOP.md` §5.4、`ADMIN_AND_INVITE_DESIGN.md`（修正 `/api/invites` 路徑 + UI 規格）、`HANDOFF.md`/`VERIFICATION_CHECKLIST.md`（測試數、能力表、B22）。
+- **版本**：前端 `18.8.0+19`。測試：後端 `tests/runner.js` 共 **73 cases**、前端 `flutter test` **429 passed**（CI 全綠，環境相依案視情況 skip）。
+
+---
+
+## (2026-06-13) 維護量測強化：樹種繼承、最新照片、樹木生命週期 — 已完成（前後端 + DB）
+
+- **樹種繼承**：維護重測表單預填既有樹種（含 species_id），可修改；後端 transfer 安全網沿用既有樹種、以繼承樹種重算碳。
+- **拍照＋樹種變更詢問**：辨識結果與目前樹種不同才詢問（含 photoWithSpecies AutoPilot）；相同不打擾。
+- **照片**：`tree_images.measurement_id` 綁定量測歷史；詳情頁顯示雲端「最新照片」、歷次面板顯示該次縮圖；`GET /tree-images/tree/:id` 支援 `latest`/`measurement_id`。
+- **樹木生命週期（淘汰/復原）**：`tree_survey.lifecycle_status`（active|dead|fallen|removed）+ `retired_at`/`retired_reason`。
+  - 碳匯依政府活立木生物量法：淘汰木不計入活立木碳儲量總計與在庫（統計/永續報告/AI 報告/agent 工具皆已套用），另出「已淘汰」概況。
+  - 軟性淘汰：不列維護待辦、地圖灰階 + 可隱藏、清單灰字標籤；可復原；保留歷史與照片。
+  - 端點：`POST /tree_survey/:id/retire`、`/restore`（`調查管理員`+，寫稽核）。
+- **DB migration**：`31_tree_lifecycle_status.pg.sql`、`32_tree_images_measurement_link.pg.sql`（已登記 `migrate.js`，增量部署自動套用）。
+- **測試**：`tests/invariants/treeLifecycle.test.js`（6 案綠）；`utils/treeLifecycle.js` 純邏輯。`flutter analyze` 變更檔無 error。
+- **版本**：前端 `18.8.0+19`。文件：本檔、`backend/docs/SURVEY_HISTORY.md`、`VERIFICATION_CHECKLIST.md`（§5b M1–M12）、兩端 CHANGELOG。
+
+---
+
 ## 下一步（交接接續清單）（2026-06-09）
 
 > 目標：維持「業界水準、交接就緒」。接手者（或新對話）由此開始即可。
@@ -287,12 +324,12 @@
 
 目標：交接前讓「程式碼測試」可重現、可自動跑，符合業界做法（PR/push 自動驗證）。
 
-> ✅ **兩 repo CI 皆綠（2026-06-09）**：後端 `tests/runner.js`（最新 HEAD `19a6ce0`，含新增儀器溯源契約）pass / 0 fail / 1 skip（skip 為 four_bugs 的 TODO 案）；前端 `flutter test` 377 pass / 0 fail。
+> ✅ **兩 repo CI 皆綠（2026-06-15 更新）**：後端 `tests/runner.js` 共 **73 cases**（invariants + journeys + contracts；環境相依案如 four_bugs TODO 視情況 skip）；前端 `flutter test` **429 pass / 0 fail**。
 > 修復過程：fresh DB 缺 `project_boundaries`（補 `06a` schema migration）、server boot 因模組載入即建 OpenAI/Gemini client 而崩潰（CI 補 dummy keys）。
 > 另已新增單一交接入口 `docs/HANDOFF.md`（跑起來／測試／部署／文件地圖）。
 
 ### 後端（`tree-project-backend`，HEAD `528c175`）
-- [x] `.github/workflows/ci.yml`：起 `postgres:15` service → `node scripts/migrate.js`（建 schema + seed admin，匯入 dev-fixtures）→ 啟 server → `node tests/runner.js`（invariants + journeys + contracts，共 38 cases）
+- [x] `.github/workflows/ci.yml`：起 `postgres:15` service → `node scripts/migrate.js`（建 schema + seed admin，匯入 dev-fixtures）→ 啟 server → `node tests/runner.js`（invariants + journeys + contracts，共 73 cases）
 - [x] `config/pgSsl.js`：集中 pg SSL 判斷；`DB_SSL=false` / `PGSSLMODE=disable` 在本機/CI 關 SSL，**正式環境未設旗標時行為不變**（`db.js`、`migrate.js`、`run_pending_migrations.js` 共用）
 - [x] `rateLimiter`：`DISABLE_RATE_LIMIT=true` 時 CI 不被限流／IP 黑名單擋
 - [x] 測試 harness 修正：`invariants/boundarySuggest`、`requestIdDedup` 由「載入即自跑＋process.exit」改為 runner `{cases}`（requestIdDedup 無 DB 時自動 skip）→ runner 在無 DB 時不再崩潰

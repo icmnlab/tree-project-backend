@@ -19,15 +19,16 @@ function buildScopedSource(req) {
     if (req.projectFilter != null && req.projectFilter.length === 0) {
         return { empty: true };
     }
+    // [生命週期] 永續/碳匯報告以「活立木」為基礎；淘汰木（枯死/倒塌/移除）不計入。
     if (req.projectFilter != null) {
         return {
-            cte: 'WITH ts AS (SELECT * FROM tree_survey WHERE project_code = ANY($1::text[]))',
+            cte: "WITH ts AS (SELECT * FROM tree_survey WHERE project_code = ANY($1::text[]) AND lifecycle_status = 'active')",
             params: [req.projectFilter],
             empty: false,
         };
     }
     return {
-        cte: 'WITH ts AS (SELECT * FROM tree_survey)',
+        cte: "WITH ts AS (SELECT * FROM tree_survey WHERE lifecycle_status = 'active')",
         params: [],
         empty: false,
     };

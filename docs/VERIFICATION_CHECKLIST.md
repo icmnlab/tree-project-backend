@@ -1,7 +1,7 @@
 # 驗證清單（一次跑完）
 
-> 更新：2026-06-09  
-> 適用版本：儀器模式整合 `4e943ed` / `b711cd2`（migration **28** 已於 2026-06-09 deploy，見 `WORK_STATUS.md` §1 P0-6）
+> 更新：2026-06-15  
+> 適用版本：前端 `18.8.0+19`；資料庫 migration 應 **≥ 32**（28 儀器溯源、30 邊界來源、31 樹木生命週期、32 照片綁定量測；見 `DATABASE_NORMALIZATION.md`）
 
 部署後請依序勾選。建議使用 **實驗室專用帳號**（非個人帳號）。
 
@@ -21,6 +21,10 @@
 | TR-1 / TR-2 / LIVE-1 / LIVE-2（資料面） | transfer 後歷次量測 API 帶 `instrument_type` / `instrument_dbh_cm` | `backend/tests/contracts/instrument_traceability.test.js` | 後端契約 |
 | —（GPS 守門） | GPS 未確認（mixed_pending / requires_gps_fix）的 pending **不可** transfer，整批 ROLLBACK | `backend/tests/contracts/transfer_gps_guard.test.js` | 後端契約 |
 | R1 | 同 `X-Request-Id` 重送（冪等快取） | `backend/tests/invariants/requestIdDedup.test.js` | 後端不變式 |
+| LC（生命週期推導） | 樹況文字 → `active/dead/fallen/removed` 對應、淘汰判定、**枯立木→dead**、枯萎→active | `backend/tests/invariants/treeLifecycle.test.js`（7 案） | 後端不變式 |
+| LC（淘汰/復原端點） | retire(dead)→by_id 回讀 dead+retired_at；restore→active 清空；非法 lifecycle→400 | `backend/tests/contracts/tree_lifecycle_retire.test.js` | 後端契約 |
+| ST（樹況選單目錄） | GET 內建含枯立木=dead；POST 自訂含「枯立」自動 dead、重複收斂、未登入 401 | `backend/tests/contracts/tree_statuses.test.js` | 後端契約 |
+| 邊界匯入/匯出 | 自相交 400、source 寫入、export.kml、KML 多幾何容錯、純文字座標解析 | `backend/tests/contracts/project_boundary_import.test.js` + `frontend/test/boundary_input_test.dart` | 後端契約 + 前端單元 |
 | BLE 三選一座標換算 | tree / surveyor / mixed_pending → 樹/站座標與 position_source 正確 | `frontend/test/ble_pending_workflow_test.dart` | 前端單元 |
 
 **仍須真人實機（硬體/射頻/相機/雙機 UI，無法純程式自動化）：**
@@ -192,6 +196,8 @@ flutter run --release ^
 | B19 | 匯入 `sample_boundary_complex.kml`（凹形 KML） | 預覽畫出凹形魚塭、不警告自相交、可儲存 | [ ] |
 | B20 | 匯入 `sample_boundary_points_only.kml`（只有圖釘、無多邊形） | 仍解析成功，依點順序連成邊界並提示「使用標記點」；順序不對可自動重排 | [ ] |
 | B21 | 匯入學院實檔（圖釘+多邊形並存的 Google Earth KML） | 正確採用多邊形「區塊1」（約 9 頂點），忽略零散圖釘 | [ ] |
+| B22 | 邊界頁 → 「匯入檔案」→ 選 `coords_sample.txt`（或 `.csv` 逐行座標） | 前端直接解析（同貼上座標）；預覽顯示頂點數與座標順序，可載入微調再儲存 | [ ] |
+| B23 | 匯入缺小數點/自相交的 `.txt`（如 `coords_sample_badrow.txt`） | 同貼上座標的提醒（缺小數點略過該行；自相交可自動重排） | [ ] |
 
 ---
 
@@ -238,6 +244,34 @@ flutter run --release ^
 | N6 | 待測量整合表單（樹在邊界外） | 彈出警告，可選仍要提交 | [ ] |
 
 設計說明：`docs/BOUNDARY_SYSTEM_DESIGN.md`
+
+---
+
+## 5b. 維護量測：樹種繼承、照片、樹木生命週期（淘汰/復原）
+
+> 註：本節編號採 **LC**（lifecycle），與 §8 維護量測的 M 系列、§0.0 的 M2–M7 區分。
+
+| # | 步驟 | 預期 | 勾選 |
+|---|------|------|------|
+| LC1 | 維護量測 → 選一棵「有樹種」的樹重測 → 進整合表單 | 樹種欄位**已預填**既有樹種（可手動修改） | [ ] |
+| LC2 | 維護重測 → 樹種留預填值不改 → 提交 | 歷史與主檔樹種維持原樹種（非「待辨識」） | [ ] |
+| LC3 | 維護 + 拍照模式（拍照+樹種），辨識結果**不同** | 跳出「樹種辨識結果不同」對話框，可選變更/維持 | [ ] |
+| LC4 | 維護 + 拍照模式，辨識結果**相同** | 不打擾、不跳框 | [ ] |
+| LC5 | 重測 → 樹況選「枯死/倒塌/已移除」 → 看到淘汰說明 → 提交 | 該樹標為已淘汰；自維護待辦消失 | [ ] |
+| LC6 | 地圖頁 | 已淘汰樹為半透明紫標記；「隱藏已淘汰」可切換顯示/隱藏 | [ ] |
+| LC7 | 樹木清單 | 已淘汰樹為灰字 + 「已淘汰」標籤 | [ ] |
+| LC8 | 統計/碳匯報告 | 已淘汰樹**不計入**活立木碳儲量總計與在庫；另有「已淘汰」概況 | [ ] |
+| LC9 | 詳情頁（調查管理員）→ 生命週期卡「淘汰」 | 可選枯死/倒塌/移除；狀態即時更新（呼叫 `POST /tree_survey/:id/retire`） | [ ] |
+| LC10 | 詳情頁（調查管理員）→ 對已淘汰樹「復原」 | 回復存活；重新計入碳匯與維護待辦（`POST /tree_survey/:id/restore`） | [ ] |
+| LC11 | 詳情頁 | 頂部顯示雲端「最新照片」（清本地快取後仍可見） | [ ] |
+| LC12 | 詳情頁 → 歷次量測展開某次 | 顯示該次拍攝的縮圖（依 measurement_id） | [ ] |
+| ST1 | 新增/維護量測 → 樹木狀況區 | 下拉顯示內建狀況（正常/傾斜/病蟲害/枯萎/枯立木/枯死/倒塌/已移除）；淘汰類標「（淘汰）」 | [ ] |
+| ST2 | 選「枯立木」提交 | 該樹歸為非活立木（不計活立木碳匯）；地圖/清單以淘汰呈現 | [ ] |
+| ST3 | 選「其他（自訂）」→ 輸入新狀況（如「雷擊」）→ 提交 | 提交成功；該狀況寫入共用選單 | [ ] |
+| ST4 | 另一帳號/裝置開新增表單 | 上一步的自訂狀況「雷擊」出現在下拉（共享） | [ ] |
+| ST5 | 兩人同時新增同名自訂狀況 | 僅建立一筆（後端 ON CONFLICT 收斂），不報錯、不重複 | [ ] |
+
+設計說明：`SURVEY_HISTORY.md`、後端 `utils/treeLifecycle.js`
 
 ---
 

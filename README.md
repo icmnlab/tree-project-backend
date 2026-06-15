@@ -80,10 +80,10 @@ flowchart TB
   fm["Flutter survey form (V2 / V3)<br/>multipart/form-data: fields + photo[]"]
   jw["middleware/jwtAuth → req.user"]
   up["middleware/upload (multer)<br/>memoryStorage · 10 MB · image/* only"]
-  rt["routes/trees.js POST /api/trees"]
-  cl["Cloudinary upload_stream(buffer)<br/>→ tree_photos (cloudinary_url, public_id)"]
+  rt["routes/treeSurvey.js POST /api/tree_survey/create_v2<br/>(photos via routes/tree_images.js POST /api/tree-images/upload)"]
+  cl["Cloudinary upload_stream(buffer)<br/>→ tree_images (cloud_url, thumbnail_url, public_id)"]
   geo["resolveCountyByLngLat(lng, lat)<br/>utils/geo.js + data/tw_county.geojson<br/>(22 counties, MOI 1140318)"]
-  db[("PostgreSQL · trees + tree_photos<br/>single transaction")]
+  db[("PostgreSQL · tree_survey + tree_images<br/>single transaction")]
   out["{ tree, photos[] }"]
   fm --> jw --> up --> rt
   rt --> cl
@@ -92,7 +92,8 @@ flowchart TB
 ```
 
 GET / PUT / DELETE follow the same auth + ownership-check pattern in
-[routes/trees.js](routes/trees.js).
+[routes/treeSurvey.js](routes/treeSurvey.js) (tree records) and
+[routes/tree_images.js](routes/tree_images.js) (photos).
 
 ### 3. AI chat — Text-to-SQL with SSE streaming
 
@@ -122,7 +123,7 @@ flowchart TB
   ap["Flutter AgentPage<br/>POST /api/agent/chat {messages, tools?}"]
   rt["routes/agent.js"]
   svc["services/agentService<br/>ReAct loop · max 6 turns"]
-  t1["tool: query_trees → routes/trees.js"]
+  t1["tool: query_trees → services/agentDataTools.js (tree_survey)"]
   t2["tool: get_project → routes/projects.js"]
   t3["tool: identify_species → PlantNet API"]
   t4["tool: generate_report → routes/aiReport.js"]
@@ -268,7 +269,7 @@ All configuration is via environment variables loaded with `dotenv` from
 | Key | Notes |
 |-----|-------|
 | `DATABASE_URL` | PostgreSQL connection string. Required in production |
-| `DB_HOST` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` / `DB_PORT` | Used by `create_admin.js` / `update_admin_password.js` only |
+| `DB_HOST` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` / `DB_PORT` | Discrete connection params (fallback when `DATABASE_URL` is unset). The initial admin account is seeded by `scripts/migrate.js` (`admin/12345`), not by separate scripts |
 | `DB_SSL_REJECT_UNAUTHORIZED` | `true` to enforce TLS cert verification; default `false` (typical for Render-style providers) |
 
 ### Auth (`middleware/jwtAuth.js`)
@@ -466,7 +467,7 @@ on 2026-04-27). Token payload (set in `routes/users.js` after login) includes
 | 5     | `系統管理員`    | Backup/restore, user mgmt, all projects, IP blacklist mgmt   |
 | 4     | `業務管理員`    | User mgmt, project create/delete, all projects' data         |
 | 3     | `專案管理員`    | Boundaries, area CRUD, delete trees on owned projects        |
-| 2     | `調查管理員`    | Add/edit trees, import/export, AI chat & agent (own projects) |
+| 2     | `調查管理員`    | Add/edit/retire/restore trees, import/export, AI chat & agent (own projects) |
 | 1     | `一般使用者`    | Read-only on own projects                                     |
 
 `requireRole('業務管理員')` admits anyone with a role of equal or higher
@@ -539,6 +540,12 @@ an additional minimum role where indicated.
 - `PUT  /tree_survey/update_v2/:id` (≥調查管理員 + `projectAuth`).
 - `DELETE /tree_survey/:id` and `/tree_survey/placeholder/:id`
   (≥專案管理員 + `projectAuth`).
+- `POST /tree_survey/:id/retire` (≥調查管理員 + `projectAuth`) — soft-retire a
+  tree (`lifecycle_status` ∈ `dead`/`fallen`/`removed`); keeps history/photos,
+  excludes it from living-biomass carbon totals and the maintenance queue.
+  Matches the maintenance workflow (surveyors report dead/fallen/removed).
+- `POST /tree_survey/:id/restore` (≥調查管理員 + `projectAuth`) — set
+  `lifecycle_status` back to `active`.
 - `POST /tree_survey/batch_import` (≥調查管理員 + `projectAuth`).
 - `POST /tree_survey/import` (≥專案管理員) — Excel/CSV upload (Multer).
 - `GET  /tree_survey/template` — Excel template download.

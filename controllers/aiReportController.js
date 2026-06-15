@@ -55,7 +55,8 @@ exports.generateAIReport = async (req, res) => {
 
         // 獲取過濾條件（如果有）
         const filters = req.query;
-        let whereClauses = [];
+        // [生命週期] AI 報告以「活立木」為基礎；淘汰木（枯死/倒塌/移除）不計入碳匯統計。
+        let whereClauses = ["lifecycle_status = 'active'"];
         const params = [];
         let paramIndex = 1;
 

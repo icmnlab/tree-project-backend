@@ -100,6 +100,7 @@ const projectsRoutes = require('./routes/projects');
 const projectAreasRoutes = require('./routes/project_areas');
 const treeSurveyRoutes = require('./routes/treeSurvey');
 const treeSpeciesRoutes = require('./routes/treeSpecies');
+const treeStatusesRoutes = require('./routes/tree_statuses'); // 樹況選單目錄（內建+自訂可共享）
 const reportsRoutes = require('./routes/reports');
 const statisticsRoutes = require('./routes/statistics');
 const aiRoutes = require('./routes/ai');
@@ -123,6 +124,7 @@ apiRouter.use('/projects', projectsRoutes);
 apiRouter.use('/project_areas', projectAreasRoutes);
 apiRouter.use('/tree_survey', treeSurveyRoutes);
 apiRouter.use('/tree_species', treeSpeciesRoutes);
+apiRouter.use('/tree-statuses', treeStatusesRoutes); // 樹況選單目錄
 apiRouter.use('/', reportsRoutes); // 包含 /export
 apiRouter.use('/tree_statistics', statisticsRoutes);
 apiRouter.use('/', aiRoutes); // 包含 /chat, /reports/ai-sustainability 等

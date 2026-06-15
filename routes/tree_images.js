@@ -225,12 +225,16 @@ router.get('/:id', async (req, res) => {
 });
 
 /**
- * 取得特定樹木的所有影像列表（2NF: owner_type + owner_id）
- * GET /api/tree-images/tree/:treeId?source=pending|survey
+ * 取得特定樹木的影像列表（2NF: owner_type + owner_id）
+ * GET /api/tree-images/tree/:treeId
+ *   ?source=pending|survey     指定 owner_type（建議 survey）
+ *   ?latest=1                  僅回傳最新一張（依 captured_at DESC）— 供詳情頁主照片
+ *   ?measurement_id=123        僅回傳綁定到該次量測歷史的照片 — 供歷史面板逐次縮圖
  */
 router.get('/tree/:treeId', async (req, res) => {
     const { treeId } = req.params;
-    const { source } = req.query;
+    const { source, measurement_id } = req.query;
+    const wantLatest = req.query.latest === '1' || req.query.latest === 'true';
 
     try {
         if (source === 'pending' || source === 'survey') {
@@ -240,28 +244,30 @@ router.get('/tree/:treeId', async (req, res) => {
             }
         }
 
-        let query;
-        let params;
+        const cols = `id, owner_type, image_type, cloud_url, thumbnail_url, captured_at, metadata, measurement_id, created_at`;
+        const conditions = [];
+        const params = [];
+        let idx = 1;
 
         if (source) {
-            // 明確指定 owner_type
-            query = `
-                SELECT id, image_type, cloud_url, thumbnail_url, captured_at, metadata, created_at 
-                FROM tree_images 
-                WHERE owner_type = $1 AND owner_id = $2
-                ORDER BY captured_at DESC
-            `;
-            params = [source, treeId];
-        } else {
-            // 相容模式：查詢所有 owner_type
-            query = `
-                SELECT id, owner_type, image_type, cloud_url, thumbnail_url, captured_at, metadata, created_at 
-                FROM tree_images 
-                WHERE owner_id = $1
-                ORDER BY captured_at DESC
-            `;
-            params = [treeId];
+            conditions.push(`owner_type = $${idx++}`);
+            params.push(source);
         }
+        conditions.push(`owner_id = $${idx++}`);
+        params.push(treeId);
+
+        if (measurement_id !== undefined && measurement_id !== '') {
+            conditions.push(`measurement_id = $${idx++}`);
+            params.push(parseInt(measurement_id, 10));
+        }
+
+        let query = `
+            SELECT ${cols}
+            FROM tree_images
+            WHERE ${conditions.join(' AND ')}
+            ORDER BY captured_at DESC NULLS LAST, id DESC
+        `;
+        if (wantLatest) query += ' LIMIT 1';
 
         const { rows } = await db.query(query, params);
 

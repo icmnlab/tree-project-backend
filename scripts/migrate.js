@@ -70,6 +70,9 @@ const migrationFiles = [
   '28_instrument_traceability.pg.sql',
   '29_pending_created_by.pg.sql', // [稽核#1/#3] pending 擁有權欄位 created_by_user_id // 儀器 TYPE / instrument_dbh 追溯
   '30_project_boundaries_source.pg.sql', // 邊界輸入來源欄位（draw|coords|kml|geojson|suggest）供溯源
+  '31_tree_lifecycle_status.pg.sql', // 樹木生命週期 lifecycle_status（active|dead|fallen|removed）+ retired_at/reason
+  '32_tree_images_measurement_link.pg.sql', // 照片可選綁定某次量測歷史 measurement_id
+  '33_tree_status_options.pg.sql', // 樹況選單目錄（內建+自訂可共享）+ 狀況→lifecycle；修 31 枯立木→dead
 ];
 
 // Define the order for view creation

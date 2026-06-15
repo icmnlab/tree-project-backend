@@ -236,7 +236,7 @@ async function toolSpeciesCarbonInfo({ species_name }, ctx) {
                 ROUND(SUM(carbon_storage)::numeric, 1) as total_carbon,
                 ROUND(AVG(carbon_sequestration_per_year)::numeric, 2) as avg_annual_seq
             FROM tree_survey 
-            WHERE species_name ILIKE $1${extraWhere}
+            WHERE species_name ILIKE $1${extraWhere} AND lifecycle_status = 'active'
             GROUP BY species_name
             LIMIT 5`,
             [`%${species_name}%`, ...params]
@@ -258,7 +258,8 @@ async function toolProjectSummary({ project_area }, ctx) {
             ctx.userRole,
             project_area
         );
-        const baseWhere = `WHERE 1=1${extraWhere}`;
+        // [生命週期] 碳匯彙總僅計活立木；淘汰木不納入
+        const baseWhere = `WHERE 1=1${extraWhere} AND lifecycle_status = 'active'`;
 
         const summary = await db.query(
             `SELECT 
@@ -314,7 +315,7 @@ async function toolCarbonCreditEstimate({ project_area, period_years = 10 }, ctx
                 ROUND(SUM(carbon_storage)::numeric, 1) as total_carbon_kg,
                 ROUND(SUM(carbon_sequestration_per_year)::numeric, 1) as annual_seq_kg,
                 ROUND(AVG(dbh_cm)::numeric, 1) as avg_dbh
-            FROM tree_survey WHERE 1=1${extraWhere}`,
+            FROM tree_survey WHERE 1=1${extraWhere} AND lifecycle_status = 'active'`,
             params
         );
 
