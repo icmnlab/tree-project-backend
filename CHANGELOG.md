@@ -4,6 +4,14 @@
 
 ---
 
+## (2026-06-15c) — 修正 tree_survey 查詢未輸出英文 `lifecycle_status` 鍵（契約測試紅燈）
+
+- **問題**：`GET /tree_survey`、`/map`、`/by_id/:id` 僅以中文別名 `生命週期`/`淘汰時間`/`淘汰原因` 輸出生命週期欄位，未提供穩定的英文鍵。前端因有 `lifecycle_status ?? 生命週期` 後備而正常運作，但契約 `tree_lifecycle_retire`（讀 `lifecycle_status`）在實機 DB 跑出紅燈（「初始應為 active」）。
+- **修正**：三個查詢同時輸出正規英文鍵 `lifecycle_status`／`retired_at`／`retired_reason`（保留中文別名以相容既有顯示）。前端本即優先讀英文鍵，無行為回歸。
+- **影響檔**：`routes/treeSurvey.js`。測試：`contracts/tree_lifecycle_retire.test.js` 轉綠（後端 runner 78 pass / 1 skip）。
+
+---
+
 ## (2026-06-15b) — 樹況選單目錄（內建+自訂可共享）+ 修正枯立木碳匯歸類
 
 新增可共享的「樹況選單目錄」，並修正「枯立木（立枯死木）」被誤計為活立木的問題。
