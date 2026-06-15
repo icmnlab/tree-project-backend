@@ -67,11 +67,12 @@
 
 ---
 
-## F. 種子帳號與資料庫
+## F. 使用者帳號（非 DB 種子）
 
-- 預設僅有 bootstrap 管理員 `admin`（`database/initial_data/users.pg.sql`，無真人個資）。**正式上線請立即變更 `admin` 密碼**，或改以部署腳本建立管理員。
-- `test` / `tt2` 為開發測試帳號；正式環境建議停用或刪除。
-- `database/initial_data/*.pg.sql` 為**結構與必要參考資料**（樹種、樹況選單等）；示範港區、測試樹資料已分離至 `dev-fixtures/`，正式部署（`run_pending_migrations.js`）不會載入。
+- **`users.pg.sql` 僅建表**，不寫入任何帳號。
+- **正式環境**：migrate 完成後執行 `node scripts/create_lab_admin.js --username ... --password ...`（強密碼，部署者自行決定）。
+- **開發／CI**：`node scripts/seed_dev_users.js`（建立 `admin/12345` 等；`NODE_ENV=production` 會拒絕執行）。
+- 舊環境若仍有歷史 seed 帳號，上線前請停用或刪除，只保留正式管理員。
 
 ---
 

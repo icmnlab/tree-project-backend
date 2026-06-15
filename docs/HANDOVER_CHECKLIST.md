@@ -4,7 +4,7 @@
 > 機密交接見 `HANDOFF_SECRETS_CHECKLIST.md`、部署見 `LAB_DEPLOYMENT_GUIDE.md`、
 > 部署後逐項驗證見 `VERIFICATION_CHECKLIST.md`。
 >
-> 最後更新：2026-06-15　｜　適用版本：前端 `18.10.0+22`、DB migration ≥ 34
+> 最後更新：2026-06-15　｜　適用版本：前端 `18.10.1+23`、DB migration ≥ 34
 
 ---
 
@@ -12,7 +12,7 @@
 
 - 後端 repo / commit：`__________________________`
 - 前端 repo / commit：`__________________________`
-- 後端測試：`node tests/runner.js` → ______ pass / ______ fail（目標 79 pass / 0 fail）
+- 後端測試：`node tests/runner.js` → ______ pass / ______ fail（目標 **80** pass / 0 fail）
 - 前端測試：`flutter test` → ______ pass（目標 429 pass）
 - 正式機位址 / 部署方式：`__________________________`
 
@@ -31,11 +31,12 @@
 - [ ] B. 個人化網址/IP 改為自己的主機（`--dart-define=API_BASE_URL` / `SELF_SIGNED_TRUSTED_HOSTS`）
 - [ ] C. GitHub repo、私有網路、伺服器 Linux 帳號設為自己的；確認無個人帳號殘留存取
 - [ ] D.（建議）建立專案專用帳號持有各平台
-- [ ] 變更預設 `admin` 密碼；移除/停用測試帳號（`test`/`tt2`）
+- [ ] 正式管理員以 `create_lab_admin.js` 建立（非 DB 種子）；舊 seed 帳號（若有）已停用或刪除
 
 ## 3. 資料庫（交接 / 上線）
 
-- [ ] 正式機**不要**跑 `migrate.js`（會匯入 7000 筆 dev-fixtures 測試樹）
+- [ ] 正式機**不要**跑 `migrate.js`（會匯入 dev-fixtures 測試樹／示範區）
+- [ ] 首次空庫：只跑 `run_pending_migrations.js` 後執行 `create_lab_admin.js`
 - [ ] 增量更新走 `node scripts/run_pending_migrations.js`（或開機自動）；確認套到 migration **≥ 34**
 - [ ] 確認測試資料 `dev-fixtures/tree_survey_data.csv` **未**進入正式庫
 - [ ] 已備份正式資料庫（上線/交接前）

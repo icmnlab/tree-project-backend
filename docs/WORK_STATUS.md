@@ -10,7 +10,7 @@
 - **程式碼品質**：`dart fix --apply`（38 檔 149 項）；殘留 `print()`→`debugPrint()`；移除個人化 `TODO(Xiang)`；刪除 dead code（`map_page._extractCitiesFromData`、`ble_live_session._gpsDialogOpen`）。前端 429 測試全綠。
 - **淘汰流程調整**：詳情頁移除手動「淘汰」按鈕，淘汰改由維護量測現場回報樹況（枯死/倒塌/移除）驅動（後端 `pending_measurements` 既有 `lifecycleFromStatus` 邏輯），詳情頁僅保留「復原」更正用。
 - **404 根因**：retire/restore 端點在 commit `15581fb`，先前未 push → 線上舊碼無路由。已 `git push` 後端觸發 webhook 自動部署（`deploy.sh`：pull + `run_pending_migrations.js` 跑 31/32/33 + PM2 reload）。
-- **新 UI（Forest Intelligence）**：設計 token 抽成 `themes/forest_intelligence_theme.dart`（opt-in，未掛 MaterialApp）；數十頁 mockup 已納入版控，待交接者實作。
+- **UI 改版**：現行採 `AppTheme`，介面穩定。先前的 Forest Intelligence 設計稿（`UI_sustainable_treeai/`）與未掛載的主題模組已於交接前移除，不納入交接範圍；如日後要改版，重新設計即可。
 - **文件更新**：`BUILD_GUIDE.md` 補「`flutter run` 開發執行」「Google Maps API Key 設定（key.properties + Cloud Console + SHA-1 限制 + iOS）」「`--dart-define` 旗標一覽」並更新版本；`README.md`（版本 + `google_maps_flutter 2.10.0`）、`VERIFICATION_CHECKLIST.md`（版本 + migration ≥33）對齊。
 - **版本**：前端 `18.10.0+22`。
 

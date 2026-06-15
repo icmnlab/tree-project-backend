@@ -62,7 +62,8 @@ project_code/
 cd backend
 cp .env.example .env          # 填 DATABASE_URL（或 DB_*）、JWT_SECRET、CORS
 npm ci
-node scripts/migrate.js       # 全新空庫：建 schema + seed admin（admin/12345）
+node scripts/migrate.js       # 全新空庫：建 schema（不含使用者；可選 dev-fixtures CSV）
+node scripts/seed_dev_users.js   # 開發／CI 專用：建立 admin/12345 等測試帳（勿用於 production）
 npm start                     # http://localhost:3000  （/health 可測活）
 ```
 - 本機若連「無 SSL」的 Postgres，`.env` 設 `DB_SSL=false`。
@@ -90,7 +91,7 @@ node tests/runner.js                 # 全部
 node tests/runner.js --section=contracts
 node tests/runner.js --list          # 只列出 case
 ```
-- 預設登入 `admin/12345`（migrate 已 seed）；其他角色由測試自建。
+- 預設登入 `admin/12345`（需先跑 `seed_dev_users.js`；**正式庫**用 `create_lab_admin.js` 自建管理員，並在 `.env` 或 CI 設 `TEST_ADMIN_USER`/`TEST_ADMIN_PASS`）。
 - 需直連 DB 的 invariants 用 `TEST_DB_URL`（或 `DATABASE_URL`）；沒設則自動 skip。
 - 寫測試規範見 `backend/tests/FRAMEWORK.md`。
 
@@ -103,7 +104,7 @@ flutter test                 # 全套（目前 429 pass）
 ### 5.3 CI（GitHub Actions，push / PR 觸發）
 | Repo | Workflow | 內容 |
 |------|----------|------|
-| backend | `.github/workflows/ci.yml` | 起 `postgres:15` → `migrate.js`（schema+seed）→ 啟 server → `tests/runner.js`（共 73 cases，CI 全綠，環境相依案視情況 skip） |
+| backend | `.github/workflows/ci.yml` | 起 `postgres:15` → `migrate.js` → `seed_dev_users.js` → 啟 server → `tests/runner.js`（**80 cases**，CI 全綠） |
 | frontend | `.github/workflows/ci.yml` | `flutter pub get` → `analyze`（advisory）→ `flutter test`（429 pass） |
 
 CI 專用環境變數（在 workflow 內設，正式環境**不要**設）：

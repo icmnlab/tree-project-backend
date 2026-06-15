@@ -1,0 +1,5 @@
+docs(handover): CHANGELOG policy, admin via CLI not DB seed
+
+- users.pg.sql schema-only; add seed_dev_users.js (dev/CI) and wire CI workflow
+- Document create_lab_admin.js as production bootstrap; update HANDOFF/LAB_DEPLOYMENT/HANDOVER_CHECKLIST/README
+- CHANGELOG: add maintenance preamble + 2026-06-15f entry (do not delete file)

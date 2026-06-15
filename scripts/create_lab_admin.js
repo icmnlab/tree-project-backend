@@ -1,8 +1,12 @@
 /**
- * 實驗室首次建立系統管理員（不依賴個人帳號）
+ * 建立系統管理員（正式環境首次部署用）
  *
  * 用法：
  *   node scripts/create_lab_admin.js --username labadmin --password 'YourSecurePass1' --display '實驗室管理員'
+ *
+ * 注意：
+ *   - 僅在 users 表為空或需新增管理員時使用；username 重複會回錯誤。
+ *   - 正式庫請勿使用 seed_dev_users.js（該腳本僅供開發／CI）。
  */
 require('dotenv').config();
 const bcrypt = require('bcryptjs');

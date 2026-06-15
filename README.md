@@ -3,7 +3,7 @@
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-4.21-000000?logo=express&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15%2B-4169E1?logo=postgresql&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-79%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-80%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 Node.js / Express REST API powering the Flutter app `tree-project-frontend`.
@@ -247,7 +247,8 @@ flowchart TB
 cd backend
 cp tree-app-backend-prod.env .env   # then edit values (see Configuration)
 npm install
-node scripts/migrate.js             # apply schema + seed data
+node scripts/migrate.js             # fresh empty DB: schema only (+ optional dev CSV)
+node scripts/seed_dev_users.js    # dev/CI only: test accounts (NOT for production)
 npm run dev                         # nodemon on PORT (default 3000)
 ```
 
@@ -275,7 +276,7 @@ All configuration is via environment variables loaded with `dotenv` from
 | Key | Notes |
 |-----|-------|
 | `DATABASE_URL` | PostgreSQL connection string. Required in production |
-| `DB_HOST` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` / `DB_PORT` | Discrete connection params (fallback when `DATABASE_URL` is unset). The initial admin account is seeded by `scripts/migrate.js` (`admin/12345`), not by separate scripts |
+| `DB_HOST` / `DB_USER` / `DB_PASSWORD` / `DB_NAME` / `DB_PORT` | Discrete connection params (fallback when `DATABASE_URL` is unset). First admin: `node scripts/create_lab_admin.js` (production) or `seed_dev_users.js` (dev/CI only) |
 | `DB_SSL_REJECT_UNAUTHORIZED` | `true` to enforce TLS cert verification; default `false` (typical for Render-style providers) |
 
 ### Auth (`middleware/jwtAuth.js`)
@@ -710,10 +711,9 @@ this fixed order by `scripts/migrate.js`:
 
 ```
 00_init_functions.pg.sql            update_updated_at_column() shared trigger
-users.pg.sql                        users + ENUM user_role + 5 seed accounts
+users.pg.sql                        users + ENUM user_role (schema only; no seed rows)
 system_settings_and_audit.pg.sql    audit_logs (system_settings 已於 migration 25 移除)
-project_areas.pg.sql                9 seeded port areas (基隆/安平/布袋/澎湖/
-                                    臺中/臺北/花蓮/蘇澳/高雄)
+project_areas.pg.sql                project_areas table (schema only; demo ports in dev-fixtures/)
 tree_species.pg.sql                 master species list
 tree_survey.pg.sql                  main survey table (~7 k rows)
 00_normalization_schema.pg.sql      normalization helpers (must run after

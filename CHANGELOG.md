@@ -2,6 +2,20 @@
 
 所有主要版本變更記錄。
 
+> **版本紀錄說明（交接用）**
+> - 本檔依**時間倒序**記錄對外可見里程碑（功能、資料庫 migration、測試、文件）。**請保留並持續維護**——刪除 CHANGELOG 不符合一般開源／企業交接慣例。
+> - **2026-04-28 ～ 2026-06-09** 區間未逐日寫入條目（當時變更已併入下方 **2026-06-10 起**各條目，或見 git history / `docs/WORK_STATUS.md` 工作清單）。不必事後補寫每一個 commit；若需追溯細節以 `git log` 為準。
+> - 版本號 `v18.x` 與前端 `pubspec.yaml` 對齊；後端無獨立 semver 檔，以日期條目為主。
+
+---
+
+## (2026-06-15f) — 使用者帳號：schema-only + 指令建立管理員
+
+- **`users.pg.sql` 改 schema-only**：移除預寫入的 `admin`/`test`/`tt2` 種子列；正式庫不再自 migration 帶入任何帳號。
+- **正式環境**：首次部署後執行 `node scripts/create_lab_admin.js --username ... --password ...`（部署者自訂強密碼）。
+- **開發／CI**：新增 `scripts/seed_dev_users.js`（`NODE_ENV=production` 會拒絕執行）；GitHub Actions 在 `migrate.js` 後自動執行。契約測試預設仍用 `admin/12345`（僅限 dev/CI）。
+- **文件／CI**：`HANDOFF.md`、`LAB_DEPLOYMENT_GUIDE.md`、`README.md`、`.github/workflows/ci.yml` 同步更新。
+
 ---
 
 ## (2026-06-15e) — 交接收尾：管理員自我保護、去示範資料、文件去交接語氣

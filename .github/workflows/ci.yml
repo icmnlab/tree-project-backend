@@ -51,8 +51,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Migrate schema + seed (fresh DB, imports dev-fixtures)
+      - name: Migrate schema (fresh DB, no demo business data)
         run: node scripts/migrate.js
+
+      - name: Seed dev/CI test accounts (not for production)
+        run: node scripts/seed_dev_users.js
 
       - name: Start backend
         run: |

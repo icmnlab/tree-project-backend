@@ -45,12 +45,17 @@ git checkout main           # 回到原分支，本機歷史不受影響
 
 之後 push 到 `main` 即自動部署（機制見 `HANDOFF.md` §6.1）。
 
-### 0.5 建立管理員、處理種子帳號
+### 0.5 建立管理員（正式環境）
+
+`users` 表**不**含預寫種子。首次部署 migrate 完成後：
 
 ```bash
 node scripts/create_lab_admin.js --username labadmin --password '<強密碼>' --display '實驗室管理員'
 ```
-並**修改或停用** seed 的 `admin/12345`（`test`/`tt2` 為通用測試帳號，正式庫建議一併停用）。
+
+- 僅在空庫或需新增管理員時執行；username 重複會報錯。
+- **勿**在 production 執行 `seed_dev_users.js`（該腳本僅供本機／CI，會建立 `admin/12345` 等弱密碼測試帳）。
+- 若舊庫仍有歷史 seed 帳號（`admin`/`test`/`tt2`），建議停用或刪除後只保留 `create_lab_admin` 建立的帳號。
 
 ### 0.6 建置 APK 與驗收
 
@@ -89,7 +94,7 @@ flutter build apk --release --dart-define=API_BASE_URL=https://<部署主機>/ap
 - [ ] `HANDOFF_SECRETS_CHECKLIST.md` §A 金鑰全部輪替完
 - [ ] 後端部署完成、`/health` OK
 - [ ] webhook 自動部署測試一次（push 小變更 → 自動上線）
-- [ ] 管理員帳號建立、seed 帳號處理完
+- [ ] 管理員以 `create_lab_admin.js` 建立（非 DB 種子）；舊 seed 帳號已停用或刪除
 - [ ] APK 建置並在實機登入成功
 - [ ] `VERIFICATION_CHECKLIST.md` 跑過一輪
 - [ ] 確認無任何個人帳號殘留存取（Tailscale／GitHub webhook／雲端服務）
