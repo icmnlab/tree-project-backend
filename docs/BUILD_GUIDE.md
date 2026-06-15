@@ -3,7 +3,20 @@
 > **零硬編碼原則**：所有環境值（後端位址、地圖金鑰、功能旗標）都在建置／執行時注入，不寫死在原始碼。
 > 未提供 `--dart-define=API_BASE_URL` 時 App 連不到後端；未提供 Google Maps 金鑰時地圖頁空白。詳見 `lib/config/app_config.dart` 與 `HANDOFF_SECRETS_CHECKLIST.md`。
 
-**當前版本**：`18.10.0+22`
+**當前版本**：`18.10.1+23`
+
+---
+
+## 0.1 版控內／外（Android / iOS 建置）
+
+| 已在 GitHub（可交接） | **不在** GitHub（接手者本機建立） |
+|----------------------|-----------------------------------|
+| `android/app/build.gradle.kts`、`AndroidManifest.xml`、`build.gradle.kts` | `android/local.properties`（SDK 路徑，已 `.gitignore`） |
+| `android/key.properties.example`（範本） | `android/key.properties`（簽章密碼 + **GOOGLE_MAPS_API_KEY**） |
+| `ios/Podfile`、`ios/Runner/Info.plist`（權限文案、`GMSApiKey` 由建置變數注入） | Release 簽章 keystore（`*.jks`）、Xcode Signing & Capabilities |
+| `pubspec.yaml`、Dart 原始碼 | Apple Developer 帳號、Maps iOS 金鑰（Xcode `GOOGLE_MAPS_API_KEY_IOS` 或 xcconfig） |
+
+> 原則：**程式與建置腳本進 repo；金鑰、簽章、本機 SDK 路徑不進 repo**。詳見 `HANDOFF_SECRETS_CHECKLIST.md` §B。
 
 ---
 
@@ -58,7 +71,7 @@ flutter run -d <device-id> --release `
 
 ```powershell
 cd frontend
-flutter build apk --release --build-name=18.10.0 --build-number=22 `
+flutter build apk --release --build-name=18.10.1 --build-number=23 `
   --dart-define=API_BASE_URL=https://<你的主機>/api
 # 輸出: build\app\outputs\flutter-apk\app-release.apk
 ```
@@ -69,7 +82,7 @@ flutter build apk --release --build-name=18.10.0 --build-number=22 `
 
 ```bash
 cd frontend
-flutter build ios --release --build-name=18.10.0 --build-number=22 \
+flutter build ios --release --build-name=18.10.1 --build-number=23 \
   --dart-define=API_BASE_URL=https://<你的主機>/api
 # 然後使用 Xcode Archive 發布
 ```
