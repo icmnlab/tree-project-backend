@@ -12,7 +12,7 @@
 
 - 後端 repo / commit：`__________________________`
 - 前端 repo / commit：`__________________________`
-- 後端測試：`node tests/runner.js` → ______ pass / ______ fail（目標 **80** pass / 0 fail）
+- 後端測試：`node tests/runner.js` → ______ pass / ______ fail（共 **89** cases；目標 0 fail，部分環境相依案會 skip）
 - 前端測試：`flutter test` → ______ pass（目標 429 pass）
 - 正式機位址 / 部署方式：`__________________________`
 

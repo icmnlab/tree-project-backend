@@ -104,7 +104,7 @@ flutter test                 # 全套（目前 429 pass）
 ### 5.3 CI（GitHub Actions，push / PR 觸發）
 | Repo | Workflow | 內容 |
 |------|----------|------|
-| backend | `.github/workflows/ci.yml` | 起 `postgres:15` → `migrate.js` → `seed_dev_users.js` → 啟 server → `tests/runner.js`（**80 cases**，CI 全綠） |
+| backend | `.github/workflows/ci.yml` | 起 `postgres:15` → `migrate.js` → `seed_dev_users.js` → 啟 server → `tests/runner.js`（**89 cases**：58 invariants + 1 journey + 30 contracts，CI 全綠；部分環境相依案視情況 skip） |
 | frontend | `.github/workflows/ci.yml` | `flutter pub get` → `analyze`（advisory）→ `flutter test`（429 pass） |
 
 CI 專用環境變數（在 workflow 內設，正式環境**不要**設）：
