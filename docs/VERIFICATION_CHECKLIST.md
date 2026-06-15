@@ -40,8 +40,8 @@ F1–F3（相機/即時樹幹框）、L3/L4（409 衝突對話框 UI）。
 
 ## 0. 環境準備
 
-- [ ] 後端 HEAD ≥ `b711cd2`；migration **26、27、28** 已套用
-- [ ] Flutter App 已安裝含 `4e943ed` 的前端 build
+- [ ] 後端 `main` 為最新 commit；migration **≥ 35** 已套用（見 `DATABASE_NORMALIZATION.md`）
+- [ ] Flutter App 為 `18.10.4+26` 或更新 build（見 `pubspec.yaml` / `CHANGELOG.md`）
 - [ ] 手機可連實驗室後端 URL（Wi‑Fi / Tailscale）
 - [ ] 準備：VLGEO2（STD V3.7+）、T4 轉發器（測 **HEIGHT DME** 時）、測試專案（≥3 棵有 GPS）
 - [ ] 帳號：**管理員 + 調查員 A + 調查員 B**（雙人鎖）

@@ -8,7 +8,7 @@
 **版本**: 2.0  
 **日期**: 2026-02  
 **專案**: Sustainable TreeAI — TIPC 樹木管理系統  
-**目標**: 基於自架 MacBook 伺服器的高精度純視覺 DBH 自動測量方案  
+**目標**: 研究純視覺 DBH 自動測量的 server-side 升級路徑（2026-02 規劃）；**現行落地**見 §1 與 `backend/ml_service/README.md`  
 **前版**: [V1 — 2025-07](./DBH_PURE_VISION_RESEARCH.md)
 
 ---
@@ -17,18 +17,18 @@
 
 | 項目 | V1 (2025-07) | V2 (2026-02) |
 |------|-------------|-------------|
-| **運算環境** | 手機端 / Render Free Tier | 自架 MacBook Pro (i7, 8GB RAM) via ngrok |
-| **模型限制** | 必須 <30M 參數 | 可用 **~350M 參數**（Server-side） |
-| **推論時間** | <200ms | 可容忍 **2-5 秒** |
-| **深度模型** | DA V2 Small (24.8M) only | DA V2 Base/Large、**DA3Metric-Large**、**MetricAnything** |
-| **分割模型** | 基於深度圖的啟發式方法 | **SAM 2.1** / **YOLO26-seg** / **Grounded SAM** |
+| **運算環境** | 手機端 / 雲端託管 | 獨立 `ml_service`（HTTPS；`start.ps1` 啟動） |
+| **模型限制** | 必須 <30M 參數 | Server-side 可載入大型模型（OpenVINO / PyTorch） |
+| **推論時間** | <200ms | 依 preset 與硬體而異（可容忍數秒級） |
+| **深度模型** | DA V2 Small (24.8M) only | **DA3 Metric Large**（預設）；保留 DA V2 / Depth Pro preset |
+| **分割模型** | 基於深度圖的啟發式方法 | **伺服器端 YOLOv8-seg**（OpenVINO）；SAM 2.1 可選但預設關閉 |
 | **新技術** | — | Depth Anything 3、MetricAnything、SAM 2.1、YOLO26 |
 
 ---
 
 ## 目錄
 
-1. [硬體條件重新評估](#1-硬體條件重新評估)
+1. [部署架構（現行實作）](#1-部署架構現行實作)
 2. [深度估計模型更新](#2-深度估計模型更新)
 3. [樹幹分割技術研究](#3-樹幹分割技術研究)
 4. [跨領域量測技術借鑒](#4-跨領域量測技術借鑒)
@@ -38,41 +38,58 @@
 
 ---
 
-## 1. 硬體條件重新評估
+## 1. 部署架構（現行實作）
 
-### 1.1 當前架構
+> 依 `backend/ml_service/start.ps1` 預設 `-Preset da3` 與 `ml_service/README.md`。
+> 本文 §2 起仍保留 2026-02 研究規劃脈絡，供比對決策歷程。
+
+### 1.1 管線概覽
 
 ```
-手機 App (Flutter)
-    │ 拍照 + EXIF
-    │
-    ▼ HTTPS (ngrok 固定域名)
-MacBook Pro 2012 (i7-3615QM, 8GB DDR3, CPU-only)
-    │ ML Service (FastAPI + PyTorch)
-    │ Depth Estimation + Segmentation + DBH Calculation
-    │
-    ▼ 結果 JSON + 視覺化圖片
-手機 App 顯示結果
+Flutter App（拍照 + EXIF）
+    │ HTTPS + X-ML-API-Key
+    ▼
+ml_service（FastAPI, uvicorn :8100）
+    │ Stage 1: DA3 Metric Large（OpenVINO FP16；preset 預設 NPU，缺 IR 時 fallback PyTorch CPU）
+    │ Stage 2: 伺服器端 YOLOv8-seg（OpenVINO, 預設 intel:gpu, imgsz=832）
+    │ Stage 3–4: dbh_calculator.py（胸高幾何、弦長→直徑）
+    ▼
+JSON 結果 + 視覺化 → App 顯示
 ```
 
-### 1.2 新硬體的計算能力上限
+Node 後端可選透過 `ML_SERVICE_URL` 代理；App 亦可直連 ml_service（URL 由 Tailscale / 反向代理 / 可選 ngrok 提供）。
 
-| 指標 | 值 | 對模型的意義 |
-|------|---|-------------|
-| CPU | Intel i7-3615QM (4C/8T, 2.3-3.3GHz) | 可執行 ~350M 參數模型 |
-| RAM | 8GB 1600MHz DDR3 | 最大載入 ~2GB 模型 (FP16) |
-| GPU (內建) | Intel HD Graphics 4000 (1536MB) | 不支援 MPS/CUDA |
-| GPU (獨顯) | NVIDIA GeForce GT 650M | macOS Sonoma 已停用 NVIDIA |
-| 最終推論 | **CPU-only (AVX)** | Single image: 1-5 秒 |
-| 並行能力 | 8 threads | 可管線化 depth + seg |
+### 1.2 start.ps1 Preset 對照
 
-### 1.3 關鍵洞察：Server-side 解鎖了什麼
+| Preset | 深度模型 | OpenVINO | 備註 |
+|--------|---------|----------|------|
+| **da3**（預設） | `da3_metric_large` | 是（`ML_DA3_OV_DEVICE` 預設 NPU） | 正式路徑 |
+| `pro` | Depth Pro | 否（PyTorch） | 高精度、較慢 |
+| `pro_ov` | Depth Pro | 是（INT8-W iGPU） | |
+| `openvino` | `da_v2_base` | 是（iGPU） | 舊版替代 |
+| `default` | `da_v2_base` | 依 `.env` | 未指定時 fallback |
 
-1. **模型大小不再是瓶頸** — 從 24.8M 可以升級到 97.5M (Base) 甚至 335M (Large)
-2. **可以跑兩個模型** — 深度估計 + 獨立分割模型同時載入
-3. **可以做後處理** — 3D 點雲重建、RANSAC 地面擬合、圓柱修正都可以在 Server 端做
-4. **不需要 INT8/FP16 量化** — 用 FP32 以獲得最佳精度
-5. **可以緩存模型** — 常駐記憶體，避免重複載入
+共通設定（`start.ps1`）：`ML_ENABLE_SAM=false`、`ML_FORCE_SERVER_YOLO=true`、`ML_SEG_MODEL=server_yolo_v8_seg`。
+
+### 1.3 啟動方式
+
+```powershell
+cd backend\ml_service
+.\start.ps1                  # 預設 da3 + OpenVINO NPU
+.\start.ps1 -Preset pro      # Depth Pro（PyTorch）
+.\start.ps1 -Da3Device CPU   # DA3 改跑 CPU
+.\start.ps1 -Da3Ir 602x448   # 高解析 IR（需先 export）
+```
+
+環境變數、模型 export、API 端點詳見 **`backend/ml_service/README.md`**。
+
+### 1.4 Server-side 解鎖的能力（研究結論，已部分落地）
+
+1. **模型大小不再是瓶頸** — 可載入 DA3 Metric Large 等大型深度模型
+2. **深度 + 分割可分工** — DA3 深度 + YOLOv8-seg 遮罩各自最佳化
+3. **後處理在伺服器端完成** — 胸高定位、弦長→直徑幾何在 `dbh_calculator.py`
+4. **OpenVINO 加速** — NPU / iGPU preset 依部署機器選擇
+5. **模型常駐** — Singleton 載入，避免每請求重載
 
 ---
 
@@ -409,22 +426,21 @@ def estimate_uncertainty(depth_values, pixel_width, focal_length):
 │      + EXIF (焦距 mm、手機型號)                           │
 │      + 使用者觸碰點 (可選，自動模式不需要)                   │
 └──────────────────────┬──────────────────────────────────┘
-                       │ HTTPS via ngrok
+                       │ HTTPS + X-ML-API-Key
                        ▼
 ┌══════════════════════════════════════════════════════════┐
-║              MacBook ML Service (Server)                ║
+║              ml_service（FastAPI, start.ps1 -Preset da3） ║
 ║                                                         ║
 ║  ┌─────────────────┐   ┌──────────────────────┐        ║
 ║  │  Stage 1:       │   │  Stage 2:            │        ║
 ║  │  深度估計       │   │  樹幹分割            │        ║
 ║  │                 │   │                      │        ║
-║  │  DA V2 Base     │   │  深度啟發式粗定位    │        ║
-║  │  (97.5M)        │   │    ＋                 │        ║
-║  │  or DA3Metric-L │   │  SAM 2.1 Tiny        │        ║
-║  │  (350M)         │   │  (38.9M)             │        ║
-║  │                 │   │  精確分割             │        ║
-║  │  輸出:          │   │                      │        ║
-║  │  公制深度圖 (m) │   │  輸出: 精確樹幹遮罩  │        ║
+║  │  DA3 Metric     │   │  YOLOv8-seg          │        ║
+║  │  Large          │   │  (OpenVINO,          │        ║
+║  │  (OpenVINO NPU) │   │   intel:gpu)         │        ║
+║  │                 │   │                      │        ║
+║  │  輸出:          │   │  輸出: 樹幹遮罩      │        ║
+║  │  公制深度圖 (m) │   │  (SAM 預設關閉)      │        ║
 ║  └────────┬────────┘   └──────────┬───────────┘        ║
 ║           │ (可並行)               │                    ║
 ║           └────────────┬───────────┘                    ║
@@ -460,20 +476,26 @@ def estimate_uncertainty(depth_values, pixel_width, focal_length):
 ╚══════════════════════════════════════════════════════════╝
 ```
 
-### 5.2 處理時間估算與速度優化 ⚡
+### 5.2 現行 preset 與研究方案對照
 
-#### 硬體實測規格
+> **現行 production** 以 `start.ps1 -Preset da3` 為準（DA3 + 伺服器 YOLOv8-seg，SAM 關閉）。
+> 下方「研究方案 A–F」為 2026-02 估算，保留供追溯；效能隨硬體而異，不做固定秒數承諾。
 
-```
-CPU:  Intel i7-3615QM (Ivy Bridge, 4C/8T, 2.3-3.3 GHz)
-ISA:  SSE4.2, AVX (注意: 無 AVX2, AVX2 是 Haswell 第 4 代才有)
-GPU:  Intel HD Graphics 4000 (1536MB 共享) — 不支援 MPS/CUDA
-      NVIDIA GT 650M — macOS Sonoma 已停止支援 NVIDIA
-RAM:  8 GB 1600 MHz DDR3
-OS:   macOS Sonoma 14.8.2
-```
+#### 現行 production preset（start.ps1）
 
-#### 各模型 CPU 推論時間估算（PyTorch FP32, 8 threads）
+| 項目 | 值 |
+|------|-----|
+| 深度 | DA3 Metric Large + OpenVINO FP16（`-Da3Device NPU`，504×378 或 602×448 IR） |
+| 分割 | YOLOv8-seg，`-ServerYoloDevice intel:gpu`，`imgsz=832` |
+| SAM | 關閉（`ML_ENABLE_SAM=false`） |
+| 強制伺服器遮罩 | 開（`ML_FORCE_SERVER_YOLO=true`，忽略手機傳入 mask） |
+| 連線 | `ML_SERVICE_URL`（Tailscale / 反向代理 / 可選 ngrok） |
+
+替代 preset 見 §1.2。
+
+#### 研究階段方案估算（歷史，2026-02）
+
+#### 各模型推論時間估算（研究階段，PyTorch FP32 參考）
 
 | 模型 | 參數量 | 輸入解析度 | PyTorch 估計 | ONNX Runtime 估計 |
 |------|--------|----------|-------------|------------------|
@@ -524,7 +546,7 @@ sess_options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_ENABLE_AL
 session = ort.InferenceSession("model.onnx", sess_options)
 ```
 
-**對 i7-3615QM 的所有優化中，ONNX Runtime 是投入產出比最高的。**
+**OpenVINO / ONNX Runtime 為正式路徑的首選加速手段**（見 `start.ps1` preset 與 `da3_to_openvino.py`）。
 
 ##### 策略 2: 降低輸入解析度（加速 1.4-1.8x，微小精度損失）
 
@@ -596,23 +618,15 @@ Phase 2 + ONNX + 降解:     ~3.5s ██████████
 
 ### 5.4 記憶體規劃
 
-8GB RAM 需要仔細規劃：
-
-| 組件 | FP32 大小 | FP16 大小 | 推薦 |
-|------|----------|----------|------|
-| OS + Python + FastAPI | — | — | ~1.5 GB |
-| DA V2 Base model | ~390 MB | ~195 MB | FP32 |
-| SAM 2.1 Tiny | ~156 MB | ~78 MB | FP32 |
-| 推論用暫存記憶體 | ~800 MB | ~500 MB | — |
-| **總計** | | | **~2.8 GB** ✅ |
-| 如用 DA3Metric-Large | ~1.4 GB | ~700 MB | FP32 |
-| **總計 (DA3)** | | | **~3.9 GB** ✅ |
-
-結論：兩個模型都能在 8GB RAM 中共存。
+模型常駐與推論暫存需依 preset 與 worker 數量配置；DA3 + YOLOv8-seg 同時載入時建議預留數 GB 以上 RAM。
+`-Workers 2` 需更大記憶體。詳見 `ml_service/README.md` 與部署機器的實測。
 
 ---
 
 ## 6. 實作優先順序
+
+> **2026-06 狀態**：核心已落地為 `start.ps1 -Preset da3` + 伺服器 YOLOv8-seg。
+> 下列 checklist 為當初規劃，保留供追溯；未完成項不代表現況缺口。
 
 ### Phase 1: 深度模型升級 (1-2 天)
 
