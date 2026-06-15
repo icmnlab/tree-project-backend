@@ -33,6 +33,17 @@ module.exports = {
       },
     },
     {
+      name: 'chineseConvert.toTraditional: 簡繁共用字不誤轉（朴樹 保留、朴树 正確轉換）',
+      run: async () => {
+        // 已是繁體（含繁體限定字「樹」）→ 不可把共用字「朴」誤轉成「樸」
+        assert.strictEqual(toTraditional('朴樹'), '朴樹');
+        // 完全簡體 → OpenCC 片語字典正確處理，保留「朴」
+        assert.strictEqual(toTraditional('朴树'), '朴樹');
+        // 冪等：再次轉換結果不變
+        assert.strictEqual(toTraditional(toTraditional('朴树')), '朴樹');
+      },
+    },
+    {
       name: 'chineseConvert.toTraditional: 非字串/空值原樣回傳',
       run: async () => {
         assert.strictEqual(toTraditional(''), '');
