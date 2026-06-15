@@ -5,6 +5,17 @@
 
 ---
 
+## (2026-06-15c) 交接收尾：程式碼品質、淘汰流程、文件/建置指南更新 — 已完成
+
+- **程式碼品質**：`dart fix --apply`（38 檔 149 項）；殘留 `print()`→`debugPrint()`；移除個人化 `TODO(Xiang)`；刪除 dead code（`map_page._extractCitiesFromData`、`ble_live_session._gpsDialogOpen`）。前端 429 測試全綠。
+- **淘汰流程調整**：詳情頁移除手動「淘汰」按鈕，淘汰改由維護量測現場回報樹況（枯死/倒塌/移除）驅動（後端 `pending_measurements` 既有 `lifecycleFromStatus` 邏輯），詳情頁僅保留「復原」更正用。
+- **404 根因**：retire/restore 端點在 commit `15581fb`，先前未 push → 線上舊碼無路由。已 `git push` 後端觸發 webhook 自動部署（`deploy.sh`：pull + `run_pending_migrations.js` 跑 31/32/33 + PM2 reload）。
+- **新 UI（Forest Intelligence）**：設計 token 抽成 `themes/forest_intelligence_theme.dart`（opt-in，未掛 MaterialApp）；數十頁 mockup 已納入版控，待交接者實作。
+- **文件更新**：`BUILD_GUIDE.md` 補「`flutter run` 開發執行」「Google Maps API Key 設定（key.properties + Cloud Console + SHA-1 限制 + iOS）」「`--dart-define` 旗標一覽」並更新版本；`README.md`（版本 + `google_maps_flutter 2.10.0`）、`VERIFICATION_CHECKLIST.md`（版本 + migration ≥33）對齊。
+- **版本**：前端 `18.10.0+22`。
+
+---
+
 ## (2026-06-15b) 樹況選單目錄（內建+自訂可共享）+ 修正枯立木碳匯歸類 — 已完成（前後端 + DB）
 
 - **樹況選單目錄（2NF）**：新增 `tree_status_options` 表（`33_tree_status_options.pg.sql`，代理主鍵 + `name` UNIQUE + `lifecycle`/`is_builtin`/`is_active`/`created_by`/`sort_order`）。內建：正常/傾斜/病蟲害/枯萎=active、枯立木/枯死=dead、倒塌=fallen、已移除=removed。
