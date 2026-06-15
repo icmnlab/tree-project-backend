@@ -74,6 +74,7 @@ const migrationFiles = [
   '32_tree_images_measurement_link.pg.sql', // 照片可選綁定某次量測歷史 measurement_id
   '33_tree_status_options.pg.sql', // 樹況選單目錄（內建+自訂可共享）+ 狀況→lifecycle；修 31 枯立木→dead
   '34_text_no_replacement_char.pg.sql', // 亂碼防線（補充 08）：U+FFFD CHECK 延伸至 status/notes/tree_notes/survey_notes
+  '35_backfill_lifecycle_alignment.pg.sql', // 回填：既有資料 lifecycle_status 對齊 lifecycleFromStatus（補倒伏/早期 create_v2 漏設）
 ];
 
 // Define the order for view creation

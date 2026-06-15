@@ -10,6 +10,7 @@ const db = require('../config/db');
 const { parse } = require('csv-parse/sync');
 const AuditLogService = require('../services/auditLogService');
 const { decodeBufferAuto, assertCleanUtf8, EncodingError } = require('../utils/textValidation');
+const { lifecycleFromStatus } = require('../utils/treeLifecycle');
 
 // ================================================================
 // 欄位映射表：支援中英文欄位名
@@ -392,6 +393,10 @@ async function execute(req, res) {
                         projTreeId = `PT-${projectMaxIds[data.project_code]}`;
                     }
 
+                    // [生命週期] 由樹況推導，與 create_v2/維護流程一致（枯立木/枯死→dead 等）
+                    const csvStatus = data.status || '正常';
+                    const csvLifecycle = lifecycleFromStatus(csvStatus) ?? 'active';
+                    const csvRetired = csvLifecycle !== 'active';
                     await client.query(`
                         INSERT INTO tree_survey (
                             project_code,
@@ -401,17 +406,21 @@ async function execute(req, res) {
                             notes, tree_notes, survey_notes,
                             tree_height_m, dbh_cm,
                             carbon_storage, carbon_sequestration_per_year,
-                            survey_time
-                        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
+                            survey_time,
+                            lifecycle_status, retired_at, retired_reason
+                        ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
                     `, [
                         data.project_code,
                         sysId, projTreeId,
                         data.species_id, data.species_name,
-                        data.x_coord, data.y_coord, data.status || '正常',
+                        data.x_coord, data.y_coord, csvStatus,
                         data.notes, data.tree_notes, data.survey_notes,
                         data.tree_height_m, data.dbh_cm,
                         data.carbon_storage, data.carbon_sequestration_per_year,
-                        data.survey_time || null
+                        data.survey_time || null,
+                        csvLifecycle,
+                        csvRetired ? (data.survey_time || new Date().toISOString()) : null,
+                        csvRetired ? csvStatus : null
                     ]);
                     // project_location / project_name 由 trigger 09 自 projects + project_areas 覆蓋
                     insertedCount++;

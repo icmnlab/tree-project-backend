@@ -2,6 +2,7 @@ const db = require('../config/db');
 const AuditLogService = require('../services/auditLogService');
 const carbonCalculationService = require('../services/carbonCalculationService');
 const { findReplacementCharField } = require('../utils/textValidation');
+const { lifecycleFromStatus } = require('../utils/treeLifecycle');
 
 /**
  * 單筆新增樹木調查資料 (v2) - 用於人工手動輸入
@@ -156,12 +157,21 @@ exports.createTreeV2 = async (req, res) => {
             : parseFloat(carbon_storage || 0) || null;
         const finalSequestration = parseFloat(carbon_sequestration_per_year || carbon_sequestration || 0);
 
+        // [生命週期] 由樹況推導；現場直接標記枯死/倒塌/移除時，與維護淘汰流程一致設定
+        // lifecycle_status/retired_at/retired_reason（避免「枯死卻仍計為活立木」）。
+        const finalStatusText = status || '良好';
+        const lifecycle = lifecycleFromStatus(finalStatusText) ?? 'active';
+        const isRetired = lifecycle !== 'active';
+        const retiredAt = isRetired ? (survey_time || new Date().toISOString()) : null;
+        const retiredReason = isRetired ? finalStatusText : null;
+
         const insertSql = `
             INSERT INTO tree_survey 
             (project_code, system_tree_id, project_tree_id, species_id, 
             species_name, x_coord, y_coord, status, notes, tree_notes, tree_height_m, 
-            dbh_cm, survey_notes, survey_time, carbon_storage, carbon_sequestration_per_year, project_id) 
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+            dbh_cm, survey_notes, survey_time, carbon_storage, carbon_sequestration_per_year, project_id,
+            lifecycle_status, retired_at, retired_reason) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
             RETURNING id;
         `;
         // project_name / project_location 由 trigger 09 自 projects + project_areas 覆蓋
@@ -175,7 +185,7 @@ exports.createTreeV2 = async (req, res) => {
             species_name || '無',
             finalX,
             finalY,
-            status || '良好',
+            finalStatusText,
             note || '無',
             tree_remark || '無',
             finalHeight,
@@ -184,7 +194,10 @@ exports.createTreeV2 = async (req, res) => {
             survey_time || new Date().toISOString(),
             finalCarbon,
             finalSequestration,
-            projectId
+            projectId,
+            lifecycle,
+            retiredAt,
+            retiredReason
         ];
 
         const result = await client.query(insertSql, values);
@@ -207,7 +220,7 @@ exports.createTreeV2 = async (req, res) => {
             finalDbh,
             species_name || '無',
             finalSpeciesId || '無',
-            status || '良好',
+            finalStatusText,
             finalSurveyNote,
             finalCarbon,
             finalX,

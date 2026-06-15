@@ -9,6 +9,16 @@
 
 ---
 
+## (2026-06-15g) — 修正「枯死/倒伏/移除卻仍計為活立木」：新增/編輯/匯入皆連動生命週期
+
+**問題**：只有「維護量測」流程會由樹況推導 `lifecycle_status`；直接「新增（create_v2）」「編輯（update_v2）」「CSV 匯入」三條路徑**未連動**，導致樹況為枯死/枯立木/倒伏/移除的樹仍被當作活立木（誤計碳匯、仍出現在維護待辦）。
+
+- **修正三條寫入路徑**：`treeSurveyCreateController`、`treeSurveyUpdateController`、`csvImportController` 入庫時統一以 `utils/treeLifecycle.lifecycleFromStatus(status)` 推導 `lifecycle_status`，淘汰木一併寫 `retired_at`/`retired_reason`；編輯把樹況改回存活字樣時自動清空淘汰欄位（與維護流程一致）。
+- **既有資料回填**：`35_backfill_lifecycle_alignment.pg.sql`（冪等）將 `lifecycle_status='active'` 但樹況明確為非活立木者對齊 runtime 邏輯（補上 31/33 未涵蓋的「倒伏」與早期 create_v2 漏設的列；關鍵字與優先序與 `lifecycleFromStatus` 完全一致，只認 active→retired，不動人工已設淘汰/復原）。已登記 `scripts/migrate.js`。
+- **測試**：`tests/contracts/tree_lifecycle_retire.test.js` 新增 2 案——create_v2 `status=枯立木`→`dead`、update_v2 改 `倒伏`→`fallen` 再改回 `正常`→`active` 清空。
+
+---
+
 ## (2026-06-15f) — 使用者帳號：schema-only + 指令建立管理員
 
 - **`users.pg.sql` 改 schema-only**：移除預寫入的 `admin`/`test`/`tt2` 種子列；正式庫不再自 migration 帶入任何帳號。

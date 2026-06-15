@@ -1,7 +1,7 @@
 # 驗證清單（一次跑完）
 
 > 更新：2026-06-15  
-> 適用版本：前端 `18.10.0+22`；資料庫 migration 應 **≥ 34**（28 儀器溯源、30 邊界來源、31 樹木生命週期、32 照片綁定量測、33 樹況選單目錄、34 亂碼防線；見 `DATABASE_NORMALIZATION.md`）
+> 適用版本：前端 `18.10.1+23`；資料庫 migration 應 **≥ 35**（28 儀器溯源、30 邊界來源、31 樹木生命週期、32 照片綁定量測、33 樹況選單目錄、34 亂碼防線、35 生命週期回填對齊；見 `DATABASE_NORMALIZATION.md`）
 
 部署後請依序勾選。建議使用 **實驗室專用帳號**（非個人帳號）。
 
@@ -25,6 +25,7 @@
 | LC（淘汰/復原端點） | retire(dead)→by_id 回讀 dead+retired_at；restore→active 清空；非法 lifecycle→400 | `backend/tests/contracts/tree_lifecycle_retire.test.js` | 後端契約 |
 | ST（樹況選單目錄） | GET 內建含枯立木=dead；POST 自訂含「枯立」自動 dead、重複收斂、未登入 401 | `backend/tests/contracts/tree_statuses.test.js` | 後端契約 |
 | SELF（管理員自我保護） | 停用/降級/刪除自己→400；改自己暱稱仍可 | `backend/tests/contracts/admin_self_protection.test.js` | 後端契約 |
+| LC（新增/編輯連動生命週期） | create_v2 `枯立木`→`dead`；update_v2 `倒伏`→`fallen`、改回`正常`→`active` 清空 | `backend/tests/contracts/tree_lifecycle_retire.test.js` | 後端契約 |
 | 邊界匯入/匯出 | 自相交 400、source 寫入、export.kml、KML 多幾何容錯、純文字座標解析 | `backend/tests/contracts/project_boundary_import.test.js` + `frontend/test/boundary_input_test.dart` | 後端契約 + 前端單元 |
 | BLE 三選一座標換算 | tree / surveyor / mixed_pending → 樹/站座標與 position_source 正確 | `frontend/test/ble_pending_workflow_test.dart` | 前端單元 |
 

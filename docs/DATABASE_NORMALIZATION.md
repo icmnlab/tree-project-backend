@@ -40,6 +40,7 @@
 - `project_name` **函數依賴**於 `project_code`（應可由 `projects` JOIN 得出）→ 違反 3NF，也帶來更名不同步
 - `lifecycle_status` / `retired_at` / `retired_reason`（migration 31）：樹木生命週期（active|dead|fallen|removed）與淘汰時間/原因，完全相依於代理鍵 `id`，不影響 2NF/3NF；既有列依 `status` 文字保守回填。淘汰木不計入活立木碳匯（見 `CARBON_CALCULATION.md`）。
 - **完整性約束（亂碼防護）**：禁止 U+FFFD 寫入關鍵文字欄位（編碼錯誤防護）。`08_text_integrity_check.pg.sql` 涵蓋身分欄位（`project_name`/`project_location`/`species_name` 等）；`34_text_no_replacement_char.pg.sql` 補上自由文字欄（`status`/`notes`/`tree_notes`/`survey_notes`）。兩者皆以 `NOT VALID` 加入，只約束新 INSERT/UPDATE。屬資料完整性，與正規化層級無關（API 層 `utils/textValidation.js` 為第一道防線）。
+- **資料一致性回填**：`35_backfill_lifecycle_alignment.pg.sql`（冪等）將既有 `tree_survey.lifecycle_status` 對齊 `utils/treeLifecycle.lifecycleFromStatus`（枯死/枯立/倒塌/倒伏/移除等樹況→對應淘汰狀態）。新增/編輯/匯入三條寫入路徑亦已於應用層連動，確保「樹況」與「生命週期」恆一致。
 
 ### `tree_images`
 

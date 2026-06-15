@@ -98,5 +98,60 @@ module.exports = {
                 ctx.assert.assertStatus(rActive, 400, 'active 非淘汰值應 400');
             },
         },
+        {
+            name: '新增：create_v2 status=枯立木 → lifecycle 自動為 dead（不靠維護流程）',
+            run: async (ctx) => {
+                const { api, factories, assert: A, cleanup } = ctx;
+                await api.login('admin');
+
+                const area = factories.buildArea();
+                const rArea = await api.post('project_areas', area);
+                A.assertJsonOk(rArea, '建區位');
+                cleanup.track('area', rArea.body.data.id);
+
+                const projBody = factories.buildProject({ area: area.area_name });
+                const rProj = await api.post('projects/add', { name: projBody.name, area: projBody.area });
+                A.assertJsonOk(rProj, '建專案');
+                const projectCode = rProj.body.project.code;
+                cleanup.track('project', projectCode);
+
+                const tree = factories.buildTree({
+                    project_code: projectCode,
+                    project_name: projBody.name,
+                    project_area: area.area_name,
+                    status: '枯立木',
+                });
+                const rTree = await api.post('tree_survey/create_v2', tree);
+                A.assertJsonOk(rTree, '建枯立木');
+                const treeId = rTree.body.id || (rTree.body.data && rTree.body.data.id);
+                cleanup.track('tree', treeId);
+
+                const created = await readTree(ctx, treeId);
+                assert.strictEqual(created.lifecycle_status, 'dead', '枯立木新增即應為 dead');
+                assert.ok(created.retired_at, '應寫入 retired_at');
+            },
+        },
+        {
+            name: '編輯：update_v2 改 status=倒伏 → lifecycle 連動 fallen；改回正常 → active 清空',
+            run: async (ctx) => {
+                const { api } = ctx;
+                const treeId = await setupTree(ctx);
+
+                const before = await readTree(ctx, treeId);
+                assert.strictEqual(before.lifecycle_status, 'active', '初始 active');
+
+                const rUpd = await api.put(`tree_survey/update_v2/${treeId}`, { status: '倒伏' });
+                ctx.assert.assertJsonOk(rUpd, '改倒伏');
+                const fallen = await readTree(ctx, treeId);
+                assert.strictEqual(fallen.lifecycle_status, 'fallen', '倒伏應連動 fallen');
+                assert.ok(fallen.retired_at, '應寫入 retired_at');
+
+                const rBack = await api.put(`tree_survey/update_v2/${treeId}`, { status: '正常' });
+                ctx.assert.assertJsonOk(rBack, '改回正常');
+                const active = await readTree(ctx, treeId);
+                assert.strictEqual(active.lifecycle_status, 'active', '改回正常應 active');
+                assert.ok(!active.retired_at, 'retired_at 應清空');
+            },
+        },
     ],
 };

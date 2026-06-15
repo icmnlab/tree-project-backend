@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const AuditLogService = require('../services/auditLogService');
 const carbonCalculationService = require('../services/carbonCalculationService');
+const { lifecycleFromStatus } = require('../utils/treeLifecycle');
 
 /**
  * 更新單筆樹木調查資料 (v2)
@@ -197,6 +198,23 @@ exports.updateTreeV2 = async (req, res) => {
             if (value !== undefined) {
                 updates.push(`${dbField} = $${queryIndex++}`);
                 values.push(value);
+            }
+        }
+
+        // [生命週期] 編輯時若有更改樹況，連動 lifecycle_status（與新增/維護流程一致）：
+        // 標記枯死/倒塌/移除 → 設淘汰並記 retired_at/reason；改回存活字樣 → 清空淘汰欄位。
+        if (status !== undefined) {
+            const lifecycle = lifecycleFromStatus(status) ?? 'active';
+            updates.push(`lifecycle_status = $${queryIndex++}`);
+            values.push(lifecycle);
+            if (lifecycle !== 'active') {
+                updates.push(`retired_at = COALESCE(retired_at, $${queryIndex++})`);
+                values.push(survey_time || new Date().toISOString());
+                updates.push(`retired_reason = $${queryIndex++}`);
+                values.push(status);
+            } else {
+                updates.push('retired_at = NULL');
+                updates.push('retired_reason = NULL');
             }
         }
 
