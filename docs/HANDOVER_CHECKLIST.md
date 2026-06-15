@@ -10,9 +10,10 @@
 
 ## 原始開發歸屬（交付方）
 
-核心開發與本交接包整理由 **KyleliuNDHU** 完成。著作權與 MIT 授權見各 repo 根目錄 `LICENSE`；完整說明見 `HANDOFF.md` §0。
+核心開發與本交接包整理由 **KyleliuNDHU** 完成。著作權見 `LICENSE`；完整說明見 `HANDOFF.md` §0、`AUTHORS.md`、`CONTRIBUTION_RECORD.md`。
 
-**移交至接手方 GitHub 時**：請用 **Transfer repository** 或 **mirror push** 保留 `git log` 作者紀錄，勿僅上傳檔案快照。
+**推送至接手方 GitHub**：用 **fresh snapshot**（orphan 單一 commit，**不帶舊歷史**），執行 `scripts/prepare_fresh_handover.ps1` 或見 `LAB_DEPLOYMENT_GUIDE.md` §0.1。  
+**交付方**：交接前在本機私人匯出 `git log` 留存作個人貢獻證明（不交付給接手方）。
 
 ---
 
@@ -32,6 +33,8 @@
 - [ ] 無未 commit 變更；版本號（`pubspec.yaml` / `CHANGELOG.md`）與實況一致
 - [ ] 文件已對齊現況：`HANDOFF.md`、`BUILD_GUIDE.md`、`VERIFICATION_CHECKLIST.md`、`DATABASE_NORMALIZATION.md`
 - [ ] 已確認 repo 內無真實金鑰／個人資訊（`.env`、`key.properties`、`*.jks` 均被 `.gitignore`）
+- [ ] 根目錄含 `LICENSE`、`AUTHORS.md`、`CONTRIBUTION_RECORD.md`（歸屬文件，**不得刪除**）
+- [ ] 交付方已本機私人封存完整 `git log`（不推送給接手方）；接手方 repo 以 fresh snapshot 推送（§0.1）
 
 ## 2. 機密與帳號（依 `HANDOFF_SECRETS_CHECKLIST.md`）
 

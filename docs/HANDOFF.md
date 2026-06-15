@@ -11,12 +11,13 @@
 
 | 項目 | 說明 |
 |------|------|
-| **授權** | MIT License；著作權人見 repo 根目錄 `LICENSE`（`Copyright (c) 2025 KyleliuNDHU`） |
-| **Git 歷史** | 完整 commit 與作者資訊保留於 `git log`；**移交不改寫**既有 commit |
-| **移交至接手方 GitHub** | 建議用 **GitHub Transfer repository** 或 `git clone --mirror` 推送，以保留歷史與作者歸屬；僅新建空 repo 再 copy 檔案會遺失貢獻紀錄 |
-| **接手方義務** | 依 MIT 條款可自由使用、修改與再散布；**須保留** `LICENSE` 與版權聲明 |
+| **授權** | MIT License；著作權人見 `LICENSE`（`Copyright (c) 2025 KyleliuNDHU`） |
+| **歸屬文件（不可刪）** | 根目錄 `AUTHORS.md`、`CONTRIBUTION_RECORD.md` — 與 `LICENSE` 同級；接手方須保留 |
+| **推送至接手方 GitHub** | **建議 fresh snapshot**（`git checkout --orphan`），**不帶舊 commit 歷史**，避免開發期私有資訊外洩；步驟見 `LAB_DEPLOYMENT_GUIDE.md` §0.1 或 `scripts/prepare_fresh_handover.ps1` |
+| **貢獻證明** | 接手方 repo 的歸屬靠上述三檔載明，**不靠**完整 `git log`；交付方應**本機私人封存**完整開發歷史作個人佐證（不推送給接手方） |
+| **接手方義務** | 依 MIT 可修改程式碼，但**須保留** `LICENSE` 版權聲明與歸屬文件；刪除或偽造歸屬違反授權條款 |
 
-> 本節僅釐清**著作權與開發歸屬**；維運責任、主機與 API 金鑰自交接日起由接手方負責（見 `HANDOVER_CHECKLIST.md`、`HANDOFF_SECRETS_CHECKLIST.md`）。
+> 本節釐清**著作權與開發歸屬**；維運責任、主機與 API 金鑰自交接日起由接手方負責（見 `HANDOVER_CHECKLIST.md`、`HANDOFF_SECRETS_CHECKLIST.md`）。
 
 ---
 
@@ -226,6 +227,7 @@ pm2 reload tree-backend          # 手動重載
 | 文件 | 用途 |
 |------|------|
 | **`HANDOFF.md`（本檔）** | 單一入口：跑起來 / 測試 / 部署 / 找路 |
+| `AUTHORS.md` / `CONTRIBUTION_RECORD.md` | 著作權與主要貢獻者（**須保留**；fresh push 時隨快照一併交付） |
 | `VERIFICATION_CHECKLIST.md` | 部署後實機驗證清單（§0、§8–§10） |
 | `LAB_DEPLOYMENT_GUIDE.md` | 脫離個人帳號、實驗室獨立部署 |
 | `BUILD_GUIDE.md` | App 建置細節 |

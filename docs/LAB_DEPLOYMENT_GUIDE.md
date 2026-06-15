@@ -8,23 +8,48 @@
 
 > 情境：在自己的 GitHub repo 與部署主機上，從零建立整套系統。
 
-### 0.1 推送程式碼到自己的 GitHub（fresh snapshot）
+### 0.1 推送程式碼到接手方 GitHub（fresh snapshot，不帶舊歷史）
 
-**不要直接 `git push` 帶完整歷史**——舊 commit 歷史可能含開發期的私有 IP／帳號等資訊。
-改用「單一乾淨快照」開新歷史（兩個 repo 各做一次）：
+**不要**把開發用 repo 的完整 `git push` 給接手方——舊 commit 可能含開發期私有 IP、帳號、除錯訊息等。
+
+改用「單一乾淨快照」開新歷史（**兩個 repo 各做一次**）。歸屬由 `LICENSE`、`AUTHORS.md`、`CONTRIBUTION_RECORD.md` 載明，不靠舊 `git log`。
+
+**PowerShell（建議）**：
+
+```powershell
+cd backend   # 或 frontend
+.\scripts\prepare_fresh_handover.ps1
+git remote add recipient https://github.com/<RECIPIENT>/tree-project-backend.git
+git push recipient handover:main
+git checkout main
+```
+
+**或手動（bash）**：
 
 ```bash
 cd backend     # frontend 同理
 git checkout main && git pull
 git checkout --orphan handover
 git add -A
-git commit -m "Initial handover snapshot"
-git remote add lab https://github.com/<LAB_OWNER>/tree-project-backend.git
-git push lab handover:main
-git checkout main           # 回到原分支，本機歷史不受影響
+git commit -m "Initial handover snapshot (2026-06)
+
+Copyright (c) 2025 KyleliuNDHU. See LICENSE, AUTHORS.md, CONTRIBUTION_RECORD.md.
+
+Original development and primary maintenance by KyleliuNDHU.
+Fresh history push without prior commit log."
+git remote add recipient https://github.com/<RECIPIENT>/tree-project-backend.git
+git push recipient handover:main
+git checkout main
 ```
 
-推上去後 CI 會自動跑（workflow 不依賴任何 GitHub Secrets，零設定即可綠）。
+**交付方（推送前）**：在本機私人匯出開發歷史作個人證明，**不要**上傳給接手方：
+
+```bash
+git log --oneline --decorate > handover_evidence_git_log.txt
+git shortlog -sn > handover_evidence_shortlog.txt
+```
+
+推上去後 CI 會自動跑（workflow 不依賴 GitHub Secrets，零設定即可綠）。
 
 ### 0.2 金鑰全部重新申請
 
