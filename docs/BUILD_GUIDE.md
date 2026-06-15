@@ -3,7 +3,7 @@
 > **零硬編碼原則**：所有環境值（後端位址、地圖金鑰、功能旗標）都在建置／執行時注入，不寫死在原始碼。
 > 未提供 `--dart-define=API_BASE_URL` 時 App 連不到後端；未提供 Google Maps 金鑰時地圖頁空白。詳見 `lib/config/app_config.dart` 與 `HANDOFF_SECRETS_CHECKLIST.md`。
 
-**當前版本**：`18.10.1+23`
+**當前版本**：`18.10.4+26`
 
 ---
 
@@ -71,7 +71,7 @@ flutter run -d <device-id> --release `
 
 ```powershell
 cd frontend
-flutter build apk --release --build-name=18.10.1 --build-number=23 `
+flutter build apk --release --build-name=18.10.4 --build-number=26 `
   --dart-define=API_BASE_URL=https://<你的主機>/api
 # 輸出: build\app\outputs\flutter-apk\app-release.apk
 ```
@@ -82,7 +82,7 @@ flutter build apk --release --build-name=18.10.1 --build-number=23 `
 
 ```bash
 cd frontend
-flutter build ios --release --build-name=18.10.1 --build-number=23 \
+flutter build ios --release --build-name=18.10.4 --build-number=26 \
   --dart-define=API_BASE_URL=https://<你的主機>/api
 # 然後使用 Xcode Archive 發布
 ```
@@ -202,7 +202,7 @@ jobs:
 `pubspec.yaml` 必須與發布版本同步：
 
 ```yaml
-version: 18.10.0+22
+version: 18.10.4+26
 ```
 
 ---

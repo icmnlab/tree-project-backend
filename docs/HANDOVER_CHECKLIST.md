@@ -4,7 +4,7 @@
 > 機密交接見 `HANDOFF_SECRETS_CHECKLIST.md`、部署見 `LAB_DEPLOYMENT_GUIDE.md`、
 > 部署後逐項驗證見 `VERIFICATION_CHECKLIST.md`。
 >
-> 最後更新：2026-06-15　｜　適用版本：前端 `18.10.1+23`、DB migration ≥ 34
+> 最後更新：2026-06-15　｜　適用版本：前端 `18.10.4+26`、DB migration ≥ 35
 
 ---
 
@@ -13,7 +13,7 @@
 - 後端 repo / commit：`__________________________`
 - 前端 repo / commit：`__________________________`
 - 後端測試：`node tests/runner.js` → ______ pass / ______ fail（共 **89** cases；目標 0 fail，部分環境相依案會 skip）
-- 前端測試：`flutter test` → ______ pass（目標 429 pass）
+- 前端測試：`flutter test` → ______ pass（目標 435 pass）
 - 正式機位址 / 部署方式：`__________________________`
 
 ---
@@ -25,7 +25,39 @@
 - [ ] 文件已對齊現況：`HANDOFF.md`、`BUILD_GUIDE.md`、`VERIFICATION_CHECKLIST.md`、`DATABASE_NORMALIZATION.md`
 - [ ] 已確認 repo 內無真實金鑰／個人資訊（`.env`、`key.properties`、`*.jks` 均被 `.gitignore`）
 
-## 2. 機密與帳號交接（依 `HANDOFF_SECRETS_CHECKLIST.md`）
+## 2. 機密與帳號（依 `HANDOFF_SECRETS_CHECKLIST.md`）
+
+### 2.0 誰負責什麼（重點）
+
+| 項目 | 做法 |
+|------|------|
+| 原始碼 + 文件（兩 GitHub repo） | **交付方移交 repo**；接手者取得 collaborator 或轉移擁有權 |
+| 正式機上的樹木資料 | **移交**（`pg_dump` 備份）；DB 密碼由接手者重設 |
+| Ubuntu 主機存取 | **接手者自建 Linux 帳號 + SSH 公鑰**；交付方**移除**自己的公鑰與 sudo |
+| 第三方 API 金鑰（Cloudinary、PlantNet、AI…） | **接手者到各平台新建**；交付方作廢舊金鑰（不傳遞舊 key） |
+| `JWT_SECRET` / `ML_API_KEY` / Webhook / Admin token | **接手者新建** → 填入主機 `backend/.env`（與 `ml_service/.env` 的 `ML_API_KEY` 一致） |
+| Google Maps（Android/iOS） | **接手者新建** → Android 填 `key.properties`；iOS 填 Xcode `GOOGLE_MAPS_API_KEY_IOS`（須綁接手者 SHA-1 / bundle id） |
+| Android 簽章 `*.jks` | **二選一**：(a) 離線安全管道移交同一 keystore，或 (b) 接手者新建（舊版 APK 無法覆蓋安裝） |
+| Tailscale / 私有網路 | **可選、接手者自建**；repo 僅保留通用腳本 `setup_tailscale_tls.sh`，無個人 hostname。也可用公網域名 + 正式 TLS |
+| App 管理員 | **接手者執行** `create_lab_admin.js`（非 DB 種子） |
+| ML 服務位址 | **接手者設定** `ML_SERVICE_URL`（後端 proxy 內網）+ `ML_SERVICE_PUBLIC_URL`（App 可達）；見 §2.1 |
+
+> **交付方只需確保**：Git 內無真實金鑰／個人 hostname／SSH 私鑰；本機 `.env` / `key.properties` 不入庫；各平台舊金鑰已作廢。
+
+### 2.1 ML 服務轉發（選用）
+
+後端 `routes/ml_service.js` 代理所有 ML 請求（App **不**直連 Python 服務）：
+
+| 變數 | 誰填 | 用途 |
+|------|------|------|
+| `ML_SERVICE_URL` | 接手者 | 後端 → FastAPI 內網位址（例 `http://127.0.0.1:8100`） |
+| `ML_SERVICE_PUBLIC_URL` | 接手者 | 登入後下發給 App 的公開 URL（Tailscale / 公網 / 同機 reverse proxy） |
+| `ML_API_KEY` | 接手者 | `backend/.env` 與 `ml_service/.env` **相同**；後端 proxy 注入 `X-ML-API-Key` |
+| `ML_CORS_ORIGINS` | 接手者 | `ml_service/.env`；允許的瀏覽器來源（預設僅 localhost） |
+
+流程：`Flutter → Node /api/ml-service/* → FastAPI ml_service`。未設 `ML_SERVICE_URL` 時 ML 功能優雅停用。
+
+### 2.2 勾選項
 
 - [ ] A. 輪替/重新申請所有金鑰（DB、JWT、Cloudinary、PlantNet、AI、ML_API_KEY、ADMIN_API_TOKEN、Webhook、**Google Maps**）
 - [ ] B. 個人化網址/IP 改為自己的主機（`--dart-define=API_BASE_URL` / `SELF_SIGNED_TRUSTED_HOSTS`）
@@ -37,7 +69,7 @@
 
 - [ ] 正式機**不要**跑 `migrate.js`（會匯入 dev-fixtures 測試樹／示範區）
 - [ ] 首次空庫：只跑 `run_pending_migrations.js` 後執行 `create_lab_admin.js`
-- [ ] 增量更新走 `node scripts/run_pending_migrations.js`（或開機自動）；確認套到 migration **≥ 34**
+- [ ] 增量更新走 `node scripts/run_pending_migrations.js`（或開機自動）；確認套到 migration **≥ 35**
 - [ ] 確認測試資料 `dev-fixtures/tree_survey_data.csv` **未**進入正式庫
 - [ ] 已備份正式資料庫（上線/交接前）
 
