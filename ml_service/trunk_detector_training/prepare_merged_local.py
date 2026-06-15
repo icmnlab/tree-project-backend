@@ -3,7 +3,7 @@
 🧱 Merge cleaned datasets → YOLO seg merged_*  (Windows native paths)
 =================================================================
 產出兩個版本：
-  - merged_no_xiang/    （論文用，無 leak）
+  - merged_no_xiang/    （研究用，無 leak）
   - merged_with_xiang/  （ablation 對照組，含 Xiang 訓練 leak）
 
 差異於：

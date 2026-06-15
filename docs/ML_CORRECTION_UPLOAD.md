@@ -20,4 +20,4 @@ flutter run --dart-define=ENABLE_ML_CORRECTION_UPLOAD=true
 ## 建議
 
 - 一般調查／碳匯作業：**不必開啟**，減少背景流量與隱私顧慮。
-- 論文 DBH 實驗：優先使用 **研究資料蒐集**，不要用修正紀錄取代。
+- 研究 DBH 實驗：優先使用 **研究資料蒐集**，不要用修正紀錄取代。

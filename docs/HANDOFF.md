@@ -189,7 +189,7 @@ pm2 reload tree-backend          # 手動重載
 - **碳匯計算**：`CARBON_CALCULATION.md`
 - **VLGEO2 BLE 整合**（NUS/Haglof、CSV TYPE 1P/3P/DME/3D/SET、現場 PHGF）：`VLGEO2_STD_APPLICATION_GUIDE.md`、`frontend` 內 `ble_data_processor.dart` / `data_filter_service.dart`
 - **AI Agent / 文字轉 SQL**：`AI_AGENT_GUIDE.md`
-- **ML 自架**：`SELF_HOST_ML_GUIDE.md`
+- **ML 自架（選用，現役 DA3 方案）**：`backend/ml_service/README.md`（Depth-Anything-3 Metric Large + OpenVINO + 伺服器端 YOLOv8-seg；含 `start.ps1` preset、環境變數、模型取得）
 
 ---
 
