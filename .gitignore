@@ -106,3 +106,5 @@ docs/**/*.docx
 docs/**/*.doc
 docs/figures/
 docs/**/*.py
+
+*.tmp
