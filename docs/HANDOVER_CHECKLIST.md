@@ -94,7 +94,7 @@
 ## 6. 知識轉移
 
 - [ ] 交接者導覽 `HANDOFF.md` §10 文件地圖
-- [ ] 說明已知限制 / 待辦（見 `WORK_STATUS.md`；如 API 密鑰為休眠功能、ML 服務為選用）
+- [ ] 說明已知限制 / 待辦（見 `HANDOFF.md` §12 保留/實驗性功能；如 API 密鑰為休眠功能、ML 服務為選用）
 - [ ] 說明 BLE 測樹儀（VLGEO2）連線與 NMEA/外接 GNSS（`HANDOFF_EXTERNAL_GNSS_AND_BLE.md`）
 
 ---

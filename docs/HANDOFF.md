@@ -211,14 +211,12 @@ pm2 reload tree-backend          # 手動重載
 | 文件 | 用途 |
 |------|------|
 | **`HANDOFF.md`（本檔）** | 單一入口：跑起來 / 測試 / 部署 / 找路 |
-| `WORK_STATUS.md` | 最新工作狀態、已完成、待辦（含 §0a CI） |
 | `VERIFICATION_CHECKLIST.md` | 部署後實機驗證清單（§0、§8–§10） |
 | `LAB_DEPLOYMENT_GUIDE.md` | 脫離個人帳號、實驗室獨立部署 |
 | `BUILD_GUIDE.md` | App 建置細節 |
 | `HANDOFF_SECRETS_CHECKLIST.md` | 交接日金鑰/帳號/網址逐項清單（必看） |
 | `PROJECT_DATA_AND_DOMAIN.md` | CSV / 專案語意（domain 真相） |
 | `FIELD_SURVEY_SOP.md` | 現場調查操作 SOP（拿儀器到現場照著做） |
-| `MEETING_MINUTES_20260528.md` | 2026-05-28 會議決議（功能取捨依據） |
 | `SURVEY_HISTORY.md` | 同一棵樹多次調查（歷次量測）機制 |
 | `ADMIN_AND_INVITE_DESIGN.md` | 管理後台與邀請碼規格 |
 | `ML_CORRECTION_UPLOAD.md` | ML 校正資料上傳（訓練資料回收） |
@@ -234,7 +232,7 @@ pm2 reload tree-backend          # 手動重載
 
 **交接日**：照 `LAB_DEPLOYMENT_GUIDE.md` §0「交接日流程」一次做完（fresh push → 金鑰輪替 → 部署 → webhook → 驗收）。
 
-見 `WORK_STATUS.md`「待辦」與 `VERIFICATION_CHECKLIST.md`。目前重點：
+見 `VERIFICATION_CHECKLIST.md`。目前重點：
 - 把仍標「實機」的 P0 項目盡量轉成自動化測試/腳本（GPS 三選一、新增樹不進待辦、儀器欄位 transfer→history…）。
 - 真正非實機不可的項目（雙機、藍牙硬體）才保留人工驗證。
 

@@ -53,5 +53,5 @@
 
 ## 相關文件
 
-- `docs/WORK_STATUS.md`
+- `docs/HANDOFF.md`
 - `backend/database/initial_data/15_tree_survey_measurements.pg.sql`
