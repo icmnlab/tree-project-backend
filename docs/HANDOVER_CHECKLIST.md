@@ -28,8 +28,8 @@
 ## 2. 機密與帳號交接（依 `HANDOFF_SECRETS_CHECKLIST.md`）
 
 - [ ] A. 輪替/重新申請所有金鑰（DB、JWT、Cloudinary、PlantNet、AI、ML_API_KEY、ADMIN_API_TOKEN、Webhook、**Google Maps**）
-- [ ] B. 個人化網址/IP 改為接手者主機（`--dart-define=API_BASE_URL` / `SELF_SIGNED_TRUSTED_HOSTS`）
-- [ ] C. GitHub repo、Tailscale、伺服器 Linux 帳號轉移至接手者；移除原作者存取權
+- [ ] B. 個人化網址/IP 改為自己的主機（`--dart-define=API_BASE_URL` / `SELF_SIGNED_TRUSTED_HOSTS`）
+- [ ] C. GitHub repo、私有網路、伺服器 Linux 帳號設為自己的；確認無個人帳號殘留存取
 - [ ] D.（建議）建立專案專用帳號持有各平台
 - [ ] 變更預設 `admin` 密碼；移除/停用測試帳號（`test`/`tt2`）
 

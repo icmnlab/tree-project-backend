@@ -1,16 +1,16 @@
-# 實驗室部署指南（脫離個人帳號）
+# 獨立部署指南（實驗室 / 自有主機）
 
-> 目標：在他人電腦／實驗室獨立運行，**不依賴開發者個人 Cursor／GitHub／雲端帳號**。
+> 目標：在自有主機上獨立建置並運行整套系統，**不依賴任何特定個人的 GitHub／雲端帳號**。
 
 ---
 
-## 0. 交接日流程（一次做完）
+## 0. 首次部署流程（一次做完）
 
-> 情境：實驗室提供自己的 GitHub repo 與部署主機，原作者把程式碼交過去後即可完全脫手。
+> 情境：在自己的 GitHub repo 與部署主機上，從零建立整套系統。
 
-### 0.1 推送程式碼到實驗室 GitHub（fresh snapshot）
+### 0.1 推送程式碼到自己的 GitHub（fresh snapshot）
 
-**不要直接 `git push` 帶完整歷史**——舊 commit 歷史含開發期的個人 IP／帳號等資訊。
+**不要直接 `git push` 帶完整歷史**——舊 commit 歷史可能含開發期的私有 IP／帳號等資訊。
 改用「單一乾淨快照」開新歷史（兩個 repo 各做一次）：
 
 ```bash
@@ -92,7 +92,7 @@ flutter build apk --release --dart-define=API_BASE_URL=https://<部署主機>/ap
 - [ ] 管理員帳號建立、seed 帳號處理完
 - [ ] APK 建置並在實機登入成功
 - [ ] `VERIFICATION_CHECKLIST.md` 跑過一輪
-- [ ] 原作者個人帳號（Tailscale／GitHub webhook／雲端服務）全部移除存取
+- [ ] 確認無任何個人帳號殘留存取（Tailscale／GitHub webhook／雲端服務）
 
 ---
 
@@ -109,11 +109,11 @@ flutter build apk --release --dart-define=API_BASE_URL=https://<部署主機>/ap
 ```
 
 - **不要**把 JWT、DB 密碼、ML API Key 寫死在 App；使用建置時注入或首次啟動設定。
-- 程式碼以**實驗室自己的 GitHub repo** 為準（見 §0.1 fresh push）；不要在實驗室機器登入開發者個人帳號。
+- 程式碼以**你自己的 GitHub repo** 為準（見 §0.1 fresh push）；不要在部署主機登入任何個人開發帳號。
 
 ---
 
-## 2. 脫離個人帳號檢查表
+## 2. 獨立性檢查表（不綁定特定個人帳號）
 
 | 項目 | 做法 |
 |------|------|

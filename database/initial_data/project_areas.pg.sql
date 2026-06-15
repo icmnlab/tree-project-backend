@@ -35,20 +35,8 @@ BEFORE UPDATE ON project_areas
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
 
-
---
--- 插入資料 `project_areas`
---
-INSERT INTO project_areas (id, area_name, area_code, description, created_at, updated_at, city, center_lat, center_lng) VALUES
-(1, '基隆港', 'AREA-001', '基隆港專案區位', '2025-05-11 15:19:15', '2025-05-11 16:53:26', '基隆市', NULL, NULL),
-(2, '安平港', 'AREA-002', '安平港專案區位', '2025-05-11 15:19:15', '2025-05-11 16:53:45', '台南市', NULL, NULL),
-(3, '布袋港', 'AREA-003', '布袋港專案區位', '2025-05-11 15:19:15', '2025-05-11 16:54:51', '嘉義縣', NULL, NULL),
-(4, '澎湖港', 'AREA-004', '澎湖港專案區位', '2025-05-11 15:19:15', '2025-05-11 16:55:02', '澎湖縣', NULL, NULL),
-(5, '臺中港', 'AREA-005', '臺中港專案區位', '2025-05-11 15:19:15', '2025-05-11 16:55:13', '台中市', NULL, NULL),
-(6, '臺北港', 'AREA-006', '臺北港專案區位', '2025-05-11 15:19:15', '2025-05-11 16:57:43', '新北市', NULL, NULL),
-(7, '花蓮港', 'AREA-007', '花蓮港專案區位', '2025-05-11 15:19:15', '2025-05-11 16:57:56', '花蓮縣', NULL, NULL),
-(8, '蘇澳港', 'AREA-008', '蘇澳港專案區位', '2025-05-11 15:19:15', '2025-05-11 16:58:06', '宜蘭縣', NULL, NULL),
-(9, '高雄港', 'AREA-009', '高雄港專案區位', '2025-05-11 15:19:15', '2025-05-11 16:58:24', '高雄市', NULL, NULL);
-
--- 更新序列計數器
-SELECT setval(pg_get_serial_sequence('project_areas', 'id'), 59, false);
+-- 註：本檔僅建立結構（schema-only），不含任何種子資料，正式環境啟動後為空表。
+-- 版控（GitHub）中沒有任何示範區位資料。若需本機開發示範港區，可自行放置
+-- dev-fixtures/project_areas_seed.pg.sql（該目錄 .sql 已被 .gitignore 忽略，僅本機用）；
+-- scripts/migrate.js 會在未設定 SKIP_CSV_IMPORT 時自動載入（檔案不存在則略過）。
+-- 與邊界種子（dev-fixtures/06_project_boundaries_seed.pg.sql）同模式。

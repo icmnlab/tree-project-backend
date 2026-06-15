@@ -1,70 +1,87 @@
-# 交接前必換清單（機密 / 個人化設定）
+# 機密與環境設定指南（Secrets & Environment Setup）
 
-> 目的：交接給下一棒（或建立專用帳號）前，把**所有跟原作者本人綁定**的金鑰、網址、帳號替換成接手者自己申請的。
-> 原則：GitHub 只放程式碼與文件；真實金鑰一律放 `.env`（已被 `.gitignore` 忽略）或本機檔，另行加密交付。
-
----
-
-## A. 必須「輪替/重新申請」的金鑰（曾寫在 `.env` 類檔，視為已外洩）
-
-下列服務的金鑰請到各平台**作廢舊的、申請新的**，填入新的 `.env`：
-
-| 服務 | 用途 | 變數（在 `backend/.env`） | 申請處 |
-|------|------|--------------------------|--------|
-| PostgreSQL | 資料庫 | `DB_PASSWORD` / `DATABASE_URL` | 自架 DB 重設密碼 |
-| JWT | 登入簽章 | `JWT_SECRET` | `openssl rand -hex 64` |
-| Cloudinary | 樹木照片 | `CLOUDINARY_API_KEY` / `_API_SECRET` | cloudinary.com |
-| PlantNet | 樹種辨識 | `PLANTNET_API_KEY` | my.plantnet.org |
-| Gemini / OpenAI / Claude / SiliconFlow | AI 功能（選用） | `GEMINI_API_KEY` 等 | 各 AI 平台 |
-| ML Service | 後端↔ML 驗證 | `ML_API_KEY`（backend + ml_service 兩邊一致） | 自訂字串 |
-| Admin Token | 部署診斷 | `ADMIN_API_TOKEN` | 自訂字串 |
-| GitHub Webhook | 自動部署 | `DEPLOY_WEBHOOK_SECRET` | GitHub repo webhook 設定 |
-| Kaggle / Roboflow | ML 訓練資料（選用） | `KAGGLE_KEY` / `ROBOFLOW_API_KEY`（`ml_service/.env`） | kaggle.com / roboflow.com |
-| Google Maps | 地圖 | `GOOGLE_MAPS_API_KEY`（`android/key.properties`） | Google Cloud Console，須綁 package + SHA-1 |
-
-> 範本：`backend/.env.example`、`backend/ml_service/.env.example`、`android/key.properties.example`。
+> 本系統所有金鑰、主機位址、帳號都以**環境變數／設定檔**提供，不寫死在程式碼裡。
+> GitHub 只放程式碼與文件；真實金鑰一律放 `.env`（已被 `.gitignore` 忽略）或本機設定檔。
+>
+> 本指南說明「需要設定哪些、各放在哪裡、去哪裡申請」。依此設定即可讓系統在任何新環境完整運作。
+> 範本檔：`backend/.env.example`、`backend/ml_service/.env.example`、`frontend/android/key.properties.example`。
 
 ---
 
-## B. 必須「改成自己主機」的個人化網址 / IP
+## A. 後端 `.env` 的金鑰 / 服務
 
-> ✅ **2026-06-10 更新**：程式碼層已去個人化——`app_config.defaultBaseUrl` 預設空字串、`main.dart` 自簽信任清單移除硬編碼 IP，兩者改由建置時 `--dart-define` 提供（`API_BASE_URL`、`SELF_SIGNED_TRUSTED_HOSTS`）。下表「目前值」已非硬編碼，接手者只需於建置/部署時提供自己的值。
+於 `backend/.env`（複製自 `.env.example`）填入下列值：
 
-| 位置 | 目前值（原作者） | 交接時改成 |
-|------|------------------|------------|
-| `frontend/lib/config/app_config.dart` → `defaultBaseUrl` | `https://<TAILSCALE_HOST>/api` | 接手者後端網址；或清空，改用 `--dart-define=API_BASE_URL=...` |
-| `frontend/lib/main.dart` → `SelfHostedHttpOverrides` | 信任 `<TAILSCALE_SERVER_IP>`、`<TAILSCALE_DEV_IP>`、`*.ts.net` | 移除個人 Tailscale IP；`.ts.net` 規則視新部署是否續用 Tailscale 決定保留與否 |
-| `backend/.env` → `ML_SERVICE_PUBLIC_URL` | 原作者 Tailscale / ngrok | 新 ML 主機位址 |
-| 文件中的 Tailscale 主機名 / SSH IP | `<TAILSCALE_HOST_SHORT>`、`<SERVER_USER>@<TAILSCALE_SERVER_IP>` | 新主機；見 `LAB_DEPLOYMENT_GUIDE.md` |
-
-> 前端連線方式：`flutter run --dart-define=API_BASE_URL=https://新主機/api`（不帶則用程式內 `defaultBaseUrl`）。
-
----
-
-## C. 必須「換成接手者帳號」的服務 / 倉庫
-
-| 項目 | 目前 | 交接動作 |
-|------|------|----------|
-| GitHub repo | `<GITHUB_OWNER>/tree-project-backend`、`tree-project-frontend` | 以 fresh snapshot push 到接手者 repo（步驟見 `LAB_DEPLOYMENT_GUIDE.md` §0.1），再設定 webhook |
-| Tailscale tailnet | `<GITHUB_OWNER>@` | 接手者建立自己的 tailnet 或建立專用帳號 |
-| 伺服器 Linux 帳號 | `<SERVER_USER>@`（Ubuntu） | 建立接手者帳號與 SSH 公鑰 |
-| 種子使用者 | `backend/database/initial_data/users.pg.sql`（✅ 2026-06-10 已移除真人姓名帳號，僅留 `admin`/`test`/`tt2` 通用帳號） | 全新部署請**改掉預設 `admin` 密碼**或改用部署腳本建立新管理員帳密 |
+| 服務 | 用途 | 變數 | 取得方式 | 必要性 |
+|------|------|------|----------|--------|
+| PostgreSQL | 資料庫連線 | `DATABASE_URL`（或 `DB_*`） | 自架 DB 連線字串 | **必要** |
+| JWT | 登入簽章 | `JWT_SECRET` | `openssl rand -hex 64` 自行產生 | **必要** |
+| Cloudinary | 樹木照片儲存 | `CLOUDINARY_API_KEY` / `_API_SECRET` | cloudinary.com | 選用（無則停用照片上傳） |
+| PlantNet | 樹種辨識 | `PLANTNET_API_KEY` | my.plantnet.org | 選用 |
+| Gemini / OpenAI / Claude / SiliconFlow | AI 助理（Text-to-SQL／Agent） | `GEMINI_API_KEY` 等 | 各 AI 平台 | 選用 |
+| ML Service | 後端↔ML 服務驗證 | `ML_API_KEY`（backend 與 ml_service 兩邊一致） | 自訂字串 | 選用（DBH 視覺估算） |
+| Admin Token | 部署診斷端點 | `ADMIN_API_TOKEN` | 自訂字串 | 選用 |
+| GitHub Webhook | 自動部署簽章 | `DEPLOY_WEBHOOK_SECRET` | 與 GitHub repo webhook 設定一致 | 選用（自動部署用） |
+| Kaggle / Roboflow | ML 訓練資料 | `KAGGLE_KEY` / `ROBOFLOW_API_KEY`（`ml_service/.env`） | kaggle.com / roboflow.com | 選用（僅訓練時） |
 
 ---
 
-## D. 交接時建議建立「專案專用帳號」（取代個人帳號）
+## B. 前端建置需要的設定
 
-為避免綁定個人，建議申請一組**專案專用**帳號（如 `tree-project@…`）來持有：GitHub、Tailscale、Cloudinary、PlantNet、各 AI 平台、Google Cloud。如此後續交接只需移交該帳號，不必逐一輪替。
+於建置／執行時提供（詳見 `BUILD_GUIDE.md`）：
+
+| 設定 | 放在哪 | 說明 | 必要性 |
+|------|--------|------|--------|
+| `API_BASE_URL` | `--dart-define` | 後端 API base，如 `https://host/api` | **必要** |
+| `SELF_SIGNED_TRUSTED_HOSTS` | `--dart-define` | 信任自簽憑證主機（逗號分隔，可用 `.ts.net` 後綴）；正式憑證則免 | 視情況 |
+| `GOOGLE_MAPS_API_KEY` | `android/key.properties` | 地圖頁必需；Google Cloud Console 申請，須綁套件名 + SHA-1（見 `BUILD_GUIDE.md` §3） | **必要（地圖）** |
+| iOS 地圖金鑰 | Xcode build setting `GOOGLE_MAPS_API_KEY_IOS` | iOS 版地圖 | 視平台 |
+
+> 程式碼已零硬編碼：`app_config.defaultBaseUrl` 預設空字串、`main.dart` 自簽信任清單預設空，皆由上述設定注入。
 
 ---
 
-## E. 本機備份（不進 Git）
+## C. 主機 / 帳號設定
+
+| 項目 | 說明 |
+|------|------|
+| GitHub repo | 部署來源（`tree-project-backend` / `tree-project-frontend`）＋ webhook；設為你自己的 repo（fresh push 步驟見 `LAB_DEPLOYMENT_GUIDE.md` §0.1） |
+| 部署主機 | Ubuntu 主機 + SSH 帳號與公鑰；Nginx 反向代理 + PM2（見 `LAB_DEPLOYMENT_GUIDE.md`） |
+| 私有網路 / 憑證 | 原部署採 Tailscale 提供 `*.ts.net` 有效憑證（`scripts/setup_tailscale_tls.sh`）；可改用任何網域 + 正式 TLS 憑證 |
+| ML 服務位址 | `backend/.env` → `ML_SERVICE_PUBLIC_URL` 設為你的 ML 主機（若啟用 ML） |
+
+---
+
+## D. 建議：使用單位 / 專案專用帳號
+
+為避免服務綁定到特定個人，建議在各平台（GitHub、Cloudinary、PlantNet、各 AI 平台、Google Cloud、Tailscale）申請一組**單位／專案專用帳號**持有金鑰與資源。如此長期維運與人員異動時只需移交該帳號，不必逐項重設。
+
+---
+
+## E. 安全注意事項
+
+- 金鑰**切勿** commit 進 git；以安全管道（1Password、CI secrets、加密檔）保管與傳遞。
+- API 金鑰務必在平台端加上**用途／網域／套件 + SHA-1 限制**，避免被盜用計費。
+- 建議定期輪替 `JWT_SECRET`、`ADMIN_API_TOKEN`、`DEPLOY_WEBHOOK_SECRET`。
+- 若任一金鑰曾透過不安全管道傳遞或疑似外流，請到對應平台**作廢並重新申請**。
+
+---
+
+## F. 種子帳號與資料庫
+
+- 預設僅有 bootstrap 管理員 `admin`（`database/initial_data/users.pg.sql`，無真人個資）。**正式上線請立即變更 `admin` 密碼**，或改以部署腳本建立管理員。
+- `test` / `tt2` 為開發測試帳號；正式環境建議停用或刪除。
+- `database/initial_data/*.pg.sql` 為**結構與必要參考資料**（樹種、樹況選單等）；示範港區、測試樹資料已分離至 `dev-fixtures/`，正式部署（`run_pending_migrations.js`）不會載入。
+
+---
+
+## G. 本機 / 離線備份（不進 Git）
 
 | 項目 | 路徑 |
 |------|------|
 | Android 簽章 | `android/key.properties` + `*.jks` |
 | 後端機密 | `backend/.env`、`backend/ml_service/.env` |
-| 管理員帳號 / 邀請碼清單 | 後台交付文件 |
+| 管理員帳號 / 邀請碼清單 | 後台維運文件 |
 
 自動備份：`cd frontend; powershell -ExecutionPolicy Bypass -File scripts\handoff_backup.ps1`
-（輸出 `G:\TreeAI-Handoff\yyyyMMdd_HHmm\`，排除 build 與機密檔）。
+（輸出至 `G:\TreeAI-Handoff\yyyyMMdd_HHmm\`，排除 build 與機密檔）。

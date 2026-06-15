@@ -1,33 +1,42 @@
 -- ============================================================
 -- 34_text_no_replacement_char.pg.sql
--- 亂碼防線：禁止 U+FFFD（REPLACEMENT CHARACTER）寫入關鍵文字欄位
+-- 亂碼防線（補充）：延伸 08_text_integrity_check 的 U+FFFD CHECK 到其餘自由文字欄位
 -- ============================================================
--- U+FFFD（chr(65533)，顯示為「�」）是「以錯誤編碼解碼位元組」時的替代字元，
--- 一旦寫入便永久損毀且無法還原。第一道防線在 API 層（utils/textValidation.js），
--- 此 CHECK 為資料庫層第二道防線（defense in depth）。
+-- 08_text_integrity_check.pg.sql 已涵蓋身分欄位：
+--   tree_survey.project_name / project_location / species_name、
+--   tree_species.name、projects.name、project_areas.area_name。
+-- 本檔僅「補上」08 未涵蓋的 tree_survey 自由文字欄位（status/notes/tree_notes/
+-- survey_notes），不重複既有約束。第一道防線在 API 層（utils/textValidation.js
+-- 的 findReplacementCharField，已接於 create_v2 / batch_import）。
 --
--- 以 NOT VALID 加入：僅強制套用於新的 INSERT/UPDATE，不掃描既有列，
--- 交接安全（既有資料若已含亂碼不會導致 migration 失敗，可日後清理後再 VALIDATE）。
+-- 與 08 相同：以 NOT VALID 加入，只強制新 INSERT/UPDATE、不掃描既有列（交接安全）。
+-- 冪等：DROP IF EXISTS + ADD。
 -- ============================================================
 
 DO $$
+DECLARE
+    target RECORD;
 BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint WHERE conname = 'chk_tree_survey_no_replacement_char'
-  ) THEN
-    ALTER TABLE tree_survey
-      ADD CONSTRAINT chk_tree_survey_no_replacement_char
-      CHECK (
-        position(chr(65533) IN COALESCE(species_name, '')) = 0
-        AND position(chr(65533) IN COALESCE(status, '')) = 0
-        AND position(chr(65533) IN COALESCE(notes, '')) = 0
-        AND position(chr(65533) IN COALESCE(tree_notes, '')) = 0
-        AND position(chr(65533) IN COALESCE(survey_notes, '')) = 0
-        AND position(chr(65533) IN COALESCE(project_name, '')) = 0
-        AND position(chr(65533) IN COALESCE(project_location, '')) = 0
-      ) NOT VALID;
-  END IF;
+    FOR target IN
+        SELECT * FROM (VALUES
+            ('tree_survey', 'status',       'tree_survey_status_no_replacement_char'),
+            ('tree_survey', 'notes',        'tree_survey_notes_no_replacement_char'),
+            ('tree_survey', 'tree_notes',   'tree_survey_tree_notes_no_replacement_char'),
+            ('tree_survey', 'survey_notes', 'tree_survey_survey_notes_no_replacement_char')
+        ) AS t(table_name, column_name, constraint_name)
+    LOOP
+        EXECUTE format(
+            'ALTER TABLE %I DROP CONSTRAINT IF EXISTS %I',
+            target.table_name, target.constraint_name
+        );
+        BEGIN
+            EXECUTE format(
+                'ALTER TABLE %I ADD CONSTRAINT %I CHECK (%I IS NULL OR position(chr(65533) IN %I) = 0) NOT VALID',
+                target.table_name, target.constraint_name, target.column_name, target.column_name
+            );
+        EXCEPTION
+            WHEN undefined_column THEN
+                RAISE NOTICE 'Skipping %.%: column not found', target.table_name, target.column_name;
+        END;
+    END LOOP;
 END $$;
-
-COMMENT ON CONSTRAINT chk_tree_survey_no_replacement_char ON tree_survey
-  IS '禁止 U+FFFD 亂碼寫入關鍵文字欄位（編碼錯誤防護；API 層 textValidation.js 為第一道防線）';

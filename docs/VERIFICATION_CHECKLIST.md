@@ -24,6 +24,7 @@
 | LC（生命週期推導） | 樹況文字 → `active/dead/fallen/removed` 對應、淘汰判定、**枯立木→dead**、枯萎→active | `backend/tests/invariants/treeLifecycle.test.js`（7 案） | 後端不變式 |
 | LC（淘汰/復原端點） | retire(dead)→by_id 回讀 dead+retired_at；restore→active 清空；非法 lifecycle→400 | `backend/tests/contracts/tree_lifecycle_retire.test.js` | 後端契約 |
 | ST（樹況選單目錄） | GET 內建含枯立木=dead；POST 自訂含「枯立」自動 dead、重複收斂、未登入 401 | `backend/tests/contracts/tree_statuses.test.js` | 後端契約 |
+| SELF（管理員自我保護） | 停用/降級/刪除自己→400；改自己暱稱仍可 | `backend/tests/contracts/admin_self_protection.test.js` | 後端契約 |
 | 邊界匯入/匯出 | 自相交 400、source 寫入、export.kml、KML 多幾何容錯、純文字座標解析 | `backend/tests/contracts/project_boundary_import.test.js` + `frontend/test/boundary_input_test.dart` | 後端契約 + 前端單元 |
 | BLE 三選一座標換算 | tree / surveyor / mixed_pending → 樹/站座標與 position_source 正確 | `frontend/test/ble_pending_workflow_test.dart` | 前端單元 |
 

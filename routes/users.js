@@ -342,6 +342,14 @@ router.put('/users/:id', requireRole('業務管理員'), async (req, res) => {
                 message: '權限不足：不能修改與自己同等或更高權限的使用者（系統管理員可管理所有帳號）'
             });
         }
+        // 自我保護：不能停用或變更自己的角色（避免管理員把自己鎖在系統外；改密碼/暱稱仍允許）
+        const isSelf = String(id) === String(req.user.user_id);
+        if (isSelf && is_active === false) {
+            return res.status(400).json({ success: false, message: '不能停用自己的帳號' });
+        }
+        if (isSelf && role !== undefined && role !== targetUser[0].role) {
+            return res.status(400).json({ success: false, message: '不能變更自己的角色（請由其他管理員調整）' });
+        }
         // 如果要修改角色，新角色也不能 >= 操作者（系統管理員除外）
         if (role !== undefined && req.user.role !== '系統管理員' && getRoleLevel(role) >= getRoleLevel(req.user.role)) {
             return res.status(403).json({
@@ -436,6 +444,10 @@ router.put('/users/:id/status', requireRole('業務管理員'), async (req, res)
                 success: false,
                 message: '權限不足：不能變更與自己同等或更高權限使用者的狀態（系統管理員除外）'
             });
+        }
+        // 自我保護：不能停用自己的帳號（避免管理員把自己鎖在系統外）
+        if (String(id) === String(req.user.user_id) && isActive === false) {
+            return res.status(400).json({ success: false, message: '不能停用自己的帳號' });
         }
 
         const { rowCount } = await db.query(

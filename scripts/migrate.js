@@ -73,7 +73,7 @@ const migrationFiles = [
   '31_tree_lifecycle_status.pg.sql', // 樹木生命週期 lifecycle_status（active|dead|fallen|removed）+ retired_at/reason
   '32_tree_images_measurement_link.pg.sql', // 照片可選綁定某次量測歷史 measurement_id
   '33_tree_status_options.pg.sql', // 樹況選單目錄（內建+自訂可共享）+ 狀況→lifecycle；修 31 枯立木→dead
-  '34_text_no_replacement_char.pg.sql', // 亂碼防線：禁 U+FFFD 寫入關鍵文字欄（CHECK NOT VALID）
+  '34_text_no_replacement_char.pg.sql', // 亂碼防線（補充 08）：U+FFFD CHECK 延伸至 status/notes/tree_notes/survey_notes
 ];
 
 // Define the order for view creation
@@ -118,6 +118,17 @@ async function migrate() {
                 ? 'tree_survey 已有資料，跳過 CSV 匯入（上線／增量部署安全）'
                 : 'SKIP_CSV_IMPORT 已設定，跳過 CSV 匯入'
         );
+    }
+
+    // 開發/CI 示範區位種子（與 CSV 同一 dev-only 開關；正式環境走 run_pending_migrations
+    // 不會執行此檔，故正式庫 project_areas 起始為空表）。
+    if (!skipCsv) {
+        const areaSeedPath = path.join(__dirname, '../dev-fixtures/project_areas_seed.pg.sql');
+        if (fs.existsSync(areaSeedPath)) {
+            const seed = fs.readFileSync(areaSeedPath, 'utf8').replace(/^\uFEFF/, '');
+            await client.query(seed);
+            console.log('Loaded dev-fixtures/project_areas_seed.pg.sql (示範港區)');
+        }
     }
 
     const csvCandidates = [

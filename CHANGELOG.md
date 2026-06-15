@@ -4,12 +4,21 @@
 
 ---
 
+## (2026-06-15e) — 交接收尾：管理員自我保護、去示範資料、文件去交接語氣
+
+- **管理員自我保護（多人安全）**：`PUT /users/:id`、`PUT /users/:id/status` 新增防呆——管理員不能停用或變更自己的角色（`DELETE /users/:id` 原本已禁刪自己）。避免最後一位管理員把自己鎖在系統外。新增契約測試 `tests/contracts/admin_self_protection.test.js`（停用/降級/刪除自己→400；改暱稱仍可）。後端 runner **80 pass**。
+- **資料庫去示範資料**：`project_areas.pg.sql` 改為 **schema-only**，原 9 筆示範港區種子移至 `dev-fixtures/project_areas_seed.pg.sql`（與邊界種子 06 同模式），由 `scripts/migrate.js` 僅在開發路徑（未設 `SKIP_CSV_IMPORT`）載入。正式部署（`run_pending_migrations.js`）不會載入，正式庫 `project_areas` 起始為空表。樹種、樹況選單等**必要參考資料**保留。
+- **migration 34 對齊**：改為「補充 08」——只對 08 未涵蓋的 `tree_survey` 自由文字欄（`status`/`notes`/`tree_notes`/`survey_notes`）加 U+FFFD CHECK，不再與 08 重複。
+- **文件去交接語氣**：`HANDOFF_SECRETS_CHECKLIST.md` 重寫為中性「機密與環境設定指南」（移除「視為已外洩／取代個人帳號／換成接手者帳號」等措辭，改為「需要設定哪些、放在哪、去哪申請」）。`LAB_DEPLOYMENT_GUIDE.md`、`HANDOVER_CHECKLIST.md` 同步中性化。文件以「下一位開發者依此即可獨立建置」為前提撰寫。
+
+---
+
 ## (2026-06-15d) — 亂碼（U+FFFD）防護：API 驗證 + DB CHECK（測試 79 全綠）
 
 修補 May 3 「亂碼 bug」的最後一塊：以錯誤編碼解碼 CSV 時產生的 U+FFFD（`�`）一旦寫入即永久損毀，現於兩層阻擋。
 
-- **API 層（第一道防線）**：新增純邏輯工具 `utils/textValidation.js`（`hasReplacementChar`/`findReplacementCharField`）。`createTreeV2`、`batchImportTrees` 於入庫前掃描使用者文字欄位（樹種/狀況/備註等），含 U+FFFD → `400 INVALID_TEXT_ENCODING`（批次指出第幾筆），乾淨資料不受影響。
-- **資料庫層（第二道防線）**：`34_text_no_replacement_char.pg.sql` 對 `tree_survey` 關鍵文字欄加 CHECK 約束（`chk_tree_survey_no_replacement_char`）；以 **NOT VALID** 加入，只強制新 INSERT/UPDATE、不掃描既有列（交接安全）。已登記 `scripts/migrate.js`。
+- **API 層（第一道防線）**：`utils/textValidation.js` 既有 `decodeBufferAuto`/`assertCleanUtf8`（CSV 上傳路徑沿用不變）。本次新增輕量 `hasReplacementChar`/`findReplacementCharField`，接於 `createTreeV2`、`batchImportTrees`：入庫前掃描使用者文字欄位（樹種/狀況/備註等），含 U+FFFD → `400 INVALID_TEXT_ENCODING`（批次指出第幾筆），乾淨資料不受影響。
+- **資料庫層（第二道防線）**：U+FFFD 的 DB CHECK 早於 `08_text_integrity_check.pg.sql` 已存在（涵蓋 `tree_survey` 的 `project_name`/`project_location`/`species_name`、`tree_species.name`、`projects.name`、`project_areas.area_name`）。本次 `34_text_no_replacement_char.pg.sql` **僅補上** 08 未涵蓋的 `tree_survey` 自由文字欄（`status`/`notes`/`tree_notes`/`survey_notes`），不重複既有約束；同 08 以 **NOT VALID** 加入。
 - **測試**：`tests/invariants/four_bugs.test.js` 的 Bug 1 由 SKIP 改為實測（含 U+FFFD→400、乾淨資料→成功）。後端 runner **79 pass / 0 fail / 0 skip**。
 
 ---
