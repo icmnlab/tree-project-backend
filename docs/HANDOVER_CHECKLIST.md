@@ -8,6 +8,14 @@
 
 ---
 
+## 原始開發歸屬（交付方）
+
+核心開發與本交接包整理由 **KyleliuNDHU** 完成。著作權與 MIT 授權見各 repo 根目錄 `LICENSE`；完整說明見 `HANDOFF.md` §0。
+
+**移交至接手方 GitHub 時**：請用 **Transfer repository** 或 **mirror push** 保留 `git log` 作者紀錄，勿僅上傳檔案快照。
+
+---
+
 ## 0. 交接現況快照（交付方填寫）
 
 - 後端 repo / commit：`__________________________`

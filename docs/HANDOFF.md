@@ -5,6 +5,21 @@
 
 ---
 
+## 0. 版權與主要貢獻者
+
+本專案**原始開發與交接前主要維護**由 **KyleliuNDHU**（GitHub）完成，涵蓋前後端應用、PostgreSQL schema 與 migration、BLE／碳匯／邊界等核心功能、測試框架，以及 `docs/` 交接文件與選用的 `ml_service/` 視覺 DBH 管線。
+
+| 項目 | 說明 |
+|------|------|
+| **授權** | MIT License；著作權人見 repo 根目錄 `LICENSE`（`Copyright (c) 2025 KyleliuNDHU`） |
+| **Git 歷史** | 完整 commit 與作者資訊保留於 `git log`；**移交不改寫**既有 commit |
+| **移交至接手方 GitHub** | 建議用 **GitHub Transfer repository** 或 `git clone --mirror` 推送，以保留歷史與作者歸屬；僅新建空 repo 再 copy 檔案會遺失貢獻紀錄 |
+| **接手方義務** | 依 MIT 條款可自由使用、修改與再散布；**須保留** `LICENSE` 與版權聲明 |
+
+> 本節僅釐清**著作權與開發歸屬**；維運責任、主機與 API 金鑰自交接日起由接手方負責（見 `HANDOVER_CHECKLIST.md`、`HANDOFF_SECRETS_CHECKLIST.md`）。
+
+---
+
 ## 1. 這是什麼系統
 
 **永續碳匯樹木管理系統（Sustainable TreeAI）**：通用的樹木調查與碳匯管理系統（目標使用單位：國立東華大學環境學院）。

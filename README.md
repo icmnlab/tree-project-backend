@@ -857,4 +857,4 @@ npm run test:all            # regression + api + securityAudit
 
 ## License
 
-MIT — see `LICENSE`.
+MIT — see `LICENSE`. Original development and primary maintenance by **KyleliuNDHU**; see `docs/HANDOFF.md` §0.
