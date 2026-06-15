@@ -12,6 +12,10 @@
  *      (BIG5/GBK/Shift_JIS/etc.), decode via iconv-lite, then re-validate.
  *   3. Anything still containing U+FFFD or that we can't decode → throw
  *      EncodingError that the route turns into a 400 response.
+ *
+ * 另提供輕量同步 helper（hasReplacementChar / findReplacementCharField），供
+ * 已是字串的 JSON 請求（如 create_v2 / batch_import）在入庫前掃描欄位，
+ * 與 DB CHECK 約束（migration 34）構成兩道防線。
  */
 
 const chardet = require('chardet');
@@ -118,10 +122,37 @@ function decodeBufferAuto(buf, opts = {}) {
     );
 }
 
+/**
+ * 輕量檢查：字串是否含 U+FFFD（亂碼徵兆）。非字串一律視為通過。
+ * @param {*} value
+ * @returns {boolean}
+ */
+function hasReplacementChar(value) {
+    return typeof value === 'string' && value.includes(REPLACEMENT_CHAR);
+}
+
+/**
+ * 掃描物件的字串欄位，回傳第一個含 U+FFFD 的欄位名；無則回 null。
+ * 供 JSON 請求（值已是字串）在入庫前做欄位級亂碼防護。
+ * @param {object} obj      待檢查物件
+ * @param {string[]} [fields] 限定檢查的欄位；省略則檢查所有自有字串欄位
+ * @returns {string|null}
+ */
+function findReplacementCharField(obj, fields) {
+    if (!obj || typeof obj !== 'object') return null;
+    const keys = Array.isArray(fields) ? fields : Object.keys(obj);
+    for (const key of keys) {
+        if (hasReplacementChar(obj[key])) return key;
+    }
+    return null;
+}
+
 module.exports = {
     EncodingError,
     REPLACEMENT_CHAR,
     strictDecodeUtf8,
     assertCleanUtf8,
     decodeBufferAuto,
+    hasReplacementChar,
+    findReplacementCharField,
 };

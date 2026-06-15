@@ -73,6 +73,7 @@ const migrationFiles = [
   '31_tree_lifecycle_status.pg.sql', // 樹木生命週期 lifecycle_status（active|dead|fallen|removed）+ retired_at/reason
   '32_tree_images_measurement_link.pg.sql', // 照片可選綁定某次量測歷史 measurement_id
   '33_tree_status_options.pg.sql', // 樹況選單目錄（內建+自訂可共享）+ 狀況→lifecycle；修 31 枯立木→dead
+  '34_text_no_replacement_char.pg.sql', // 亂碼防線：禁 U+FFFD 寫入關鍵文字欄（CHECK NOT VALID）
 ];
 
 // Define the order for view creation

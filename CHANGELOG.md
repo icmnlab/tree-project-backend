@@ -4,6 +4,16 @@
 
 ---
 
+## (2026-06-15d) — 亂碼（U+FFFD）防護：API 驗證 + DB CHECK（測試 79 全綠）
+
+修補 May 3 「亂碼 bug」的最後一塊：以錯誤編碼解碼 CSV 時產生的 U+FFFD（`�`）一旦寫入即永久損毀，現於兩層阻擋。
+
+- **API 層（第一道防線）**：新增純邏輯工具 `utils/textValidation.js`（`hasReplacementChar`/`findReplacementCharField`）。`createTreeV2`、`batchImportTrees` 於入庫前掃描使用者文字欄位（樹種/狀況/備註等），含 U+FFFD → `400 INVALID_TEXT_ENCODING`（批次指出第幾筆），乾淨資料不受影響。
+- **資料庫層（第二道防線）**：`34_text_no_replacement_char.pg.sql` 對 `tree_survey` 關鍵文字欄加 CHECK 約束（`chk_tree_survey_no_replacement_char`）；以 **NOT VALID** 加入，只強制新 INSERT/UPDATE、不掃描既有列（交接安全）。已登記 `scripts/migrate.js`。
+- **測試**：`tests/invariants/four_bugs.test.js` 的 Bug 1 由 SKIP 改為實測（含 U+FFFD→400、乾淨資料→成功）。後端 runner **79 pass / 0 fail / 0 skip**。
+
+---
+
 ## (2026-06-15c) — 修正 tree_survey 查詢未輸出英文 `lifecycle_status` 鍵（契約測試紅燈）
 
 - **問題**：`GET /tree_survey`、`/map`、`/by_id/:id` 僅以中文別名 `生命週期`/`淘汰時間`/`淘汰原因` 輸出生命週期欄位，未提供穩定的英文鍵。前端因有 `lifecycle_status ?? 生命週期` 後備而正常運作，但契約 `tree_lifecycle_retire`（讀 `lifecycle_status`）在實機 DB 跑出紅燈（「初始應為 active」）。

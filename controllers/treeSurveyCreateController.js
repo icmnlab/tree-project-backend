@@ -1,6 +1,7 @@
 const db = require('../config/db');
 const AuditLogService = require('../services/auditLogService');
 const carbonCalculationService = require('../services/carbonCalculationService');
+const { findReplacementCharField } = require('../utils/textValidation');
 
 /**
  * 單筆新增樹木調查資料 (v2) - 用於人工手動輸入
@@ -13,6 +14,19 @@ const carbonCalculationService = require('../services/carbonCalculationService')
  * 3. 僅寫入業務資料 (tree_survey)，不涉及儀器原始數據 (tree_measurement_raw)。
  */
 exports.createTreeV2 = async (req, res) => {
+    // 亂碼防護：拒絕含 U+FFFD（編碼解碼失敗）的文字，避免永久損毀資料庫
+    const badField = findReplacementCharField(req.body, [
+        'project_area', 'project_code', 'project_name', 'species_name',
+        'status', 'note', 'tree_remark', 'survey_notes', 'survey_remark',
+    ]);
+    if (badField) {
+        return res.status(400).json({
+            success: false,
+            code: 'INVALID_TEXT_ENCODING',
+            message: `欄位「${badField}」含無效字元（亂碼 U+FFFD），請確認來源檔案為 UTF-8 編碼`,
+        });
+    }
+
     const client = await db.pool.connect();
     
     try {

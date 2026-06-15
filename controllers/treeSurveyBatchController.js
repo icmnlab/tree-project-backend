@@ -1,5 +1,6 @@
 const db = require('../config/db');
 const AuditLogService = require('../services/auditLogService');
+const { findReplacementCharField } = require('../utils/textValidation');
 
 /**
  * 批量匯入樹木調查資料 (v2)
@@ -15,6 +16,21 @@ const AuditLogService = require('../services/auditLogService');
  * 4. 專案正規化支援：自動處理 projects 表的關聯 (若有)。
  */
 exports.batchImportTrees = async (req, res) => {
+    // 亂碼防護：批次中任一筆含 U+FFFD（編碼解碼失敗）→ 整批拒絕，避免部分損毀
+    const treesIn = Array.isArray(req.body && req.body.trees) ? req.body.trees : [];
+    for (let i = 0; i < treesIn.length; i++) {
+        const bad = findReplacementCharField(treesIn[i], [
+            'species_name', 'status', 'notes', 'tree_notes', 'survey_notes',
+        ]);
+        if (bad) {
+            return res.status(400).json({
+                success: false,
+                code: 'INVALID_TEXT_ENCODING',
+                message: `第 ${i + 1} 筆欄位「${bad}」含無效字元（亂碼 U+FFFD），請確認來源檔案為 UTF-8 編碼`,
+            });
+        }
+    }
+
     const client = await db.pool.connect();
     
     try {

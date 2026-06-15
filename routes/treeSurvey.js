@@ -90,6 +90,7 @@ router.get('/', projectAuthFilter, async (req, res) => {
                 x_coord AS "X坐標",
                 y_coord AS "Y坐標",
                 status AS "狀況",
+                -- 同時輸出英文正規鍵與中文 UI 別名：前端/契約優先讀英文鍵，中文別名供既有顯示相容
                 lifecycle_status,
                 lifecycle_status AS "生命週期",
                 retired_at,
@@ -348,6 +349,7 @@ router.get('/map', projectAuthFilter, async (req, res) => {
                 project_code AS "專案代碼",
                 project_name AS "專案名稱",
                 species_name AS "樹種名稱",
+                -- 同時輸出英文正規鍵與中文 UI 別名（前端地圖優先讀 lifecycle_status）
                 lifecycle_status,
                 lifecycle_status AS "生命週期",
                 x_coord AS "X坐標",
@@ -470,6 +472,7 @@ router.get('/by_id/:id', projectAuthFilter, async (req, res) => {
                 x_coord AS "X坐標",
                 y_coord AS "Y坐標",
                 status AS "狀況",
+                -- 同時輸出英文正規鍵與中文 UI 別名：前端/契約優先讀英文鍵，中文別名供既有顯示相容
                 lifecycle_status,
                 lifecycle_status AS "生命週期",
                 retired_at,

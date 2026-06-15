@@ -1,7 +1,7 @@
 /**
  * invariants/four_bugs.test.js — May 3 四個 bug 的永久回歸防護
  *
- * Bug 1: 「?」亂碼（U+FFFD）— 待後端 textValidation.js 補上時加，目前 SKIP
+ * Bug 1: 「?」亂碼（U+FFFD）— 後端 utils/textValidation.js + DB CHECK(migration 34) 拒絕
  * Bug 2: test 專案無法刪除 — 改 DELETE /projects/:code 用 projects 表存在性
  * Bug 3: 區位流程斷裂 — 改 GET /projects/by_area/:area 用 project_id JOIN
  * Bug 4: 地圖 city 過濾無效 — 改 GET /tree_survey/map?city= 用 _city 標註
@@ -15,9 +15,43 @@ module.exports = {
     cases: [
         // ─── Bug 1 ──────────────────────────────────────────────────
         {
-            name: 'Bug 1 (TODO): CSV 含 U+FFFD 應被後端拒絕',
-            skip: 'pending: utils/textValidation.js + DB CHECK constraint 尚未實作',
-            run: async () => {},
+            name: 'Bug 1: CSV 含 U+FFFD（亂碼）→ create_v2 應 400 拒絕，乾淨資料仍可寫入',
+            run: async (ctx) => {
+                await ctx.api.login('admin');
+
+                const area = ctx.factories.buildArea();
+                const rArea = await ctx.api.post('project_areas', area);
+                ctx.assert.assertJsonOk(rArea, 'create area');
+                ctx.cleanup.track('area', rArea.body.data.id);
+
+                const projBody = ctx.factories.buildProject({ area: area.area_name });
+                const rProj = await ctx.api.post('projects/add', { name: projBody.name, area: projBody.area });
+                ctx.assert.assertJsonOk(rProj, 'create project');
+                const code = rProj.body.project.code;
+                ctx.cleanup.track('project', code);
+
+                // 含 U+FFFD 的樹種名稱（模擬以錯誤編碼解碼 CSV 的結果）→ 必須被拒絕
+                const bad = ctx.factories.buildTree({
+                    project_code: code,
+                    project_name: projBody.name,
+                    project_area: area.area_name,
+                    species_name: '臺灣\uFFFD欒樹',
+                });
+                const rBad = await ctx.api.post('tree_survey/create_v2', bad);
+                ctx.assert.assertStatus(rBad, 400, '含 U+FFFD 應被拒絕');
+
+                // 乾淨資料仍應成功（確認不是全面阻擋）
+                const good = ctx.factories.buildTree({
+                    project_code: code,
+                    project_name: projBody.name,
+                    project_area: area.area_name,
+                    species_name: '臺灣欒樹',
+                });
+                const rGood = await ctx.api.post('tree_survey/create_v2', good);
+                ctx.assert.assertJsonOk(rGood, '乾淨資料應成功');
+                const goodId = rGood.body.id || (rGood.body.data && rGood.body.data.id);
+                if (goodId) ctx.cleanup.track('tree', goodId);
+            },
         },
 
         // ─── Bug 2 ──────────────────────────────────────────────────
