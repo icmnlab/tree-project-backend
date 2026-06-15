@@ -134,11 +134,42 @@ flutter build apk --release --dart-define=API_BASE_URL=https://<部署主機>/ap
 
 ## 3. 部署步驟（主機）
 
-### 3.1 依賴
+### 3.1 依賴（最低需求）
 
 - Node.js 20 LTS
 - PostgreSQL 15+
 -（可選）Python 3.10+、CUDA（ML）
+
+### 3.1b 參考部署環境（現役實驗室主機實測版本，2026-06）
+
+> 以下為目前運作中主機的實際版本，供接手者重建「已驗證可運行」的環境參考；非硬性要求，但建議落在同一大版本內以免相容性意外。
+
+| 項目 | 版本 / 設定 |
+|------|------|
+| OS | Ubuntu 24.04 LTS |
+| Node.js | v20.20.1 |
+| npm | 10.8.2 |
+| PostgreSQL | 17.9（pgdg24.04） |
+| Nginx | 1.24.0（反向代理 + TLS，見 §0.6 Tailscale 憑證） |
+| 行程管理 | PM2 6.0.14，`tree-backend` **cluster 模式 2 workers**；`pm2-logrotate` 3.0.0 |
+| 後端目錄 | `/opt/tree-app/backend`；部署腳本 `/opt/tree-app/scripts/deploy.sh` |
+| 部署方式 | `deploy.sh`：`git pull origin main` → `npm install --production` → `run_pending_migrations.js`（不匯入 CSV）→ PM2 graceful reload → `/health` 驗證，失敗自動 rollback |
+
+備註：
+- 正式增量部署一律走 `run_pending_migrations.js`（不重新 COPY `tree_survey_data.csv`）；只有「全新空庫」才用 `migrate.js`（且設 `SKIP_CSV_IMPORT=1`）。
+- 後端含 `opencc-js`（簡轉繁，純 JS 詞庫，無原生編譯）；`npm install --production` 會一併安裝，無需額外系統套件。
+
+### 3.1c 既有資料一次性正規化（升級後選做）
+
+從舊版升級、且歷史資料可能含簡體樹種俗名或缺樹種編號時，部署後可執行一次（冪等、預設 dry-run）：
+
+```bash
+cd /opt/tree-app/backend
+npm run normalize:species           # 先 dry-run 看報告
+npm run normalize:species -- --apply  # 確認無誤再實際寫入
+```
+
+作用：`tree_survey`/`tree_survey_measurements`/`tree_species`/`species_synonyms` 樹種名簡轉繁（撞名自動合併去重），並回填 `species_id` 為空但名稱對得到目錄的記錄。新資料已於各寫入路徑自動轉繁，此步僅處理既有資料。
 
 ### 3.2 後端
 

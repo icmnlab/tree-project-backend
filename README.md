@@ -3,7 +3,7 @@
 ![Node.js](https://img.shields.io/badge/Node.js-18%2B-339933?logo=node.js&logoColor=white)
 ![Express](https://img.shields.io/badge/Express-4.21-000000?logo=express&logoColor=white)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15%2B-4169E1?logo=postgresql&logoColor=white)
-![Tests](https://img.shields.io/badge/tests-80%20passing-brightgreen)
+![Tests](https://img.shields.io/badge/tests-86%20passing-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
 Node.js / Express REST API powering the Flutter app `tree-project-frontend`.

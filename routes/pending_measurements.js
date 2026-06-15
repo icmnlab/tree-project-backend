@@ -866,6 +866,8 @@ async function insertTreeSurveyMeasurementHistory(client, {
 
 // 由樹況推導生命週期狀態（純邏輯抽到 utils/treeLifecycle.js 供測試與共用）
 const { lifecycleFromStatus } = require('../utils/treeLifecycle');
+// 樹種名統一台灣繁體（避免簡體俗名入庫造成繁簡混雜）
+const { toTraditional } = require('../utils/chineseConvert');
 
 function parseTreeStatusFromNotes(notes) {
   const raw = (notes ?? '').trim();
@@ -1072,7 +1074,7 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
         const inheritSpecies = !(p.species_name && String(p.species_name).trim());
         const maintSpeciesName = inheritSpecies
           ? (target.species_name ?? '待辨識')
-          : p.species_name;
+          : toTraditional(p.species_name);
         const maintSpeciesId = inheritSpecies ? (target.species_id ?? null) : speciesId;
         const maintCarbon = inheritSpecies
           ? carbonCalculationService.calculateCarbonStorage(maintSpeciesName, finalDbh, p.tree_height)
@@ -1182,7 +1184,7 @@ router.post('/transfer', projectAuthFilter, async (req, res) => {
           p.project_area,
           projCode,
           p.project_name,
-          p.species_name ?? '待辨識',
+          toTraditional(p.species_name) ?? '待辨識',
           speciesId,
           p.tree_height,
           finalDbh,

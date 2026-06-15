@@ -2,6 +2,7 @@ const db = require('../config/db');
 const AuditLogService = require('../services/auditLogService');
 const carbonCalculationService = require('../services/carbonCalculationService');
 const { lifecycleFromStatus } = require('../utils/treeLifecycle');
+const { toTraditional } = require('../utils/chineseConvert');
 
 /**
  * 更新單筆樹木調查資料 (v2)
@@ -149,7 +150,9 @@ exports.updateTreeV2 = async (req, res) => {
             }
         }
 
-        const effSpecies = species_name !== undefined ? species_name : existingTree.species_name;
+        // 樹種名統一台灣繁體（避免第三方辨識回傳簡體入庫造成繁簡混雜）
+        const normSpeciesName = species_name !== undefined ? toTraditional(species_name) : undefined;
+        const effSpecies = normSpeciesName !== undefined ? normSpeciesName : existingTree.species_name;
         const effDbh = finalDbh !== undefined ? parseFloat(finalDbh) : parseFloat(existingTree.dbh_cm);
         const effHeight = finalHeight !== undefined
             ? parseFloat(finalHeight)
@@ -178,7 +181,7 @@ exports.updateTreeV2 = async (req, res) => {
             // 若 caller 改了 project_code/project_id，trigger 會自動重抓對應 cache
             project_code: project_code,
             species_id: species_id,
-            species_name: species_name,
+            species_name: normSpeciesName,
             x_coord: finalX,
             y_coord: finalY,
             status: status,

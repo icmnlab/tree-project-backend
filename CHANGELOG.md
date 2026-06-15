@@ -9,6 +9,20 @@
 
 ---
 
+## (2026-06-15h) — 樹種名一律台灣繁體（簡轉繁）+ 補批次匯入生命週期漏洞
+
+**問題 1（樹種繁簡混雜）**：Pl@ntNet 辨識回傳的中文俗名多為**簡體**（如「银枫树」），直接入庫造成與系統繁體目錄不一致（`银枫树` vs `銀楓樹`），也讓樹種目錄/同義詞比對失準。
+**問題 2（批次匯入漏洞）**：`(2026-06-15g)` 修了 create/update/CSV 三路徑的生命週期推導，但 **`treeSurveyBatchController`（App 批次匯入 BLE/現場資料）** 仍漏設 `lifecycle_status`——批次帶枯死/倒伏狀態的樹仍被當活立木。
+
+- **簡轉繁進入點**：新增 `utils/chineseConvert.js`（`opencc-js` cn→tw，含台灣詞彙；對已繁體無操作、轉換失敗 fallback 原值）。`speciesIdentificationService` 在 Pl@ntNet 回應處統一轉繁（影響顯示／自動新增樹種／同義詞）。
+- **寫入路徑全覆蓋**：`create_v2`、`update_v2`、`batchImport`、`csvImport`、現場量測 transfer（`pending_measurements`）入庫前一律對 `species_name` 簡轉繁，確保任何來源都存繁體。
+- **補批次匯入生命週期**：`treeSurveyBatchController` 比照其他路徑，以 `lifecycleFromStatus(status)` 推導 `lifecycle_status` 並寫 `retired_at`/`retired_reason`。
+- **既有資料回填**：新增 `scripts/normalize_species_traditional.js`（`npm run normalize:species`，預設 dry-run，需 `--apply`）——簡轉繁 `tree_survey`/`tree_survey_measurements`/`tree_species`/`species_synonyms`（撞名自動合併、去重），並**補無樹種編號**（`species_id` 空但 `species_name` 對得到目錄→回填）。冪等。
+- **新依賴**：`opencc-js@1.3.1`（純 JS 詞庫，無原生編譯）。
+- **測試**：`tests/invariants/chineseConvert.test.js`（5 純函式案：簡轉繁、idempotent、非字串、清單去重）本機全綠；完整 runner（含契約測試）於部署時在 Ubuntu 由 `deploy.sh` 執行驗證。
+
+---
+
 ## (2026-06-15g) — 修正「枯死/倒伏/移除卻仍計為活立木」：新增/編輯/匯入皆連動生命週期
 
 **問題**：只有「維護量測」流程會由樹況推導 `lifecycle_status`；直接「新增（create_v2）」「編輯（update_v2）」「CSV 匯入」三條路徑**未連動**，導致樹況為枯死/枯立木/倒伏/移除的樹仍被當作活立木（誤計碳匯、仍出現在維護待辦）。

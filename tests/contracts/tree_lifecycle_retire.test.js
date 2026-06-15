@@ -132,6 +132,52 @@ module.exports = {
             },
         },
         {
+            name: '批次匯入：batch_import status=枯死 → lifecycle 自動為 dead；species_name 簡體入庫轉繁體',
+            run: async (ctx) => {
+                const { api, factories, assert: A, cleanup } = ctx;
+                await api.login('admin');
+
+                const area = factories.buildArea();
+                const rArea = await api.post('project_areas', area);
+                A.assertJsonOk(rArea, '建區位');
+                cleanup.track('area', rArea.body.data.id);
+
+                const projBody = factories.buildProject({ area: area.area_name });
+                const rProj = await api.post('projects/add', { name: projBody.name, area: projBody.area });
+                A.assertJsonOk(rProj, '建專案');
+                const projectCode = rProj.body.project.code;
+                cleanup.track('project', projectCode);
+
+                const rBatch = await api.post('tree_survey/batch_import', {
+                    project_area: area.area_name,
+                    project_code: projectCode,
+                    project_name: projBody.name,
+                    trees: [
+                        {
+                            species_name: '银枫树', // 簡體，應入庫為「銀楓樹」
+                            lon: 121.5,
+                            lat: 23.9,
+                            status: '枯死',
+                            height: 5,
+                            dbh: 20,
+                        },
+                    ],
+                });
+                A.assertJsonOk(rBatch, 'batch_import 應 200/201');
+
+                // 讀回該專案的樹，驗證 lifecycle + 繁體樹種名
+                const rMap = await api.get('tree_survey/map', { query: { project_code: projectCode } });
+                A.assertJsonOk(rMap, '讀專案樹');
+                const trees = rMap.body.data || [];
+                assert.ok(trees.length >= 1, '批次匯入後應至少 1 棵');
+                const t = trees[0];
+                const lc = t.lifecycle_status ?? t['生命週期'];
+                assert.strictEqual(lc, 'dead', '批次匯入枯死應為 dead（非活立木）');
+                const sp = t.species_name ?? t['樹種名稱'];
+                assert.strictEqual(sp, '銀楓樹', 'species_name 應已簡轉繁為「銀楓樹」');
+            },
+        },
+        {
             name: '編輯：update_v2 改 status=倒伏 → lifecycle 連動 fallen；改回正常 → active 清空',
             run: async (ctx) => {
                 const { api } = ctx;

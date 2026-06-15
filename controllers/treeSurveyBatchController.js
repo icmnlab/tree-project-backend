@@ -1,6 +1,8 @@
 const db = require('../config/db');
 const AuditLogService = require('../services/auditLogService');
 const { findReplacementCharField } = require('../utils/textValidation');
+const { lifecycleFromStatus } = require('../utils/treeLifecycle');
+const { toTraditional } = require('../utils/chineseConvert');
 
 /**
  * 批量匯入樹木調查資料 (v2)
@@ -125,6 +127,15 @@ exports.batchImportTrees = async (req, res) => {
             const systemTreeId = `ST-${nextSysId++}`;
             const projectTreeId = project_code ? `PT-${nextPrjId++}` : `PT-${Date.now()}`; // Fallback
 
+            // [生命週期] 由樹況推導；批次匯入若帶枯死/倒塌/移除狀態，與單筆新增/維護淘汰流程一致
+            // 設定 lifecycle_status/retired_at/retired_reason（避免「枯死卻仍計為活立木」）。
+            const finalStatusText = tree.status || '良好';
+            const lifecycle = lifecycleFromStatus(finalStatusText) ?? 'active';
+            const isRetired = lifecycle !== 'active';
+            const surveyTime = tree.survey_time || new Date().toISOString();
+            const retiredAt = isRetired ? surveyTime : null;
+            const retiredReason = isRetired ? finalStatusText : null;
+
             // 準備 tree_survey 數據
             // [FIX] 座標對應修正：x_coord = 經度 (lon), y_coord = 緯度 (lat)
             // project_name / project_location 由 trigger 09 自 projects + project_areas 覆蓋
@@ -133,19 +144,22 @@ exports.batchImportTrees = async (req, res) => {
                 systemTreeId,
                 projectTreeId,
                 tree.species_id || '無',
-                tree.species_name || '無',
+                toTraditional(tree.species_name) || '無',
                 parseFloat(tree.lon) || 0, // x_coord = 經度 (Longitude)
                 parseFloat(tree.lat) || 0, // y_coord = 緯度 (Latitude)
-                tree.status || '良好',
+                finalStatusText,
                 tree.note || '無',
                 tree.tree_remark || '無',
                 parseFloat(tree.height) || 0,
                 parseFloat(tree.dbh) || 0,
                 tree.survey_remark || '批量匯入',
-                tree.survey_time || new Date().toISOString(),
+                surveyTime,
                 parseFloat(tree.carbon_storage) || 0,
                 parseFloat(tree.carbon_sequestration) || 0,
-                projectId // 新增的正規化欄位 (可能為 null)
+                projectId, // 新增的正規化欄位 (可能為 null)
+                lifecycle,
+                retiredAt,
+                retiredReason
             ];
 
             // 寫入主表
@@ -153,8 +167,9 @@ exports.batchImportTrees = async (req, res) => {
                 INSERT INTO tree_survey 
                 (project_code, system_tree_id, project_tree_id, species_id, 
                 species_name, x_coord, y_coord, status, notes, tree_notes, tree_height_m, 
-                dbh_cm, survey_notes, survey_time, carbon_storage, carbon_sequestration_per_year, project_id) 
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+                dbh_cm, survey_notes, survey_time, carbon_storage, carbon_sequestration_per_year, project_id,
+                lifecycle_status, retired_at, retired_reason) 
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
                 RETURNING id;
             `;
             

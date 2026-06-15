@@ -3,6 +3,7 @@ const AuditLogService = require('../services/auditLogService');
 const carbonCalculationService = require('../services/carbonCalculationService');
 const { findReplacementCharField } = require('../utils/textValidation');
 const { lifecycleFromStatus } = require('../utils/treeLifecycle');
+const { toTraditional } = require('../utils/chineseConvert');
 
 /**
  * 單筆新增樹木調查資料 (v2) - 用於人工手動輸入
@@ -58,6 +59,9 @@ exports.createTreeV2 = async (req, res) => {
 
         await client.query('BEGIN');
 
+        // 樹種名統一台灣繁體（第三方辨識常回簡體，於入庫前正規化，順帶提升目錄比對命中率）
+        const normSpeciesName = toTraditional(species_name);
+
         // ---------------------------------------------------------
         // Step 1: 準備專案關聯 (Project Association)
         // ---------------------------------------------------------
@@ -88,12 +92,12 @@ exports.createTreeV2 = async (req, res) => {
         // ---------------------------------------------------------
         let finalSpeciesId = species_id;
         // 如果沒有提供 ID 但有提供名稱，嘗試查找
-        if ((!finalSpeciesId || finalSpeciesId === '無') && species_name && species_name !== '無') {
+        if ((!finalSpeciesId || finalSpeciesId === '無') && normSpeciesName && normSpeciesName !== '無') {
             try {
                 // 嘗試精確匹配名稱 (中文名稱 或 學名)
                 const speciesRes = await client.query(
                     'SELECT id FROM tree_species WHERE name = $1 OR scientific_name = $1', 
-                    [species_name]
+                    [normSpeciesName]
                 );
                 if (speciesRes.rows.length > 0) {
                     finalSpeciesId = speciesRes.rows[0].id;
@@ -182,7 +186,7 @@ exports.createTreeV2 = async (req, res) => {
             systemTreeId,
             projectTreeId,
             finalSpeciesId || '無',
-            species_name || '無',
+            normSpeciesName || '無',
             finalX,
             finalY,
             finalStatusText,
@@ -218,7 +222,7 @@ exports.createTreeV2 = async (req, res) => {
             survey_time || new Date().toISOString(),
             finalHeight,
             finalDbh,
-            species_name || '無',
+            normSpeciesName || '無',
             finalSpeciesId || '無',
             finalStatusText,
             finalSurveyNote,

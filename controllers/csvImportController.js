@@ -11,6 +11,7 @@ const { parse } = require('csv-parse/sync');
 const AuditLogService = require('../services/auditLogService');
 const { decodeBufferAuto, assertCleanUtf8, EncodingError } = require('../utils/textValidation');
 const { lifecycleFromStatus } = require('../utils/treeLifecycle');
+const { toTraditional } = require('../utils/chineseConvert');
 
 // ================================================================
 // 欄位映射表：支援中英文欄位名
@@ -384,6 +385,8 @@ async function execute(req, res) {
         if (newRecords && newRecords.length > 0) {
             for (const record of newRecords) {
                 const data = record.data || record;
+                // 樹種名統一台灣繁體（匯入檔可能含簡體俗名）
+                if (data.species_name) data.species_name = toTraditional(data.species_name);
                 try {
                     // 自動生成 ID
                     const sysId = data.system_tree_id || `ST-${nextSysId++}`;
@@ -443,6 +446,8 @@ async function execute(req, res) {
                     skippedCount++;
                     continue;
                 }
+                // 樹種名統一台灣繁體（匯入檔可能含簡體俗名）
+                if (data.species_name) data.species_name = toTraditional(data.species_name);
 
                 try {
                     const updateFields = [];

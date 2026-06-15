@@ -5,6 +5,7 @@
 
 const axios = require('axios');
 const FormData = require('form-data');
+const { toTraditionalList } = require('../utils/chineseConvert');
 
 // API 設定
 const PLANTNET_API_URL = 'https://my-api.plantnet.org/v2/identify/all';
@@ -55,7 +56,8 @@ async function identifyWithPlantNet(imageBuffer, organ = 'auto', lang = 'zh') {
                 score: result.score,
                 scientificName: result.species?.scientificNameWithoutAuthor || '',
                 author: result.species?.scientificNameAuthorship || '',
-                commonNames: result.species?.commonNames || [],
+                // Pl@ntNet 中文俗名多為簡體，統一轉台灣繁體後再供顯示／入庫／同義詞比對
+                commonNames: toTraditionalList(result.species?.commonNames || []),
                 family: result.species?.family?.scientificNameWithoutAuthor || '',
                 genus: result.species?.genus?.scientificNameWithoutAuthor || '',
                 gbifId: result.gbif?.id || null,
