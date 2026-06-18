@@ -1,7 +1,7 @@
 # 交接總覽 HANDOFF（單一入口）
 
 > 新人接手請從這份開始。這裡只放「跑起來、測試、部署、找路」需要知道的事，
-> 細節指向各專門文件（見 §10 文件地圖）。最後更新：2026-06-15。
+> 細節指向各專門文件（見 §10 文件地圖）。最後更新：2026-06-18。
 
 ---
 
@@ -120,7 +120,7 @@ flutter test                 # 全套（目前 435 pass）
 ### 5.3 CI（GitHub Actions，push / PR 觸發）
 | Repo | Workflow | 內容 |
 |------|----------|------|
-| backend | `.github/workflows/ci.yml` | 起 `postgres:15` → `migrate.js` → `seed_dev_users.js` → 啟 server → `tests/runner.js`（**89 cases**：58 invariants + 1 journey + 30 contracts，CI 全綠；部分環境相依案視情況 skip） |
+| backend | `.github/workflows/ci.yml` | 起 `postgres:15` → `migrate.js` → `seed_dev_users.js` → 啟 server → `tests/runner.js`（**80 cases**，CI 全綠） |
 | frontend | `.github/workflows/ci.yml` | `flutter pub get` → `analyze`（advisory）→ `flutter test`（435 pass） |
 
 CI 專用環境變數（在 workflow 內設，正式環境**不要**設）：
@@ -203,9 +203,10 @@ pm2 reload tree-backend          # 手動重載
 - **資料庫正規化 / schema**：`DATABASE_NORMALIZATION.md`
 - **專案邊界系統**（手繪／貼座標／匯入 KML·GeoJSON／convex-hull 建議邊界）：`BOUNDARY_SYSTEM_DESIGN.md`（輸入方式見 §3.5）
 - **碳匯計算**：`CARBON_CALCULATION.md`
+- **四種新增輸入 + 編輯寫庫對照**（欄位是否一致、ID 生成、同步）：`DATA_ENTRY_PATHS.md`（**交接必讀**）
 - **VLGEO2 BLE 整合**（NUS/Haglof、CSV TYPE 1P/3P/DME/3D/SET、現場 PHGF）：`VLGEO2_STD_APPLICATION_GUIDE.md`、`frontend` 內 `ble_data_processor.dart` / `data_filter_service.dart`
 - **AI Agent / 文字轉 SQL**：`AI_AGENT_GUIDE.md`
-- **ML 自架（選用，現役 DA3 方案）**：`backend/ml_service/README.md`（Depth-Anything-3 Metric Large + OpenVINO + 伺服器端 YOLOv8-seg；含 `start.ps1` preset、環境變數、模型取得）
+- **ML 自架（選用，現役 DA3 方案）**：`backend/ml_service/README.md`（YOLOv8m-seg 跑 **Intel iGPU**、DA3 跑 **OpenVINO NPU**；`start.ps1 -Preset da3`；詳見 `DATA_ENTRY_PATHS.md` §6）
 
 ---
 
@@ -234,6 +235,7 @@ pm2 reload tree-backend          # 手動重載
 | `HANDOFF_SECRETS_CHECKLIST.md` | 交接日金鑰/帳號/網址逐項清單（必看） |
 | `PROJECT_DATA_AND_DOMAIN.md` | CSV / 專案語意（domain 真相） |
 | `FIELD_SURVEY_SOP.md` | 現場調查操作 SOP（拿儀器到現場照著做） |
+| **`DATA_ENTRY_PATHS.md`** | **四輸入 + 編輯**：寫庫欄位對照、ID 生成、同步、首頁隱藏卡 |
 | `SURVEY_HISTORY.md` | 同一棵樹多次調查（歷次量測）機制 |
 | `ADMIN_AND_INVITE_DESIGN.md` | 管理後台與邀請碼規格 |
 | `ML_CORRECTION_UPLOAD.md` | ML 校正資料上傳（訓練資料回收） |
@@ -257,13 +259,18 @@ pm2 reload tree-backend          # 手動重載
 
 ## 12. 保留但未掛載／實驗性功能（給後續開發者）
 
-交接原則：**掛在 UI 上的功能保證穩定；實驗性功能保留程式碼但不主打**。以下為刻意保留、供後續接手者繼續開發的部分：
+交接原則：**正式現場 APK 預設只暴露穩定功能；實驗性入口保留程式碼，預設從首頁隱藏**（見 `lib/config/app_config.dart`、`BUILD_GUIDE.md` 的 `ENABLE_EXPERIMENTAL_UI`）。
+
+### 12.1 首頁預設隱藏的儀表板卡片
+
+`ENABLE_EXPERIMENTAL_UI=false`（**預設**）時隱藏：`test_scan`、`ai`、`report`、`v3`。  
+設為 `true` 建置後四卡恢復；AI／報告另需後端 LLM 金鑰。完整對照見 `DATA_ENTRY_PATHS.md` §7。
 
 | 功能 | 程式碼位置 | 狀態 |
 |------|-----------|------|
-| AI 對話（樹木問答） | 前端 `screens/ai_chat_page.dart`、後端 `routes/ai.js` | **掛載中**（首頁卡片/樹木頁入口），依賴 `LLM_*` 環境變數，未設定時降級 |
-| AI 永續報告 | `/ai-sustainability-report` 路由、`routes/ai.js` | 掛載中，同上依賴 LLM 設定 |
-| 視覺 DBH（純視覺量測） | 前端 `screens/scanner_page.dart`、`services/pure_vision_dbh_service.dart`、後端 `routes/ml_service.js`、`ml_service/`（Python） | **掛載中**（V3 整合表單/編輯頁/首頁「測試掃描」卡），精度仍在研究階段，見 `DBH_PURE_VISION_RESEARCH.md` |
+| AI 對話（樹木問答） | `screens/ai_chat_page.dart`、`routes/ai.js` | **程式保留**；首頁卡預設隱藏；見 `AI_AGENT_GUIDE.md` |
+| AI 永續報告 | `/ai-sustainability-report`、`routes/ai.js` | **程式保留**；首頁卡預設隱藏 |
+| 視覺 DBH（純視覺量測） | `scanner_page.dart`、`pure_vision_dbh_service.dart`、`ml_service/` | **整合表單/編輯內可用**；首頁「掃描測試」卡預設隱藏；精度研究階段，見 `DBH_PURE_VISION_RESEARCH.md` |
 | AR 量測 | `services/ar_measurement_service.dart`、`services/v3/ar_measurement_integration_service.dart`（零引用，整合範例） | 程式碼保留，未主打 |
 | WebSocket 即時掃描 | `services/scanner_service.dart`（零引用；對接 ml_service `/ws/scan`） | 程式碼保留，未掛載 |
 | ML 訓練資料收集 | 後端 `routes/ml_training_data.js` | 保留 |

@@ -4,7 +4,7 @@
 > 機密交接見 `HANDOFF_SECRETS_CHECKLIST.md`、部署見 `LAB_DEPLOYMENT_GUIDE.md`、
 > 部署後逐項驗證見 `VERIFICATION_CHECKLIST.md`。
 >
-> 最後更新：2026-06-15　｜　適用版本：前端 `18.10.4+26`、DB migration ≥ 35
+> 最後更新：2026-06-18　｜　適用版本：前端 `18.10.4+26`、DB migration ≥ 35
 
 ---
 
@@ -105,7 +105,8 @@
 ## 6. 知識轉移
 
 - [ ] 交接者導覽 `HANDOFF.md` §10 文件地圖
-- [ ] 說明已知限制 / 待辦（見 `HANDOFF.md` §12 保留/實驗性功能；如 API 密鑰為休眠功能、ML 服務為選用）
+- [ ] 走讀 **`DATA_ENTRY_PATHS.md`**：四種新增輸入 + 編輯的寫庫欄位差異、ID 生成（`ST-`/`PT-`）、transfer 同步、首頁隱藏卡
+- [ ] 說明已知限制 / 待辦（見 `HANDOFF.md` §12；如 API 密鑰休眠、ML 為選用、智慧模式備註欄較少）
 - [ ] 說明 BLE 測樹儀（VLGEO2）連線與 NMEA/外接 GNSS（`HANDOFF_EXTERNAL_GNSS_AND_BLE.md`）
 
 ---
