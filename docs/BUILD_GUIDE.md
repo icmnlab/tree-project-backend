@@ -63,7 +63,7 @@ flutter run -d <device-id> --release `
 | `TREE_ML_SERVICE_URL` | 否 | （空） | ML 服務 URL（亦可由後端動態下發） |
 | `ENABLE_FIELD_LOGS` | 否 | `false` | 現場量測 adb logcat |
 | `ENABLE_ML_CORRECTION_UPLOAD` | 否 | `false` | 上傳使用者覆寫修正紀錄（研究用） |
-| `ENABLE_EXPERIMENTAL_UI` | 否 | `false` | 顯示首頁實驗卡片：`test_scan`（掃描 Demo）、`ai`（AI 助理）、`report`（碳匯報告）、`v3`（系統設定）。預設隱藏；樹種辨識不受此旗標影響。見 `DATA_ENTRY_PATHS.md` §7 |
+| `ENABLE_EXPERIMENTAL_UI` | 否 | `false` | 顯示首頁實驗卡片：`test_scan`、`ai`、`report`、`v3`（見 `HANDOFF.md` §12.1） |
 
 ---
 

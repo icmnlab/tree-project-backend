@@ -105,8 +105,8 @@
 ## 6. 知識轉移
 
 - [ ] 交接者導覽 `HANDOFF.md` §10 文件地圖
-- [ ] 走讀 **`DATA_ENTRY_PATHS.md`**：四種新增輸入 + 編輯的寫庫欄位差異、ID 生成（`ST-`/`PT-`）、transfer 同步、首頁隱藏卡
-- [ ] 說明已知限制 / 待辦（見 `HANDOFF.md` §12；如 API 密鑰休眠、ML 為選用、智慧模式備註欄較少）
+- [ ] 走讀 `HANDOFF.md` §8.1（四種新增／編輯寫庫路徑）與 §8.2（BLE vs Classic）
+- [ ] 說明已知限制（`HANDOFF.md` §12；API 密鑰休眠、ML 選用、首頁實驗卡預設隱藏）
 - [ ] 說明 BLE 測樹儀（VLGEO2）連線與 NMEA/外接 GNSS（`HANDOFF_EXTERNAL_GNSS_AND_BLE.md`）
 
 ---

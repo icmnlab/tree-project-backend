@@ -19,10 +19,23 @@
 
 ## 與本系統開發的對應
 
+### 藍牙通道（交接必讀：勿與 Classic 混淆）
+
+VLGEO2 同時支援兩種藍牙，**本 APP 只實作 BLE**：
+
+| 通道 | 藍牙類型 | 協定／內容 | APP 模組 | 現場狀態 |
+|------|----------|-----------|----------|----------|
+| 逐棵 SEND（MEMORY 關） | **BLE Low Energy**（NUS GATT） | Haglöf **`$PHGF` 量測句**（樹高、距離、方位；**非** GGA 定位） | `BleLiveSessionPage` + `ble_live_packet_decoder.dart` | ✅ 主推 |
+| 整檔 SEND FILES | **BLE** | Vertex `DATA.CSV` + EOT | `BleImportPage` + `BlePacketDecoder` | 程式保留；SOP 暫緩主推 |
+| 儀器 GPS 串流 | **Classic Bluetooth SPP**（`VLGEO2_*_COM`） | 標準 **NMEA GGA/RMC** | ❌ **未實作**（僅 `test/vlgeo2_ble_analysis/` 腳本） | 不採用 |
+| 現場樹木座標 | — | **手機 GPS**（Geolocator） | `field_gps_capture.dart` | ✅ 專案決議（2026-05-28） |
+
+> 程式中的 `BleLiveNmeaAssembler` 處理的是 **BLE 上的 `$PHGF` 文字分片**，命名沿用「NMEA 風格」句型，**不是** Classic SPP 衛星定位 NMEA。外接 GNSS 規劃已取消，見 `HANDOFF_EXTERNAL_GNSS_AND_BLE.md`。
+
 | 模式 | 協議 | APP 模組 |
 |------|------|----------|
 | 批次 `DATA.CSV` | BLE 整檔 + EOT | `BleImportPage` + `BlePacketDecoder` |
-| 即時單筆（MEMORY 關） | GATT 20-byte §9.3 | `BleLiveSessionPage` + `BleLivePacketDecoder` |
+| 即時單筆（MEMORY 關） | BLE GATT：`$PHGF` §9.2 | `BleLiveSessionPage` + `BleLivePacketDecoder` |
 | MAP TARGET / TRAIL | 應用手冊 + `MAP*.CSV` | 待實測與專用 parser |
 
 ## 建議

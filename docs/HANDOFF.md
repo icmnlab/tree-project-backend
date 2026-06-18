@@ -199,14 +199,39 @@ pm2 reload tree-backend          # 手動重載
 - **角色名稱不在換詞範圍**：`專案管理員` 等五個角色是 DB 值，維持原字。
 - 後端回傳的中文錯誤訊息仍可能用舊詞（顯示頻率低，列為接手者待辦）。
 
-- **CSV / 專案語意**（program_name→project_location、block_name→project_name 等）：`PROJECT_DATA_AND_DOMAIN.md`
+### 8.1 四種新增與一種編輯（寫庫路徑摘要）
+
+| 路徑 | 入口 | API | 歷次量測 |
+|------|------|-----|----------|
+| VLGEO2 現場連線 | 儀表板「現場連線」 | pending → `POST /transfer` | ✅ |
+| 藍牙批次／待測量 | 「藍牙匯入」→「待測量任務」 | 同上 | ✅ |
+| 智慧模式 | 樹木調查 → 新增 → 智慧 | `POST /create_v2` | ✅ |
+| 快速模式 | 樹木調查 → 新增 → 快速 | `POST /create_v2` | ✅ |
+| **編輯** | 樹木詳情 | `PUT /update_v2/:id` | ❌ 刻意不寫 |
+
+**欄位對齊**：樹種、座標、樹高、DBH、樹況、碳儲量、生命週期四路一致；BLE 另寫 `tree_measurement_raw` 與歷次 `instrument_*`；手動路徑不寫儀器附表。智慧模式較快速模式少送 `tree_remark`／`survey_notes` 分欄（見 `manual_input_page_v3.dart`）。詳細歷次語意見 `SURVEY_HISTORY.md`。
+
+**ID**：`create_v2` 與 transfer 新樹皆用 `pg_advisory_xact_lock(1)` 產生 `ST-`／`PT-`；trigger 09 補 `project_id`。現場連線每棵 transfer 後以 `id_mapping` 回正式 id（`lib/utils/transfer_result.dart`）。
+
+### 8.2 藍牙：BLE 與 Classic Bluetooth（勿混淆）
+
+| 技術 | APP 是否使用 | 用途 |
+|------|-------------|------|
+| **BLE**（`flutter_blue_plus`，NUS GATT） | ✅ **唯一實作** | 逐棵 `$PHGF` 量測、整檔 `DATA.CSV` 批次 |
+| **Classic Bluetooth SPP**（`VLGEO2_*_COM`，標準 GGA/RMC） | ❌ **未實作** | 僅 `test/vlgeo2_ble_analysis/` 研究腳本；儀器 GPS 串流走此通道 |
+| **手機 GPS**（Geolocator） | ✅ 現場正式方案 | 樹旁定位；BLE 逐棵 SEND **不帶** GGA 座標 |
+
+程式內 `BleLiveNmeaAssembler` 名稱易誤解：組裝的是 **BLE 上的 Haglöf `$PHGF` 量測句**，不是 Classic SPP 的衛星 NMEA。見 `VLGEO2_STD_APPLICATION_GUIDE.md` §「藍牙通道」。
+
+### 8.3 領域專門文件
+
 - **資料庫正規化 / schema**：`DATABASE_NORMALIZATION.md`
 - **專案邊界系統**（手繪／貼座標／匯入 KML·GeoJSON／convex-hull 建議邊界）：`BOUNDARY_SYSTEM_DESIGN.md`（輸入方式見 §3.5）
 - **碳匯計算**：`CARBON_CALCULATION.md`
-- **四種新增輸入 + 編輯寫庫對照**（欄位是否一致、ID 生成、同步）：`DATA_ENTRY_PATHS.md`（**交接必讀**）
-- **VLGEO2 BLE 整合**（NUS/Haglof、CSV TYPE 1P/3P/DME/3D/SET、現場 PHGF）：`VLGEO2_STD_APPLICATION_GUIDE.md`、`frontend` 內 `ble_data_processor.dart` / `data_filter_service.dart`
+- **四種新增輸入 + 編輯寫庫對照**：見本檔 **§8.1**；歷次機制見 `SURVEY_HISTORY.md`
+- **VLGEO2 BLE 整合**（NUS、PHGF、CSV；**非** Classic SPP）：`VLGEO2_STD_APPLICATION_GUIDE.md`；解析 `ble_live_packet_decoder.dart` / `ble_data_processor.dart`
 - **AI Agent / 文字轉 SQL**：`AI_AGENT_GUIDE.md`
-- **ML 自架（選用，現役 DA3 方案）**：`backend/ml_service/README.md`（YOLOv8m-seg 跑 **Intel iGPU**、DA3 跑 **OpenVINO NPU**；`start.ps1 -Preset da3`；詳見 `DATA_ENTRY_PATHS.md` §6）
+- **ML 自架（選用）**：`backend/ml_service/README.md`（YOLO iGPU + DA3 NPU；`start.ps1 -Preset da3`）
 
 ---
 
@@ -223,7 +248,27 @@ pm2 reload tree-backend          # 手動重載
 
 ---
 
-## 10. 文件地圖
+## 10. 文件地圖與交接完整度
+
+### 10.1 標準交接包（業界慣例對照）
+
+| 類別 | 文件 | 狀態 | 備註 |
+|------|------|------|------|
+| 專案說明 | 根目錄 `README.md`（前後端各一） | ✅ | 架構圖、快速啟動 |
+| 著作權 | `LICENSE`、`AUTHORS.md`、`CONTRIBUTION_RECORD.md` | ✅ | MIT；fresh push 須保留 |
+| **開發者交接** | **`HANDOFF.md`（本檔）** | ✅ | 單一入口 |
+| 部署／建置 | `LAB_DEPLOYMENT_GUIDE.md`、`BUILD_GUIDE.md` | ✅ | |
+| 機密清單 | `HANDOFF_SECRETS_CHECKLIST.md` | ✅ | |
+| 驗收 | `HANDOVER_CHECKLIST.md`、`VERIFICATION_CHECKLIST.md` | ✅ | |
+| **現場使用者手冊** | `FIELD_SURVEY_SOP.md` | ✅ | BLE 現場連線為主 |
+| 管理員操作 | `ADMIN_AND_INVITE_DESIGN.md` + 後台畫面 | ⚠️ 分散 | 邀請碼、專案區、報表；可另寫「管理員手冊」合併 |
+| 手動新增／編輯 SOP | — | ⚠️ **缺口** | 智慧／快速／編輯未寫入 SOP；老師若要求完整使用者手冊可擴充 `FIELD_SURVEY_SOP` 或加附錄 |
+| 領域設計 | `DATABASE_*`、`BOUNDARY_*`、`CARBON_*` 等 | ✅ | |
+| 儀器／藍牙 | `VLGEO2_STD_APPLICATION_GUIDE.md` | ✅ | BLE vs Classic 見 §8.2 |
+| 選用 ML | `ml_service/README.md`、`DBH_PURE_VISION_RESEARCH.md` | ✅ | 研究級細節可略 |
+| 內部待辦 | `WORK_STATUS.md` | ❌ 未入 repo | 僅本機；非正式交接件 |
+
+### 10.2 文件索引
 
 | 文件 | 用途 |
 |------|------|
@@ -235,7 +280,6 @@ pm2 reload tree-backend          # 手動重載
 | `HANDOFF_SECRETS_CHECKLIST.md` | 交接日金鑰/帳號/網址逐項清單（必看） |
 | `PROJECT_DATA_AND_DOMAIN.md` | CSV / 專案語意（domain 真相） |
 | `FIELD_SURVEY_SOP.md` | 現場調查操作 SOP（拿儀器到現場照著做） |
-| **`DATA_ENTRY_PATHS.md`** | **四輸入 + 編輯**：寫庫欄位對照、ID 生成、同步、首頁隱藏卡 |
 | `SURVEY_HISTORY.md` | 同一棵樹多次調查（歷次量測）機制 |
 | `ADMIN_AND_INVITE_DESIGN.md` | 管理後台與邀請碼規格 |
 | `ML_CORRECTION_UPLOAD.md` | ML 校正資料上傳（訓練資料回收） |
@@ -264,7 +308,7 @@ pm2 reload tree-backend          # 手動重載
 ### 12.1 首頁預設隱藏的儀表板卡片
 
 `ENABLE_EXPERIMENTAL_UI=false`（**預設**）時隱藏：`test_scan`、`ai`、`report`、`v3`。  
-設為 `true` 建置後四卡恢復；AI／報告另需後端 LLM 金鑰。完整對照見 `DATA_ENTRY_PATHS.md` §7。
+設為 `true` 建置後四卡恢復；AI／報告另需後端 LLM 金鑰。樹種辨識（`species`）不受此旗標影響。
 
 | 功能 | 程式碼位置 | 狀態 |
 |------|-----------|------|
