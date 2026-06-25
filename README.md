@@ -66,12 +66,12 @@ the database / external services. Bracketed paths are files in this repo.
 
 ```mermaid
 flowchart TB
-  fp["Flutter LoginPage<br/>{email, password}"]
+  fp["Flutter LoginPage<br/>{account, password, loginType}"]
   rl["middleware/loginRateLimiter<br/>10 req / 15 min / IP"]
   bl["middleware/ipBlacklist"]
-  rt["routes/users.js POST /login<br/>bcrypt.compare(password, users.password_hash)"]
-  db[("PostgreSQL · users<br/>(id, role, email, name, …)")]
-  jwt["JWT (HS256, 24 h)<br/>payload = {id, role, email}<br/>+ ML_SERVICE_PUBLIC_URL + ML_API_KEY"]
+  rt["routes/users.js POST /login<br/>WHERE username=account (+role check if admin)<br/>bcrypt.compare(password, users.password_hash)"]
+  db[("PostgreSQL · users<br/>(user_id, username, display_name, role, …)")]
+  jwt["JWT (HS256, 24 h)<br/>payload = {user_id, username, role}"]
   resp["{token, user, mlServiceUrl, mlApiKey}"]
   st["flutter_secure_storage (auth_jwt_token, user_info)<br/>SharedPreferences (ml_service_url, ml_api_key)"]
   fp --> rl --> bl --> rt --> db --> jwt --> resp --> st
