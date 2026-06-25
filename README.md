@@ -32,7 +32,7 @@ flowchart TB
     ml["ml_service/ (FastAPI)<br/>Depth Anything v3 metric-large<br/>OpenVINO FP16 on Intel NPU<br/>+ server YOLOv8m-seg on Intel iGPU<br/>+ pure pinhole DBH calculator"]
     nml --> ml
   end
-  ext[("PostgreSQL 14+ · Cloudinary · PlantNet / GBIF /<br/>iNaturalist · OpenAI / Gemini / SiliconFlow / Anthropic")]
+  ext[("PostgreSQL 15+ · Cloudinary · PlantNet / GBIF /<br/>iNaturalist · OpenAI / Gemini / SiliconFlow / Anthropic")]
   app -- "HTTPS (TLS)" --> nbe
   app -- "HTTPS + JWT<br/>multipart image / EXIF / bbox" --> nbe
   be -- "multipart + X-ML-API-Key" --> nml
@@ -522,6 +522,14 @@ an additional minimum role where indicated.
 - `PUT    /users/:id/status` (≥業務管理員)  — enable/disable
 - `DELETE /users/:id` (≥業務管理員)
 - `GET    /users/:userId/projects` / `PUT /users/:userId/projects` (≥業務管理員)
+- `POST   /register` — public invite-code registration (`loginRateLimiter`).
+  Consumes an invite code; if the code has `requires_approval`, the new account
+  is created with `is_active=false` / `pending_approval=true` for admin review.
+- `GET    /invites` / `POST /invites` (≥業務管理員) — list / create invite codes
+  (`role` ≤ creator, `max_uses`, `expires_in_days`, `project_codes[]`).
+- `PATCH  /invites/:inviteId/deactivate` (≥業務管理員) — disable a code.
+- `DELETE /invites/:inviteId` (≥業務管理員) — delete (writes audit `DELETE_INVITE`).
+  See `tree-project-frontend/docs/ADMIN_AND_INVITE_DESIGN.md` for the full design.
 
 ### Projects (`routes/projects.js`, `routes/project_areas.js`, `routes/project_boundaries.js`)
 - `GET /projects` / `/projects/by_area/:area` / `/projects/by_name/:name` /
