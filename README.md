@@ -732,7 +732,9 @@ species_synonyms.pg.sql             synonyms + species_merge_log
 03_user_projects.pg.sql             junction table; backfilled from
                                     users.associated_projects
 05_ip_blacklist.pg.sql              ip_blacklist + ip_login_attempts
-06_project_boundaries_seed.pg.sql   35 ports' convex hull polygons (+10 m buffer)
+06a_project_boundaries_schema.pg.sql  project_boundaries table (schema only, no
+                                    seed). Demo 35-port polygons are dev-fixtures:
+                                    `node scripts/seed_dev_boundaries.js`.
 07_backfill_projects_area_id.pg.sql Heal projects rows that the auto-create
                                     trigger left with NULL area_id; also
                                     repairs placeholder names by copying the
