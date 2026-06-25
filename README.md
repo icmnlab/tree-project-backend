@@ -101,47 +101,44 @@ GET / PUT / DELETE follow the same auth + ownership-check pattern in
 [routes/treeSurvey.js](routes/treeSurvey.js) (tree records) and
 [routes/tree_images.js](routes/tree_images.js) (photos).
 
-### 3. AI chat — Text-to-SQL with SSE streaming
+### 3. AI chat — Text-to-SQL (`POST /api/chat`)
 
 ```mermaid
 flowchart TB
-  cp["Flutter ChatPage<br/>POST /api/ai-chat {question, sessionId}"]
-  jw["jwtAuth + aiRateLimiter (30/min/user)"]
-  rt["routes/aiChat.js"]
-  ic["services/intentClassifier<br/>→ {sql | report | smalltalk}"]
-  os1["services/openaiService<br/>SQL draft (model whitelist: gpt-4o-mini, …)"]
-  sv["utils/sqlValidator (AST whitelist)<br/>SELECT only · table allow-list<br/>no UNION/comment/multi-stmt · LIMIT 500"]
-  db[("PostgreSQL<br/>(read-only role recommended)")]
-  os2["services/openaiService (stream)"]
-  sse["SSE: data: {chunk}\\n\\n"]
-  cli["Flutter SSE client (flutter_client_sse)"]
-  cp --> jw --> rt --> ic --> os1 --> sv --> db --> os2 --> sse --> cli
+  cp["Flutter ChatPage<br/>POST /api/chat {message, model_preference, sessionId, projectAreas}"]
+  jw["jwtAuth + requireRole(調查管理員) + aiLimiter"]
+  rt["routes/ai.js"]
+  sql["gpt-4.1-nano drafts SQL<br/>(or NOT_A_DATA_QUERY → knowledge mode)"]
+  sv["services/sqlQueryService.executeSecureQuery<br/>security validation + 1 auto-retry · read-only"]
+  db[("PostgreSQL")]
+  exp["explain result with selected model<br/>(gpt-5-nano/mini/5.1, gemini-*, Qwen/*,<br/>deepseek-ai/DeepSeek-V3 default)"]
+  log[("chat_logs<br/>(user_id, message, response, model_used, session_id)")]
+  out["JSON response"]
+  cp --> jw --> rt --> sql --> sv --> db --> exp --> out
+  exp --> log
 ```
 
-Audit trail: every Q/A pair + classified intent + final SQL is written to
-`ai_chat_logs` (see [routes/aiChat.js](routes/aiChat.js) and
-[middleware/aiAuditLog.js](middleware/aiAuditLog.js)).
+Response is a regular JSON payload (not SSE). Audit trail: every Q/A pair +
+model + final response is written to `chat_logs` (see
+[routes/ai.js](routes/ai.js)).
 
 ### 4. AI agent — tool-using (`/api/agent/*`)
 
 ```mermaid
 flowchart TB
-  ap["Flutter AgentPage<br/>POST /api/agent/chat {messages, tools?}"]
+  ap["Flutter AgentPage<br/>POST /api/agent/chat {messages}"]
   rt["routes/agent.js"]
-  svc["services/agentService<br/>ReAct loop · max 6 turns"]
-  t1["tool: query_trees → services/agentDataTools.js (tree_survey)"]
-  t2["tool: get_project → routes/projects.js"]
-  t3["tool: identify_species → PlantNet API"]
-  t4["tool: generate_report → routes/aiReport.js"]
-  t5["tool: web_search → SerpAPI (optional)"]
-  llm["SiliconFlow chat-completion<br/>(4 keys, auto-rotate on 429/quota)<br/>fallback → OpenAI / Claude / Gemini per `provider`"]
-  out["JSON {final_answer, trace[]}"]
+  svc["services/agentService.js<br/>tool-using loop · default model gpt-5.4-mini"]
+  t1["fetch_allowed_url(s) / search_public_documents<br/>(allow-listed policy URLs)"]
+  t2["list_policy_sources / list_allowed_domains / list_demo_policy_urls"]
+  t3["export_excel / export_pdf / export_ai_report"]
+  impl["services/agentDataTools.js (tool implementations)"]
+  llm["LLM: prefers SiliconFlow if keys configured,<br/>otherwise OpenAI; cross-provider fallback"]
+  out["JSON {answer, tool trace}"]
   ap --> rt --> svc
-  svc --> t1 --> svc
-  svc --> t2 --> svc
-  svc --> t3 --> svc
-  svc --> t4 --> svc
-  svc --> t5 --> svc
+  svc --> t1 --> impl
+  svc --> t2 --> impl
+  svc --> t3 --> impl
   svc --> llm --> out
 ```
 
@@ -175,7 +172,7 @@ flowchart TB
   rt["routes/speciesIdentification.js"]
   svc["services/speciesIdentificationService"]
   pn["PlantNet REST API<br/>(org=tree, lang=zh-tw)"]
-  add["autoAddSpeciesFromIdentification()<br/>insert tree_species (scientific_name, …)<br/>insert common_names → tree_species_synonyms"]
+  add["autoAddSpeciesFromIdentification()<br/>insert tree_species (scientific_name, …)<br/>insert common_names → species_synonyms"]
   out["{ candidates[],<br/>top: {species_id, scientific_name,<br/>common_name, score} }"]
   sp --> rt --> svc
   svc --> pn --> svc
