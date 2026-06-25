@@ -855,6 +855,20 @@ npm run test:all            # regression + api + securityAudit
 
 ---
 
+## Documentation
+
+交接與技術文件統一維護在 **frontend repo 的 `docs/`**（單一正本）。本 repo 的 `docs/README.md` 為指標頁。
+
+| 主題 | 文件 |
+|------|------|
+| 系統總覽、本機啟動、測試 | `tree-project-frontend/docs/HANDOFF.md` |
+| Ubuntu 主機從零部署 | `tree-project-frontend/docs/LAB_DEPLOYMENT_GUIDE.md` |
+| 金鑰與環境設定 | `tree-project-frontend/docs/HANDOFF_SECRETS_CHECKLIST.md` |
+
+後端架構、API 清單、資料表、背景工作見本檔（上方各節）。
+
+---
+
 ## License
 
-MIT — see `LICENSE`. Original development and primary maintenance by **KyleliuNDHU**; see `AUTHORS.md`, `CONTRIBUTION_RECORD.md`, and `docs/HANDOFF.md` §0.
+MIT — see `LICENSE`. Original development and primary maintenance by **KyleliuNDHU**; see `AUTHORS.md` and `CONTRIBUTION_RECORD.md`.
