@@ -604,9 +604,9 @@ an additional minimum role where indicated.
   every 30 min for files older than 1 hour).
 
 ### AI agent (`routes/agent.js` + `services/agentService.js`)
-- `POST /agent/chat` (≥調查管理員, agentLimiter 30/10 min) — ReAct loop with
-  SiliconFlow function-calling models (default `Qwen/Qwen2.5-72B-Instruct`).
-  Tools:
+- `POST /agent/chat` (≥調查管理員, agentLimiter 30/10 min) — ReAct loop. Default
+  model `gpt-5.4-mini` (`AGENT_DEFAULT_MODEL`, OpenAI-first); SiliconFlow models
+  are an optional fallback chain (`useSiliconFlowFirst=false`). Tools:
   - `query_tree_data(query, project_area?)` → reuses `sqlQueryService` to
     run safe Text-to-SQL.
   - `calculate_carbon(dbh_cm, height_m?, species?)` → Chave 2014 allometry.
@@ -775,9 +775,12 @@ Auth: `X-ML-API-Key` header (or `Authorization: Bearer …`), compared with
 `hmac.compare_digest`. Requests without the key are accepted only in dev
 mode (`ML_API_KEY` unset). CORS origins come from `ML_CORS_ORIGINS`.
 
-Models loaded: Depth Pro (Apple, 350 M params, single-image metric depth) and
-SAM 2.1 Tiny (38.9 M params). YOLO-trunk is run on the device, not on the
-server. See `ml_service/README*` and `requirements.txt` for setup.
+Models loaded (production default, `start.ps1 -Preset da3`): **Depth-Anything-3
+Metric Large** as OpenVINO IR on the Intel **NPU** for depth, plus a
+**server-side YOLOv8-seg** mask on the Intel iGPU (`ML_FORCE_SERVER_YOLO=true`,
+`ML_ENABLE_SAM=false`). Apple **Depth Pro** and **SAM 2.1 Tiny** remain
+available as alternative presets. See `ml_service/README.md` for the full
+preset matrix and setup.
 
 ### Local dev startup (Windows)
 
