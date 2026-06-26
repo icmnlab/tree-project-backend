@@ -29,7 +29,9 @@ fi
 # 1) 取得 ts.net 名稱
 TS_NAME="${1:-}"
 if [ -z "$TS_NAME" ]; then
-    TS_NAME=$(tailscale status --json | grep -oE '"DNSName":"[^"]+"' | head -1 | sed 's/"DNSName":"//;s/"//;s/\.$//')
+    # 注意：在 set -o pipefail 下，`grep | head` 因 head 先關閉管線會讓 grep 收到 SIGPIPE，
+    # 使整條 pipeline 回非零 → set -e 會讓腳本「無聲中止」。以 || true 保護自動偵測。
+    TS_NAME=$(tailscale status --json | grep -oE '"DNSName":"[^"]+"' | head -1 | sed 's/"DNSName":"//;s/"//;s/\.$//' || true)
 fi
 if [ -z "$TS_NAME" ]; then
     echo "無法自動偵測 ts.net 名稱，請手動指定：sudo bash $0 <name>.<tailnet>.ts.net" >&2
@@ -47,7 +49,11 @@ if [ ! -f "$NGINX_CONF" ]; then
     echo "找不到 nginx 設定：$NGINX_CONF（請手動調整）" >&2
     exit 1
 fi
-BACKUP="${NGINX_CONF}.bak.$(date +%Y%m%d%H%M%S)"
+# 備份「不可」放在 sites-enabled/ 內：nginx 會 include 該資料夾所有檔案，
+# 造成 server_name 重複（conflicting server name + server_names_hash 失敗）。
+BACKUP_DIR="/opt/tree-app/nginx-conf-backups"
+mkdir -p "$BACKUP_DIR"
+BACKUP="$BACKUP_DIR/tree-app.bak.$(date +%Y%m%d%H%M%S)"
 cp "$NGINX_CONF" "$BACKUP"
 echo "已備份 nginx 設定 → $BACKUP"
 
