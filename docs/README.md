@@ -1,13 +1,45 @@
-# 文件位置
+# Backend documentation index
 
-交接與技術文件統一維護在 **frontend repo 的 `docs/`**（單一正本，避免兩個 repo 各存一份而不同步）。
+Handover and module guides live in the **frontend repo `docs/`** (single canonical copy). This file is a pointer from the backend repo.
 
-| 想看什麼 | 去哪 |
-|----------|------|
-| 系統總覽、本機啟動、測試、模組索引 | `tree-project-frontend/docs/HANDOFF.md` |
-| Ubuntu 主機從零部署 | `tree-project-frontend/docs/LAB_DEPLOYMENT_GUIDE.md` §3 |
-| 金鑰與環境設定 | `tree-project-frontend/docs/HANDOFF_SECRETS_CHECKLIST.md` |
-| 交接驗收清單 | `tree-project-frontend/docs/HANDOVER_CHECKLIST.md`、`VERIFICATION_CHECKLIST.md` |
-| 資料庫正規化 / 邊界 / 碳匯 | `tree-project-frontend/docs/` 對應檔 |
+**Last updated**: 2026-06-29
 
-後端本身的架構、API 清單、資料表、背景工作見本 repo 根目錄 `README.md`。
+---
+
+## Start here
+
+| Topic | Document (frontend repo) |
+|-------|--------------------------|
+| Onboarding, local run, tests | `tree-project-frontend/docs/HANDOFF.md` |
+| Architecture (full stack) | `tree-project-frontend/docs/ARCHITECTURE.md` |
+| API catalog | `tree-project-frontend/docs/API_REFERENCE.md` |
+| File/feature inventory | `tree-project-frontend/docs/CODEBASE_INVENTORY.md` |
+
+---
+
+## Backend-specific in this repo
+
+| Topic | Document |
+|-------|----------|
+| Routes, tables, feature flows | `../README.md` (this repo root) |
+| Integration tests | `../tests/FRAMEWORK.md` |
+| Optional ML service | `../ml_service/README.md` |
+| Boundary import samples | `boundary_samples/README.md` |
+
+---
+
+## Module guides (frontend `docs/`)
+
+| Module | Document |
+|--------|----------|
+| Auth & invites | `ADMIN_AND_INVITE_DESIGN.md` |
+| Pending → transfer | `SURVEY_HISTORY.md` |
+| Boundaries | `BOUNDARY_SYSTEM_DESIGN.md` |
+| BLE / VLGEO2 | `VLGEO2_STD_APPLICATION_GUIDE.md` |
+| Species & PlantNet | `SPECIES_AND_PLANTNET.md` |
+| Carbon | `CARBON_CALCULATION.md` |
+| Experimental features | `EXPERIMENTAL_FEATURES.md` |
+| Visual measurement | `VISUAL_MEASUREMENT.md` |
+| ML correction upload | `ML_CORRECTION_UPLOAD.md` |
+
+Deployment runbook from live VM ops: pending until school-side SSH/webhook steps are verified (`LAB_DEPLOYMENT_GUIDE.md` placeholder until then).

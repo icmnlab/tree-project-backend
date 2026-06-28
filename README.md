@@ -872,8 +872,11 @@ npm run test:all            # regression + api + securityAudit
 | 主題 | 文件 |
 |------|------|
 | 系統總覽、本機啟動、測試 | `tree-project-frontend/docs/HANDOFF.md` |
+| 架構、API、模組指南 | `tree-project-frontend/docs/ARCHITECTURE.md`, `API_REFERENCE.md`, `CODEBASE_INVENTORY.md` |
 | Ubuntu 主機從零部署 | `tree-project-frontend/docs/LAB_DEPLOYMENT_GUIDE.md` |
 | 金鑰與環境設定 | `tree-project-frontend/docs/HANDOFF_SECRETS_CHECKLIST.md` |
+| 物種 / PlantNet | `tree-project-frontend/docs/SPECIES_AND_PLANTNET.md` |
+| 實驗功能 | `tree-project-frontend/docs/EXPERIMENTAL_FEATURES.md` |
 
 後端架構、API 清單、資料表、背景工作見本檔（上方各節）。
 
