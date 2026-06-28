@@ -41,12 +41,14 @@ Or use any OpenAPI 3 viewer (Swagger Editor, Stoplight, etc.).
 
 ---
 
-## Limitations
+## Limitations (by design)
+
+See **`tree-project-frontend/docs/OPENAPI_SCOPE.md`** for full policy.
 
 | Item | Detail |
 |------|--------|
 | Auth | Most `/api/*` paths marked `bearerAuth`; public paths: `/health`, webhooks |
-| Schemas | Minimal — only `ErrorResponse` stub |
+| Schemas | **Intentionally minimal** — path/method catalog only; RBAC in `API_REFERENCE.md` |
 | SSE | `POST /api/chat` streaming not described in OpenAPI |
 | Roles | RBAC (`requireRole`) not encoded — see `API_REFERENCE.md` |
 
