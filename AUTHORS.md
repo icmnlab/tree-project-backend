@@ -53,5 +53,4 @@ The deliverer keeps a **private archive** of the full development history as per
 
 ## Related
 
-- `CONTRIBUTION_RECORD.md` — legacy filename; points here
 - Frontend `docs/HANDOFF.md` §0

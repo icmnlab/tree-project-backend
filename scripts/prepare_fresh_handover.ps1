@@ -35,7 +35,7 @@ git add -A
 $msg = @(
     'Initial handover snapshot (2026-06)',
     '',
-    'Copyright (c) 2025 KyleliuNDHU. See LICENSE, AUTHORS.md, CONTRIBUTION_RECORD.md.',
+    'Copyright (c) 2025 KyleliuNDHU. See LICENSE and AUTHORS.md.',
     '',
     'Original development and primary maintenance by KyleliuNDHU.',
     'Fresh history push without prior commit log (LAB_DEPLOYMENT_GUIDE.md section 0.1).'
@@ -51,4 +51,4 @@ Write-Host '    git remote add recipient https://github.com/<RECIPIENT>/tree-pro
 Write-Host "    git push recipient ${BranchName}:main"
 Write-Host '    git checkout main'
 Write-Host ''
-Write-Host 'Before pushing: export private git log for your records (see CONTRIBUTION_RECORD.md).' -ForegroundColor Yellow
+Write-Host 'Before pushing: export private git log for your records (see AUTHORS.md).' -ForegroundColor Yellow

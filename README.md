@@ -884,4 +884,4 @@ npm run test:all            # regression + api + securityAudit
 
 ## License
 
-MIT — see `LICENSE`. Original development and primary maintenance by **KyleliuNDHU**; see `AUTHORS.md` and `CONTRIBUTION_RECORD.md`.
+MIT — see `LICENSE`. Original development and primary maintenance by **KyleliuNDHU**; see `AUTHORS.md`.

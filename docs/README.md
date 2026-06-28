@@ -24,6 +24,7 @@ Handover and module guides live in the **frontend repo `docs/`** (single canonic
 | Routes, tables, feature flows | `../README.md` (this repo root) |
 | Integration tests | `../tests/FRAMEWORK.md` |
 | Optional ML service | `../ml_service/README.md` |
+| OpenAPI spec | `../openapi/openapi.yaml`, `../openapi/README.md` |
 | Boundary import samples | `boundary_samples/README.md` |
 
 ---
