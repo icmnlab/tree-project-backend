@@ -21,6 +21,7 @@ Handover and module guides live in the **frontend repo `docs/`** (single canonic
 
 | Topic | Document |
 |-------|----------|
+| **Source layout (controllers, services, …)** | **`SOURCE_LAYOUT.md`** (this folder) |
 | Routes, tables, feature flows | `../README.md` (this repo root) |
 | Integration tests | `../tests/FRAMEWORK.md` |
 | Optional ML service | `../ml_service/README.md` |
@@ -34,6 +35,7 @@ Handover and module guides live in the **frontend repo `docs/`** (single canonic
 | Module | Document |
 |--------|----------|
 | Auth & invites | `ADMIN_AND_INVITE_DESIGN.md` |
+| Database schema | `DATABASE_SCHEMA.md` |
 | Pending → transfer | `SURVEY_HISTORY.md` |
 | Boundaries | `BOUNDARY_SYSTEM_DESIGN.md` |
 | BLE / VLGEO2 | `VLGEO2_STD_APPLICATION_GUIDE.md` |
