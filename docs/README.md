@@ -10,7 +10,7 @@ Handover and module guides live in the **frontend repo `docs/`** (single canonic
 
 | Topic | Document (frontend repo) |
 |-------|--------------------------|
-| Onboarding, local run, tests | `tree-project-frontend/docs/HANDOFF.md` |
+| Onboarding, local run, tests | `tree-project-frontend/docs/ONBOARDING_READING_PATH.md` → `HANDOFF.md` |
 | Architecture (full stack) | `tree-project-frontend/docs/ARCHITECTURE.md` |
 | API catalog | `tree-project-frontend/docs/API_REFERENCE.md` |
 | File/feature inventory | `tree-project-frontend/docs/CODEBASE_INVENTORY.md` |
