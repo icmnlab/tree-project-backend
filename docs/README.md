@@ -4,7 +4,7 @@ Handover and module guides live in the **frontend repo `docs/`** (single canonic
 
 **Start here** → **[frontend documentation hub](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/README.md)** → Step 1: **[ONBOARDING_READING_PATH.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/ONBOARDING_READING_PATH.md)**
 
-> **Only cloned backend?** You still need the [frontend repo](https://github.com/icmnlab/tree-project-frontend) for almost all handover docs. Clone both repos side by side (e.g. `D:\treeproject\tree-project-backend` + `tree-project-frontend`). **Develop**: fork both repos on GitHub → clone your fork → PR to `icmnlab/main` ([workflow](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/DEVELOPMENT_WORKFLOW.md#fork-and-remotes-required-setup)).
+> **Only cloned backend?** You still need the [frontend repo](https://github.com/icmnlab/tree-project-frontend) for almost all handover docs. Clone both org repos side by side (e.g. `D:\treeproject\tree-project-backend` + `tree-project-frontend`). **Develop**: feature branch + PR — [workflow](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/DEVELOPMENT_WORKFLOW.md#repository-access-internal-team--default).
 
 **Last updated**: 2026-07-01
 
