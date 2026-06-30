@@ -15,6 +15,10 @@ Production runs on a self-hosted Ubuntu host behind a reverse proxy
 (Nginx; the original deployment used Tailscale for private networking), with
 PM2 cluster-mode supervision (see `ecosystem.config.js`).
 
+> **Documentation hub** (architecture, API, deploy, workflow):  
+> **`tree-project-frontend/docs/README.md`** → start with **`ONBOARDING_READING_PATH.md`**.  
+> Backend-specific catalog: **`docs/README.md`** (this repo) → **`docs/SOURCE_LAYOUT.md`**.
+
 ---
 
 ## Architecture overview
@@ -23,7 +27,7 @@ PM2 cluster-mode supervision (see `ecosystem.config.js`).
 flowchart TB
   app["Flutter app<br/>sustainable_treeai (Android / iOS)"]
   subgraph backendHost["Backend host (Ubuntu)"]
-    nbe["Nginx<br/>:443 → Node :3000<br/>:8443 → /webhook/deploy"]
+    nbe["Nginx<br/>:443 → Node :3000<br/>(Tailscale Funnel exposes :443 publicly)"]
     be["backend (this repo)<br/>Node 20 + Express<br/>PM2 cluster ×2 · ecosystem.config.js"]
     nbe --> be
   end
@@ -72,7 +76,7 @@ flowchart TB
   rt["routes/users.js POST /login<br/>WHERE username=account (+role check if admin)<br/>bcrypt.compare(password, users.password_hash)"]
   db[("PostgreSQL · users<br/>(user_id, username, display_name, role, …)")]
   jwt["JWT (HS256, 24 h)<br/>payload = {user_id, username, role}"]
-  resp["{token, user, mlServiceUrl, mlApiKey}"]
+  resp["{token, user, mlConfig?}<br/>mlConfig.url only — no client ML API key"]
   st["flutter_secure_storage (auth_jwt_token, user_info)<br/>SharedPreferences (ml_service_url, ml_api_key)"]
   fp --> rl --> bl --> rt --> db --> jwt --> resp --> st
 ```
@@ -202,7 +206,7 @@ flowchart TB
 
 ```mermaid
 flowchart TB
-  gh["GitHub push to main<br/>POST https://&lt;webhook-host&gt;:8443/webhook/deploy<br/>X-Hub-Signature-256: sha256=…"]
+  gh["GitHub push to main<br/>POST https://&lt;public-host&gt;/webhook/deploy<br/>X-Hub-Signature-256: sha256=…"]
   wh["routes/webhook.js<br/>hmac(DEPLOY_WEBHOOK_SECRET) timing-safe"]
   sp["spawn bash scripts/deploy.sh<br/>(timeout 120 s, log → logs/deploy.log)"]
   s1["/health check<br/>save SHA → .last_good_commit"]
