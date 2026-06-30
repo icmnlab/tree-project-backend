@@ -14,6 +14,7 @@ Handover and module guides live in the **frontend repo `docs/`** (single canonic
 |-------|--------------------------|
 | Onboarding, local run, tests | `tree-project-frontend/docs/ONBOARDING_READING_PATH.md` → `HANDOFF.md` |
 | **Development workflow & CI** | `tree-project-frontend/docs/DEVELOPMENT_WORKFLOW.md` |
+| **Handover BUG exercise (ST-1 species_id)** | `tree-project-frontend/docs/DEVELOPMENT_WORKFLOW.md` §「Guided exercise — fix ST-1」 — copy-paste runbook (Phases A–G) |
 | Architecture (full stack) | `tree-project-frontend/docs/ARCHITECTURE.md` |
 | API catalog | `tree-project-frontend/docs/API_REFERENCE.md` |
 | File/feature inventory | `tree-project-frontend/docs/CODEBASE_INVENTORY.md` |
