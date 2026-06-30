@@ -5,7 +5,7 @@ Machine-readable API catalog for Postman, Swagger UI, and client codegen.
 | Field | Value |
 |-------|-------|
 | **Spec file** | `openapi/openapi.yaml` (OpenAPI 3.0.3) |
-| **Human catalog** | `tree-project-frontend/docs/API_REFERENCE.md` |
+| **Human catalog** | [API_REFERENCE.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/API_REFERENCE.md) |
 | **Regenerate** | `node scripts/generate_openapi.js` |
 
 ---
@@ -43,7 +43,7 @@ Or use any OpenAPI 3 viewer (Swagger Editor, Stoplight, etc.).
 
 ## Limitations (by design)
 
-See **`tree-project-frontend/docs/OPENAPI_SCOPE.md`** for full policy.
+See **[OPENAPI_SCOPE.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/OPENAPI_SCOPE.md)** for full policy.
 
 | Item | Detail |
 |------|--------|
@@ -56,5 +56,5 @@ See **`tree-project-frontend/docs/OPENAPI_SCOPE.md`** for full policy.
 
 ## Related
 
-- `frontend/docs/API_REFERENCE.md`
-- `frontend/docs/ARCHITECTURE.md` §2 Request lifecycle
+- [API_REFERENCE.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/API_REFERENCE.md)
+- [ARCHITECTURE.md §2 Request lifecycle](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/ARCHITECTURE.md)

@@ -21,7 +21,7 @@
 - Deployment scripts (`deploy.sh`, webhook, PM2)
 - Optional `ml_service/` visual DBH pipeline (FastAPI)
 
-Frontend counterpart: `tree-project-frontend` — see that repo's `AUTHORS.md`.
+Frontend counterpart: [tree-project-frontend](https://github.com/icmnlab/tree-project-frontend) — see [AUTHORS.md](https://github.com/icmnlab/tree-project-frontend/blob/main/AUTHORS.md).
 
 ---
 

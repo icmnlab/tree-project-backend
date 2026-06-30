@@ -16,8 +16,8 @@ Production runs on a self-hosted Ubuntu host behind a reverse proxy
 PM2 cluster-mode supervision (see `ecosystem.config.js`).
 
 > **Documentation hub** (architecture, API, deploy, workflow):  
-> **`tree-project-frontend/docs/README.md`** → start with **`ONBOARDING_READING_PATH.md`**.  
-> Backend-specific catalog: **`docs/README.md`** (this repo) → **`docs/SOURCE_LAYOUT.md`**.
+> **[frontend/docs/README.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/README.md)** → **[ONBOARDING_READING_PATH.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/ONBOARDING_READING_PATH.md)**  
+> Backend catalog (this repo): **[docs/README.md](docs/README.md)** → **[docs/SOURCE_LAYOUT.md](docs/SOURCE_LAYOUT.md)**
 
 ---
 
@@ -530,7 +530,7 @@ an additional minimum role where indicated.
   (`role` ≤ creator, `max_uses`, `expires_in_days`, `project_codes[]`).
 - `PATCH  /invites/:inviteId/deactivate` (≥業務管理員) — disable a code.
 - `DELETE /invites/:inviteId` (≥業務管理員) — delete (writes audit `DELETE_INVITE`).
-  See `tree-project-frontend/docs/ADMIN_AND_INVITE_DESIGN.md` for the full design.
+  See [ADMIN_AND_INVITE_DESIGN.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/ADMIN_AND_INVITE_DESIGN.md) for the full design.
 
 ### Projects (`routes/projects.js`, `routes/project_areas.js`, `routes/project_boundaries.js`)
 - `GET /projects` / `/projects/by_area/:area` / `/projects/by_name/:name` /
@@ -871,16 +871,19 @@ npm run test:all            # regression + api + securityAudit
 
 ## Documentation
 
-交接與技術文件統一維護在 **frontend repo 的 `docs/`**（單一正本）。本 repo 的 `docs/README.md` 為指標頁。
+交接與技術文件統一維護在 **frontend repo 的 `docs/`**（單一正本）。本 repo 的 **[docs/README.md](docs/README.md)** 為指標頁（含可點擊連結）。
 
 | 主題 | 文件 |
 |------|------|
-| 系統總覽、本機啟動、測試 | `tree-project-frontend/docs/HANDOFF.md` |
-| 架構、API、模組指南 | `tree-project-frontend/docs/ARCHITECTURE.md`, `API_REFERENCE.md`, `CODEBASE_INVENTORY.md` |
-| Ubuntu 主機從零部署 | `tree-project-frontend/docs/LAB_DEPLOYMENT_GUIDE.md` |
-| 金鑰與環境設定 | `tree-project-frontend/docs/HANDOFF_SECRETS_CHECKLIST.md` |
-| 物種 / PlantNet | `tree-project-frontend/docs/SPECIES_AND_PLANTNET.md` |
-| 實驗功能 | `tree-project-frontend/docs/EXPERIMENTAL_FEATURES.md` |
+| 文件總入口 | [frontend docs/README.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/README.md) |
+| 系統總覽、本機啟動、測試 | [HANDOFF.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/HANDOFF.md) |
+| 架構、API、模組指南 | [ARCHITECTURE.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/ARCHITECTURE.md), [API_REFERENCE.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/API_REFERENCE.md), [CODEBASE_INVENTORY.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/CODEBASE_INVENTORY.md) |
+| Git / PR / CI | [DEVELOPMENT_WORKFLOW.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/DEVELOPMENT_WORKFLOW.md) |
+| Ubuntu 主機從零部署 | [LAB_DEPLOYMENT_GUIDE.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/LAB_DEPLOYMENT_GUIDE.md) |
+| 金鑰與環境設定 | [HANDOFF_SECRETS_CHECKLIST.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/HANDOFF_SECRETS_CHECKLIST.md) |
+| 物種 / PlantNet | [SPECIES_AND_PLANTNET.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/SPECIES_AND_PLANTNET.md) |
+| 實驗功能 | [EXPERIMENTAL_FEATURES.md](https://github.com/icmnlab/tree-project-frontend/blob/main/docs/EXPERIMENTAL_FEATURES.md) |
+| **本 repo 程式目錄** | [docs/SOURCE_LAYOUT.md](docs/SOURCE_LAYOUT.md) |
 
 後端架構、API 清單、資料表、背景工作見本檔（上方各節）。
 
