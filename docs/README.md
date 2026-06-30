@@ -2,7 +2,9 @@
 
 Handover and module guides live in the **frontend repo `docs/`** (single canonical copy). This file is a pointer from the backend repo.
 
-**Last updated**: 2026-06-29
+**Last updated**: 2026-06-30
+
+**Deploy markers**: `2026-06-30` — webhook smoke-test PR (`chore/webhook-smoke-test`); validates GitHub → Funnel → `deploy.sh` on lab VM.
 
 ---
 
